@@ -17,8 +17,6 @@ namespace linkerbot::hand::o30::protocol {
             return "speed_targets";
         case kMiCurrent:
             return "current_limits";
-        case kMiTorque:
-            return "torque_targets";
         case kMiAcceleration:
             return "acceleration_targets";
         case kMiStallTime:
@@ -26,7 +24,6 @@ namespace linkerbot::hand::o30::protocol {
         case kMiStallHoldCurrent:
             return "stall";
         case kMiMapping:
-        case kMiMotionTime:
         case kMiPositionPidP:
         case kMiPositionPidI:
         case kMiPositionPidD:

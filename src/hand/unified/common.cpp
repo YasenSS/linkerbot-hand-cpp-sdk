@@ -154,8 +154,6 @@ namespace linkerbot::hand::unified_detail {
             return model == Model::kL6 || model == Model::kO30;
         case TelemetrySemantic::kTorques:
             return model == Model::kL6 || model == Model::kO30;
-        case TelemetrySemantic::kTorqueLimits:
-            return model == Model::kO30;
         default:
             return false;
         }

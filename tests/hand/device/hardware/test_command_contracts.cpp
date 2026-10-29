@@ -219,8 +219,7 @@ TEST_CASE("HandDevice hardware all numeric setters admit before driver IO",
 TEST_CASE("HandDevice hardware latest parameter target replacement", "[hardware][device][commands][fault-injection]") {
     require_fault_contracts();
     for (const auto &api : parameter_apis) {
-        if (api.semantic != CommandSemantic::kSpeeds && api.semantic != CommandSemantic::kCurrentLimits &&
-            api.semantic != CommandSemantic::kTorqueLimits) {
+        if (api.semantic != CommandSemantic::kSpeeds && api.semantic != CommandSemantic::kCurrentLimits) {
             continue;
         }
         DYNAMIC_SECTION(api.name) {

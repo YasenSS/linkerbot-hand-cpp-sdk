@@ -27,9 +27,8 @@ namespace linkerbot::hand::unified_detail {
     using TelemetrySample =
         std::variant<AngleSample, MeasuredSpeedSample, ConfiguredSpeedSample, ConfiguredAccelerationSample,
                      CurrentSample, CurrentLimitSample, PositionKpSample, PositionKdSample, TorqueKdSample,
-                     TorqueSample, TorqueLimitSample, TemperatureSample, ForceSample, NormalForceResultantSample,
-                     FaultSample, VoltageSample, MotionTimeSample, StallDetectionTimeSample, StallThresholdSample,
-                     StallHoldCurrentSample>;
+                     TorqueSample, TemperatureSample, ForceSample, NormalForceResultantSample, FaultSample,
+                     VoltageSample, StallDetectionTimeSample, StallThresholdSample, StallHoldCurrentSample>;
 
     class DeviceBackend {
     public:

@@ -17,10 +17,8 @@ namespace linkerbot::hand {
         kAccelerationSetting,
         kCurrentLimit,
         kControlGain,
-        kTorqueLimit,
-        // Value 6 was the removed torque-target family.
-        kMotionTimeSetting = 7,
-        kStallConfiguration,
+        // Values 5..7 belonged to removed torque-limit, torque-target and motion-time families.
+        kStallConfiguration = 8,
         kDiscreteOperation = 10
     };
 

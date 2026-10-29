@@ -20,7 +20,7 @@ namespace {
         std::function<void(O30 &, const Values &, std::chrono::milliseconds)> write;
         std::function<void(O30 &, uint8_t)> write_all;
     };
-    const std::array<RuntimeContract, 10> contracts{{
+    const std::array<RuntimeContract, 8> contracts{{
         {0x02,
          [](O30 &h, ValueKind k, auto t) {
              const auto data = h.speed.get_blocking(t, k);
@@ -81,27 +81,6 @@ namespace {
          },
          [](O30 &h, const Values &v, auto t) { h.voltage.set_voltages(v, t); },
          [](O30 &h, uint8_t v) { h.voltage.set_all(v, 500ms); }},
-        {0x06,
-         [](O30 &h, ValueKind k, auto t) {
-             if (k == ValueKind::kActual) {
-                 const auto data = h.torque.get_torques(t);
-                 REQUIRE(data.timestamp.time_since_epoch().count() > 0);
-                 return data.torques;
-             }
-             const auto data = h.torque.get_torque_limits(t);
-             REQUIRE(data.timestamp.time_since_epoch().count() > 0);
-             return data.torque_limits;
-         },
-         [](O30 &h, ValueKind k) {
-             if (k == ValueKind::kActual) {
-                 const auto data = h.torque.get_snapshot();
-                 return data ? std::optional<Values>{data->torques} : std::nullopt;
-             }
-             const auto data = h.torque.get_torque_limit_snapshot();
-             return data ? std::optional<Values>{data->torque_limits} : std::nullopt;
-         },
-         [](O30 &h, const Values &v, auto t) { h.torque.set_torque_limits(v, t); },
-         [](O30 &h, uint8_t v) { h.torque.set_all_torque_limits(v, 500ms); }},
         {0x07,
          [](O30 &h, ValueKind k, auto t) {
              const auto data = h.temperature.get_blocking(t, k);
@@ -115,19 +94,6 @@ namespace {
          },
          [](O30 &h, const Values &v, auto t) { h.temperature.set_temperatures(v, t); },
          {}},
-        {0x08,
-         [](O30 &h, ValueKind k, auto t) {
-             const auto data = h.motion.get_blocking(t, k);
-             REQUIRE(data.kind == k);
-             REQUIRE(data.timestamp.time_since_epoch().count() > 0);
-             return data.counts;
-         },
-         [](O30 &h, ValueKind) {
-             const auto data = h.motion.get_snapshot();
-             return data ? std::optional<Values>{data->counts} : std::nullopt;
-         },
-         [](O30 &h, const Values &v, auto t) { h.motion.set_counts(v, t); },
-         [](O30 &h, uint8_t v) { h.motion.set_all_counts(v, 500ms); }},
         {0x09,
          [](O30 &h, ValueKind k, auto t) {
              const auto data = h.stall.get_times(t, k);
@@ -173,7 +139,7 @@ namespace {
 // Every byte-valued runtime API must project only the 20 assembled joints,
 // distinguish actual/setpoint, and publish the exact successfully decoded value.
 TEST_CASE("comm: O30i all runtime managers obey read and snapshot contracts", "[comm][o30][alignment][managers]") {
-    const auto index = GENERATE(Catch::Generators::range(size_t{0}, size_t{10}));
+    const auto index = GENERATE(Catch::Generators::range(size_t{0}, contracts.size()));
     const auto kind = GENERATE(ValueKind::kActual, ValueKind::kSetpoint);
     const auto &api = contracts[index];
     INFO("MI=" << +api.mi << ", setpoint=" << (kind == ValueKind::kSetpoint));
@@ -204,7 +170,7 @@ TEST_CASE("comm: O30i all runtime managers obey read and snapshot contracts", "[
 }
 
 TEST_CASE("comm: O30i every runtime writer skips reserved slots with correct RTS", "[comm][o30][alignment][managers]") {
-    const auto index = GENERATE(Catch::Generators::range(size_t{0}, size_t{10}));
+    const auto index = GENERATE(Catch::Generators::range(size_t{0}, contracts.size()));
     const auto modern = GENERATE(false, true);
     const auto &api = contracts[index];
     auto h = o30_comm::make_hand();
@@ -248,7 +214,7 @@ TEST_CASE("comm: O30i every runtime writer skips reserved slots with correct RTS
 }
 
 TEST_CASE("comm: O30i runtime APIs reject invalid timeouts without any I/O", "[comm][o30][alignment][managers]") {
-    const auto index = GENERATE(Catch::Generators::range(size_t{0}, size_t{10}));
+    const auto index = GENERATE(Catch::Generators::range(size_t{0}, contracts.size()));
     const auto timeout = GENERATE(0ms, -1ms);
     const auto &api = contracts[index];
     auto h = o30_comm::make_hand();
@@ -281,29 +247,6 @@ TEST_CASE("comm: O30i all six PID terms use byte objects and safe write segments
     h.transport->clear_sent();
     REQUIRE_THROWS_AS(h.hand->pid.get(static_cast<PidTerm>(0x20)), linkerbot::hand::ValidationError);
     REQUIRE_THROWS_AS(h.hand->pid.set(static_cast<PidTerm>(0x27), {}), linkerbot::hand::ValidationError);
-    REQUIRE(h.transport->sent().empty());
-}
-
-TEST_CASE("comm: O30i motion time rounds and validates before writing any joint", "[comm][o30][alignment][motion]") {
-    auto h = o30_comm::make_hand();
-    std::array<uint32_t, 20> ms{};
-    ms[0] = 0;
-    ms[1] = 4;
-    ms[2] = 5;
-    ms[3] = 14;
-    ms[4] = 15;
-    ms[19] = 2550;
-    h.hand->motion.set_milliseconds(ms);
-    const auto data = h.hand->motion.get_blocking();
-    REQUIRE(data.counts[0] == 0);
-    REQUIRE(data.counts[1] == 0);
-    REQUIRE(data.counts[2] == 1);
-    REQUIRE(data.counts[3] == 1);
-    REQUIRE(data.counts[4] == 2);
-    REQUIRE(data.counts[19] == 255);
-    h.transport->clear_sent();
-    ms[19] = 2551;
-    REQUIRE_THROWS_AS(h.hand->motion.set_milliseconds(ms), linkerbot::hand::ValidationError);
     REQUIRE(h.transport->sent().empty());
 }
 

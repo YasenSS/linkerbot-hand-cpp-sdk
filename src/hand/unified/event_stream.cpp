@@ -35,13 +35,11 @@ namespace linkerbot::hand::unified_detail {
         publish_if_new(snapshot.position_kd, TelemetrySemantic::kPositionKd, queue, last_seen);
         publish_if_new(snapshot.torque_kd, TelemetrySemantic::kTorqueKd, queue, last_seen);
         publish_if_new(snapshot.torques, TelemetrySemantic::kTorques, queue, last_seen);
-        publish_if_new(snapshot.torque_limits, TelemetrySemantic::kTorqueLimits, queue, last_seen);
         publish_if_new(snapshot.temperatures, TelemetrySemantic::kTemperatures, queue, last_seen);
         publish_if_new(snapshot.faults, TelemetrySemantic::kFaults, queue, last_seen);
         publish_if_new(snapshot.force, TelemetrySemantic::kForce, queue, last_seen);
         publish_if_new(snapshot.normal_force_resultant, TelemetrySemantic::kForceFns, queue, last_seen);
         publish_if_new(snapshot.voltages, TelemetrySemantic::kVoltages, queue, last_seen);
-        publish_if_new(snapshot.motion_times, TelemetrySemantic::kMotionTimes, queue, last_seen);
         publish_if_new(snapshot.stall_detection_times, TelemetrySemantic::kStallDetectionTimes, queue, last_seen);
         publish_if_new(snapshot.stall_thresholds, TelemetrySemantic::kStallThresholds, queue, last_seen);
         publish_if_new(snapshot.stall_hold_currents, TelemetrySemantic::kStallHoldCurrents, queue, last_seen);

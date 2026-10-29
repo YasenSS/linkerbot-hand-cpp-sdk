@@ -50,12 +50,8 @@ namespace linkerbot::hand::o30 {
             return "voltage";
         case SensorSource::kTorque:
             return "torque";
-        case SensorSource::kTorqueLimit:
-            return "torque_limit";
         case SensorSource::kTemperature:
             return "temperature";
-        case SensorSource::kMotionTime:
-            return "motion_time";
         case SensorSource::kStallTime:
             return "stall_time";
         case SensorSource::kFault:
@@ -84,15 +80,15 @@ namespace linkerbot::hand::o30 {
                                               {{protocol::expected_response_id(request_id), false}}),
               request_id)),
           mapping(*client_), angle(*client_), speed(*client_), acceleration(*client_), current(*client_),
-          voltage(*client_), torque(*client_), temperature(*client_), motion(*client_), stall(*client_),
-          enable(*client_), fault(*client_), pid(*client_), sensor(*client_), config(*client_), preset(*client_),
-          version(*client_), service(*client_), unit(*client_), comm_error(*client_) {
+          voltage(*client_), torque(*client_), temperature(*client_), stall(*client_), enable(*client_),
+          fault(*client_), pid(*client_), sensor(*client_), config(*client_), preset(*client_), version(*client_),
+          service(*client_), unit(*client_), comm_error(*client_) {
         for (const auto *channel :
              {"angles", "speeds", "currents", "force", "temperatures", "faults", "version", "stall"}) {
             client_->runtime()->register_channel(channel);
         }
-        for (const auto *family : {"angle_targets", "speed_targets", "current_limits", "torque_targets",
-                                   "acceleration_targets", "stall", "configuration", "hop_writes"}) {
+        for (const auto *family : {"angle_targets", "speed_targets", "current_limits", "acceleration_targets", "stall",
+                                   "configuration", "hop_writes"}) {
             client_->runtime()->register_command_family(family);
         }
         start();
@@ -127,9 +123,7 @@ namespace linkerbot::hand::o30 {
         current.set_limit_event_sink([this](const CurrentLimitData &d) { push_event(CurrentLimitEvent{d}); });
         voltage.set_event_sink([this](const VoltageData &d) { push_event(VoltageEvent{d}); });
         torque.set_event_sink([this](const TorqueData &d) { push_event(TorqueEvent{d}); });
-        torque.set_limit_event_sink([this](const TorqueLimitData &d) { push_event(TorqueLimitEvent{d}); });
         temperature.set_event_sink([this](const TemperatureData &d) { push_event(TemperatureEvent{d}); });
-        motion.set_event_sink([this](const MotionTimeData &d) { push_event(MotionTimeEvent{d}); });
         stall.set_event_sink([this](const StallTimeData &d) { push_event(StallTimeEvent{d}); });
         fault.set_event_sink([this](const FaultData &d) { push_event(FaultEvent{d}); });
         sensor.set_event_sink([this](const SensorData &d) { push_event(ForceSensorEvent{d}); });
@@ -174,9 +168,7 @@ namespace linkerbot::hand::o30 {
             current.get_current_limit_snapshot(),
             voltage.get_snapshot(),
             torque.get_snapshot(),
-            torque.get_torque_limit_snapshot(),
             temperature.get_snapshot(),
-            motion.get_snapshot(),
             stall.get_times_snapshot(),
             stall.get_thresholds_snapshot(),
             stall.get_hold_currents_snapshot(),
@@ -273,14 +265,8 @@ namespace linkerbot::hand::o30 {
         case SensorSource::kTorque:
             torque.send_sense_request();
             break;
-        case SensorSource::kTorqueLimit:
-            static_cast<void>(torque.get_torque_limits());
-            break;
         case SensorSource::kTemperature:
             temperature.send_sense_request();
-            break;
-        case SensorSource::kMotionTime:
-            motion.send_sense_request();
             break;
         case SensorSource::kStallTime:
             stall.send_sense_request();

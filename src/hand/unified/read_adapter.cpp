@@ -317,11 +317,6 @@ namespace linkerbot::hand::unified_detail {
             const auto data = device.torque.get_torques(timeout);
             return raw_vector_sample<TorqueSample>(data.torques, data.timestamp, device.capabilities(), semantic);
         }
-        case TelemetrySemantic::kTorqueLimits: {
-            const auto data = device.torque.get_torque_limits(timeout);
-            return raw_vector_sample<TorqueLimitSample>(data.torque_limits, data.timestamp, device.capabilities(),
-                                                        semantic);
-        }
         case TelemetrySemantic::kTemperatures: {
             const auto data = device.temperature.get_blocking(timeout, o30::ValueKind::kActual);
             return raw_vector_sample<TemperatureSample>(data.temperatures, data.timestamp, device.capabilities(),
@@ -330,10 +325,6 @@ namespace linkerbot::hand::unified_detail {
         case TelemetrySemantic::kVoltages: {
             const auto data = device.voltage.get_blocking(timeout, o30::ValueKind::kActual);
             return raw_vector_sample<VoltageSample>(data.voltages, data.timestamp, device.capabilities(), semantic);
-        }
-        case TelemetrySemantic::kMotionTimes: {
-            const auto data = device.motion.get_blocking(timeout, o30::ValueKind::kSetpoint);
-            return raw_vector_sample<MotionTimeSample>(data.counts, data.timestamp, device.capabilities(), semantic);
         }
         case TelemetrySemantic::kFaults:
             static_cast<void>(device.fault.get_blocking(timeout, o30::ValueKind::kActual));

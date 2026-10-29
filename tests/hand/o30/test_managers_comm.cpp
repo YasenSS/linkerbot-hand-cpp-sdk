@@ -21,7 +21,6 @@ using linkerbot::hand::o30::protocol::kEnableOn;
 using linkerbot::hand::o30::protocol::kMiAcceleration;
 using linkerbot::hand::o30::protocol::kMiCurrent;
 using linkerbot::hand::o30::protocol::kMiFaultV003;
-using linkerbot::hand::o30::protocol::kMiMotionTime;
 using linkerbot::hand::o30::protocol::kMiPositionPidP;
 using linkerbot::hand::o30::protocol::kMiSpeed;
 using linkerbot::hand::o30::protocol::kMiStallHoldCurrent;
@@ -30,7 +29,6 @@ using linkerbot::hand::o30::protocol::kMiStallTime;
 using linkerbot::hand::o30::protocol::kMiTemperature;
 using linkerbot::hand::o30::protocol::kMiTorque;
 using linkerbot::hand::o30::protocol::kMiVoltage;
-using linkerbot::hand::o30::protocol::kMotionTimeMaxMs;
 
 namespace {
     constexpr auto kTimeout = o30_comm::kTimeout;
@@ -40,7 +38,7 @@ namespace {
 
 // FakeTransport 运行时对象：全量读投影 20 关节，全量写只碰装配槽。
 
-// 速度 / 加速度 / 电流 / 电压 / 转矩 / 温度 / 运动时间 / 故障：读 36B，返回物理关节。
+// 速度 / 加速度 / 电流 / 电压 / 转矩 / 温度 / 故障：读 36B，返回物理关节。
 TEST_CASE("comm: runtime managers read the full object and project joints", "[comm][o30][managers]") {
     auto h = o30_comm::make_hand();
     const auto ramp = o30_comm::ramp_slots();
@@ -51,7 +49,6 @@ TEST_CASE("comm: runtime managers read the full object and project joints", "[co
     h.hop->put(kMiVoltage, ramp);
     h.hop->put(kMiTorque, ramp);
     h.hop->put(kMiTemperature, ramp);
-    h.hop->put(kMiMotionTime, ramp);
     h.hop->put(kMiFaultV003, ramp);
 
     REQUIRE(h.hand->speed.get_blocking(kTimeout).speeds == expected);
@@ -60,7 +57,6 @@ TEST_CASE("comm: runtime managers read the full object and project joints", "[co
     REQUIRE(h.hand->voltage.get_blocking(kTimeout).voltages == expected);
     REQUIRE(h.hand->torque.get_torques(kTimeout).torques == expected);
     REQUIRE(h.hand->temperature.get_blocking(kTimeout).temperatures == expected);
-    REQUIRE(h.hand->motion.get_blocking(kTimeout).counts == expected);
     REQUIRE(h.hand->fault.get_blocking(kTimeout).faults == expected);
 
     const auto sent = o30_comm::payloads(h.transport);
@@ -70,9 +66,8 @@ TEST_CASE("comm: runtime managers read the full object and project joints", "[co
     REQUIRE(sent[3] == expect_full_read(kMiVoltage));
     REQUIRE(sent[4] == expect_full_read(kMiTorque));
     REQUIRE(sent[5] == expect_full_read(kMiTemperature));
-    REQUIRE(sent[6] == expect_full_read(kMiMotionTime));
-    REQUIRE(sent[7] == std::vector<uint8_t>{0x41, 0x61, 8});
-    REQUIRE(sent[8] == expect_full_read(kMiFaultV003));
+    REQUIRE(sent[6] == std::vector<uint8_t>{0x41, 0x61, 8});
+    REQUIRE(sent[7] == expect_full_read(kMiFaultV003));
 }
 
 TEST_CASE("comm: O30 actual values and limit setpoints use explicit APIs", "[comm][o30][managers]") {
@@ -90,12 +85,35 @@ TEST_CASE("comm: O30 actual values and limit setpoints use explicit APIs", "[com
     h.hop->put(kMiCurrent, actual, false);
     h.hop->put(kMiCurrent, setpoint, true);
     h.hop->put(kMiTorque, actual, false);
-    h.hop->put(kMiTorque, setpoint, true);
 
     REQUIRE(h.hand->current.get_currents(kTimeout).currents == expected_actual);
     REQUIRE(h.hand->current.get_current_limits(kTimeout).current_limits == expected_setpoint);
     REQUIRE(h.hand->torque.get_torques(kTimeout).torques == expected_actual);
-    REQUIRE(h.hand->torque.get_torque_limits(kTimeout).torque_limits == expected_setpoint);
+}
+
+TEST_CASE("comm: O30 actual torque keeps valid snapshots on read failure", "[comm][o30][managers]") {
+    auto h = o30_comm::make_hand();
+    REQUIRE_FALSE(h.hand->torque.get_snapshot().has_value());
+    REQUIRE_THROWS_AS(h.hand->torque.get_torques(std::chrono::milliseconds{0}), linkerbot::hand::ValidationError);
+    REQUIRE_THROWS_AS(h.hand->torque.get_torques(std::chrono::milliseconds{-1}), linkerbot::hand::ValidationError);
+    REQUIRE(h.transport->sent().empty());
+
+    h.hop->put(kMiTorque, o30_comm::ramp_slots());
+    const auto data = h.hand->torque.get_torques(kTimeout);
+    REQUIRE(data.torques == o30_comm::projected_ramp());
+    REQUIRE(data.timestamp.time_since_epoch().count() > 0);
+    REQUIRE(h.hand->torque.get_snapshot()->torques == data.torques);
+    REQUIRE(h.hand->get_snapshot().torque->torques == data.torques);
+    REQUIRE(o30_comm::last_payload(h.transport) == std::vector<uint8_t>{0x06, 0, 36});
+
+    h.transport->on_request(1, [](const auto &) {
+        return std::vector<linkerbot::can::Message>{
+            o30_comm::hop_reply(0x401, 0x06, false, 0, std::vector<uint8_t>(35, 0))};
+    });
+    REQUIRE_THROWS_AS(h.hand->torque.get_torques(kTimeout), linkerbot::hand::o30::protocol::ProtocolError);
+    REQUIRE(h.hand->torque.get_snapshot()->torques == data.torques);
+    REQUIRE(h.hand->torque.get_snapshot()->timestamp == data.timestamp);
+    REQUIRE(h.hand->get_snapshot().torque->torques == data.torques);
 }
 
 // set_all 类写入都走三段装配槽。
@@ -103,11 +121,10 @@ TEST_CASE("comm: full runtime writes touch only physical joint slots", "[comm][o
     auto h = o30_comm::make_hand();
     h.hand->speed.set_all(10, kTimeout);
     h.hand->acceleration.set_all(20, kTimeout);
-    h.hand->torque.set_all_torque_limits(30, kTimeout);
-    h.hand->motion.set_all_counts(40, kTimeout);
+    h.hand->current.set_all_current_limits(30, kTimeout);
 
-    REQUIRE(h.hop->writes.size() == 12);
-    const std::array<uint8_t, 4> mis{kMiSpeed, kMiAcceleration, kMiTorque, kMiMotionTime};
+    REQUIRE(h.hop->writes.size() == 9);
+    const std::array<uint8_t, 3> mis{kMiSpeed, kMiAcceleration, kMiCurrent};
     for (size_t group = 0; group < mis.size(); ++group) {
         REQUIRE(h.hop->writes[group * 3].mi == mis[group]);
         REQUIRE(h.hop->writes[group * 3].si == 0);
@@ -117,31 +134,6 @@ TEST_CASE("comm: full runtime writes touch only physical joint slots", "[comm][o
         REQUIRE(h.hop->writes[group * 3 + 1].payload.size() == 10);
         REQUIRE(h.hop->writes[group * 3 + 2].payload.size() == 9);
     }
-}
-
-// 运动时间 10ms/格：100ms → 0x0A；读回 milliseconds = counts*10。
-TEST_CASE("comm: motion time converts milliseconds in 10 ms ticks", "[comm][o30][managers]") {
-    auto h = o30_comm::make_hand();
-    h.hop->put(kMiMotionTime, o30_comm::ramp_slots());
-
-    const auto data = h.hand->motion.get_blocking(kTimeout);
-    const auto expected = o30_comm::projected_ramp();
-    REQUIRE(data.counts == expected);
-    const auto millis = data.milliseconds();
-    for (size_t i = 0; i < kJointCount; ++i) {
-        REQUIRE(millis[i] == static_cast<uint32_t>(expected[i]) * 10U);
-    }
-
-    std::array<uint32_t, kJointCount> ms{};
-    ms.fill(100);
-    h.hand->motion.set_milliseconds(ms, kTimeout);
-
-    REQUIRE(h.hop->writes[0].payload == std::vector<uint8_t>({0x0A}));
-    REQUIRE(h.hop->writes[1].payload == std::vector<uint8_t>(10, 0x0A));
-    REQUIRE(h.hop->writes[2].payload == std::vector<uint8_t>(9, 0x0A));
-
-    ms[0] = kMotionTimeMaxMs + 1;
-    REQUIRE_THROWS_AS(h.hand->motion.set_milliseconds(ms, kTimeout), linkerbot::hand::ValidationError);
 }
 
 // 故障保留原始字节，非零即 has_any_fault；越界下标抛 out_of_range。

@@ -51,7 +51,7 @@ hardware/
   test_identity.cpp        # verify_identity/get_device_info
   test_control.cpp         # enable/disable/faults
   test_angles.cpp          # raw/percent angle command and readback
-  test_parameters.cpp      # speed/current/torque/configuration APIs
+  test_parameters.cpp      # speed/current/configuration APIs
   test_telemetry.cpp       # get_* queries and snapshot
   test_polling.cpp         # polling, wait_for_snapshot, stream
   test_force.cpp           # force selectors, descriptors, normal resultant

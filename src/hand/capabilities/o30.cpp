@@ -44,10 +44,6 @@ namespace linkerbot::hand::capabilities_detail {
                 command(CommandSemantic::kCurrentLimits, names, u8, encoding, "count",
                         "MI 0x05 setpoint, separate from measured current", Confidence::kUnknown,
                         AckSupport::kRequired),
-                command(CommandSemantic::kTorqueLimits, names, u8, encoding, std::nullopt,
-                        "MI 0x06 setpoint, separate from measured torque", Confidence::kUnknown, AckSupport::kRequired),
-                command(CommandSemantic::kMotionTimes, names, u8, encoding, "count", "10 ms per count",
-                        Confidence::kDocumented, AckSupport::kRequired),
                 command(CommandSemantic::kStallDetectionTimes, names, u8, encoding, std::nullopt, std::nullopt,
                         Confidence::kUnknown, AckSupport::kRequired),
                 command(CommandSemantic::kStallThresholds, names, u8, encoding, std::nullopt, std::nullopt,
@@ -69,14 +65,10 @@ namespace linkerbot::hand::capabilities_detail {
                           "count", "MI 0x05 setpoint", Confidence::kUnknown, false),
                 telemetry(TelemetrySemantic::kTorques, names, ReadMode::kQuery, encoding, {o30::kJointCount}, u8,
                           std::nullopt, "MI 0x06 actual value", Confidence::kUnknown),
-                telemetry(TelemetrySemantic::kTorqueLimits, names, ReadMode::kQuery, encoding, {o30::kJointCount}, u8,
-                          std::nullopt, "MI 0x06 setpoint", Confidence::kUnknown, false),
                 telemetry(TelemetrySemantic::kTemperatures, names, ReadMode::kQuery, encoding, {o30::kJointCount}, u8,
                           "count", std::nullopt, Confidence::kUnknown),
                 telemetry(TelemetrySemantic::kVoltages, names, ReadMode::kQuery, encoding, {o30::kJointCount}, u8,
                           "count", std::nullopt, Confidence::kUnknown),
-                telemetry(TelemetrySemantic::kMotionTimes, names, ReadMode::kQuery, encoding, {o30::kJointCount}, u8,
-                          "count", "10 ms per count", Confidence::kDocumented, false),
                 telemetry(TelemetrySemantic::kFaults, names, ReadMode::kQuery, "u8_bitmask_v25_object",
                           {o30::kJointCount}, u8, std::nullopt, "per-joint fault bitmask", Confidence::kDocumented),
                 telemetry(TelemetrySemantic::kForce, finger_channels(), ReadMode::kQuery, "o30_tactile_descriptor", {5},
@@ -97,7 +89,6 @@ namespace linkerbot::hand::capabilities_detail {
                     break;
                 case TelemetrySemantic::kMeasuredSpeeds:
                 case TelemetrySemantic::kConfiguredSpeeds:
-                case TelemetrySemantic::kTorqueLimits:
                 case TelemetrySemantic::kCurrentLimits:
                     channel.freshness_ms = 100;
                     break;
@@ -105,7 +96,6 @@ namespace linkerbot::hand::capabilities_detail {
                 case TelemetrySemantic::kForce:
                 case TelemetrySemantic::kCurrents:
                 case TelemetrySemantic::kTorques:
-                case TelemetrySemantic::kMotionTimes:
                     channel.freshness_ms = 300;
                     break;
                 case TelemetrySemantic::kTemperatures:

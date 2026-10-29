@@ -96,7 +96,7 @@ Windows 使用[适配器 factory](windows-adapters.md#3-在-c-程序中连接)�
 | 有 ACK 命令完成 | `kAcknowledged`；不表示机械到位 |
 | `kSuperseded`、`kCancelled`、`kFailed` | 不能当作成功 |
 
-角度、速度、电流上限和力矩上限会替换同类尚未发送的目标，其他 setter 使用有界 FIFO。
+角度、速度和电流上限会替换同类尚未发送的目标，其他 setter 使用有界 FIFO。
 `command_timeout` 覆盖接纳后的排队、发送与 ACK；`wait_for()` 的等待时长是另一份预算。
 
 下面读取并原样提交 L6 当前的原始角度，演示如何检查命令完成；运行时会发送角度目标。
@@ -213,7 +213,7 @@ L6 的 `AngleData::angle` 是百分比结构，`device_raw` 才是设备原始�
 | `l20lite::L20lite` | `angle`、`speed`、`current`、`current_limit`、`force_sensor`、`fault`、`version` | `acceleration`、`tip_force`、`stall`、`config` |
 | `l20::L20` | `angle`、`speed`、`current`、`current_limit`、`force_sensor`、`fault`、`version` | 速度、限流写入与型号快照 |
 | `l30::L30` | `angle`、`speed`、`current`、`current_limit`、`temperature`、`force_sensor`、`fault`、`version` | `control`、`report` |
-| `o30::O30` | `angle`、`speed`、`acceleration`、`current`、`temperature`、`sensor`、`fault`、`version` | `torque`、`motion`、`stall`、`pid`、`preset`、`mapping`、`config`、`service`、`unit`、`comm_error`、`voltage` |
+| `o30::O30` | `angle`、`speed`、`acceleration`、`current`、`temperature`、`sensor`、`fault`、`version` | `torque`、`stall`、`pid`、`preset`、`mapping`、`config`、`service`、`unit`、`comm_error`、`voltage` |
 
 Manager 成员存在不代表当前固件支持其所有操作。统一接口检查 `get_capabilities()`，
 型号接口检查 `capabilities()` 并结合具体 Manager 的协议说明。
@@ -232,9 +232,7 @@ Manager 成员存在不代表当前固件支持其所有操作。统一接口检
 | --- | --- | --- |
 | 速度、电流上限 | `set_speeds()`、`set_current_limits()` | 六型号；`speed`、`current_limit`（O30 限流使用 `current`） |
 | 加速度 | `set_accelerations()` | O6、L20 Lite、O30：`acceleration` |
-| 运动时间 | `set_motion_times()`、`get_motion_times()` | O30：`motion.set_counts()`、`set_milliseconds()`、`get_blocking()` |
 | 扭矩读取 | `get_torques()` | L6：`torque`；O30：`torque.get_torques()` |
-| 扭矩上限 | `set_torques_limits()`、`get_torques_limits()` | O30：`torque.set_torque_limits()`、`get_torque_limits()` |
 | 位置与扭矩增益 | `set_position_kp()`、`set_position_kd()`、`set_torque_kd()` 及对应 getter | L6：`position_kp`、`position_kd`、`torque_kd` 的 `set_values()`、`get_blocking()` |
 | 堵转保护 | `set_stall_detection_times()`、`set_stall_thresholds()`、`set_stall_hold_currents()` 及对应 getter | L6、O6、L20 Lite、O30：`stall`；Manager 参数单位随型号变化 |
 | 清故障 | `clear_faults()` | L6、L20：`fault.clear_faults()` |
@@ -243,7 +241,8 @@ Manager 成员存在不代表当前固件支持其所有操作。统一接口检
 
 这些入口的 getter 可能主动读取，也可能读取写回复或已发送目标缓存；查看样本的
 `meta.origin`、`meta.valid`、`meta.stale` 和[型号差异](#型号差异)。
-电流上限和扭矩上限是不同的控制量，应按设备能力选择。
+O30 已移除运动时间和扭矩上限的统一接口、型号 Manager 接口及相关样本、事件和快照字段。
+旧调用须移除并重新编译；实际扭矩读取和电流上限读写继续提供。
 统一接口已移除 `set_torques()`、`set_limit_compensations()` 和 `get_limit_compensations()`；
 原有 L6 调用迁移到下表的型号 Manager。扭矩读取和三项增益读写继续通过统一接口提供。
 

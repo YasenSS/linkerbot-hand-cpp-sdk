@@ -14,34 +14,77 @@
 #include <linkerbot/hand/conversion.hpp>
 #include <linkerbot/hand/errors.hpp>
 #include <linkerbot/hand/l30/l30.hpp>
+#include <linkerbot/hand/o30/o30.hpp>
 
 #include "../../../src/hand/unified/detail/command_handle_access.hpp"
 
 using namespace linkerbot::hand;
 
 namespace {
-#define ASSERT_REMOVED_METHOD(Name)                                                                                     \
-    template <typename T, typename = void> struct Has_##Name : std::false_type {};                                       \
-    template <typename T> struct Has_##Name<T, std::void_t<decltype(&T::Name)>> : std::true_type {};                      \
+#define ASSERT_REMOVED_METHOD(Name)                                                                                    \
+    template <typename T, typename = void> struct Has_##Name : std::false_type {};                                     \
+    template <typename T> struct Has_##Name<T, std::void_t<decltype(&T::Name)>> : std::true_type {};                   \
     static_assert(!Has_##Name<HandDevice>::value)
 
     ASSERT_REMOVED_METHOD(set_torques);
     ASSERT_REMOVED_METHOD(set_limit_compensations);
     ASSERT_REMOVED_METHOD(get_limit_compensations);
     ASSERT_REMOVED_METHOD(calibrate);
+    ASSERT_REMOVED_METHOD(set_motion_times);
+    ASSERT_REMOVED_METHOD(get_motion_times);
+    ASSERT_REMOVED_METHOD(set_torques_limits);
+    ASSERT_REMOVED_METHOD(get_torques_limits);
 #undef ASSERT_REMOVED_METHOD
 
+#define ASSERT_REMOVED_MEMBER(Type, Name)                                                                              \
+    template <typename T, typename = void> struct Has_##Name : std::false_type {};                                     \
+    template <typename T> struct Has_##Name<T, std::void_t<decltype(&T::Name)>> : std::true_type {};                   \
+    static_assert(!Has_##Name<Type>::value)
+
+    ASSERT_REMOVED_MEMBER(o30::O30, motion);
+    ASSERT_REMOVED_MEMBER(o30::TorqueManager, set_torque_limits);
+    ASSERT_REMOVED_MEMBER(o30::TorqueManager, set_all_torque_limits);
+    ASSERT_REMOVED_MEMBER(o30::TorqueManager, get_torque_limits);
+    ASSERT_REMOVED_MEMBER(o30::TorqueManager, get_torque_limit_snapshot);
+    ASSERT_REMOVED_MEMBER(HandSnapshot, torque_limits);
+    ASSERT_REMOVED_MEMBER(HandSnapshot, motion_times);
+    ASSERT_REMOVED_MEMBER(JointState, torque_limit_raw);
+    ASSERT_REMOVED_MEMBER(JointState, motion_time_raw);
+    ASSERT_REMOVED_MEMBER(o30::Snapshot, torque_limit);
+    ASSERT_REMOVED_MEMBER(o30::Snapshot, motion_time);
+#undef ASSERT_REMOVED_MEMBER
+
+#define ASSERT_REMOVED_ENUM(Type, Name)                                                                                \
+    template <typename T, typename = void> struct Has_##Name : std::false_type {};                                     \
+    template <typename T> struct Has_##Name<T, std::void_t<decltype(T::Name)>> : std::true_type {};                    \
+    static_assert(!Has_##Name<Type>::value)
+
+    ASSERT_REMOVED_ENUM(CommandSemantic, kTorqueLimits);
+    static_assert(!Has_kTorqueLimits<TelemetrySemantic>::value);
+    ASSERT_REMOVED_ENUM(CommandSemantic, kMotionTimes);
+    static_assert(!Has_kMotionTimes<TelemetrySemantic>::value);
+    ASSERT_REMOVED_ENUM(CommandFamily, kTorqueLimit);
+    static_assert(!Has_kTorqueLimit<o30::SensorSource>::value);
+    ASSERT_REMOVED_ENUM(CommandFamily, kMotionTimeSetting);
+    ASSERT_REMOVED_ENUM(o30::SensorSource, kMotionTime);
+#undef ASSERT_REMOVED_ENUM
+
     template <typename T, typename = void> struct HasCalibrationManager : std::false_type {};
-    template <typename T>
-    struct HasCalibrationManager<T, std::void_t<decltype(&T::calibration)>> : std::true_type {};
+    template <typename T> struct HasCalibrationManager<T, std::void_t<decltype(&T::calibration)>> : std::true_type {};
     static_assert(!HasCalibrationManager<l30::L30>::value);
     static_assert(!Has_calibrate<OperationCapabilities>::value);
 
     // Removed enum values remain unused; surviving values must not shift.
-    static_assert(static_cast<uint8_t>(CommandSemantic::kMotionTimes) == 9);
+    static_assert(static_cast<uint8_t>(CommandSemantic::kStallDetectionTimes) == 10);
     static_assert(static_cast<uint8_t>(CommandSemantic::kStallHoldCurrents) == 12);
-    static_assert(static_cast<uint8_t>(CommandFamily::kMotionTimeSetting) == 7);
+    static_assert(static_cast<uint8_t>(TelemetrySemantic::kTorques) == 10);
+    static_assert(static_cast<uint8_t>(TelemetrySemantic::kStallDetectionTimes) == 22);
+    static_assert(static_cast<uint8_t>(TelemetrySemantic::kStallHoldCurrents) == 24);
+    static_assert(static_cast<uint8_t>(CommandFamily::kStallConfiguration) == 8);
     static_assert(static_cast<uint8_t>(CommandFamily::kDiscreteOperation) == 10);
+    static_assert(static_cast<uint8_t>(o30::SensorSource::kTemperature) == 8);
+    static_assert(static_cast<uint8_t>(o30::SensorSource::kStallTime) == 10);
+    static_assert(static_cast<uint8_t>(o30::SensorSource::kAllForceSensors) == 13);
     static_assert(static_cast<uint8_t>(DeviceOperation::kSaveParameters) == 5);
 }
 

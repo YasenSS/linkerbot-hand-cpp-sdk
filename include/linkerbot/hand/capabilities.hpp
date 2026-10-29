@@ -63,10 +63,8 @@ namespace linkerbot::hand {
         kPositionKp,
         kPositionKd,
         kTorqueKd,
-        kTorqueLimits,
-        // Value 8 was the removed torque-target command.
-        kMotionTimes = 9,
-        kStallDetectionTimes,
+        // Values 7..9 belonged to removed torque-limit, torque-target and motion-time commands.
+        kStallDetectionTimes = 10,
         kStallThresholds,
         kStallHoldCurrents
     };
@@ -81,8 +79,8 @@ namespace linkerbot::hand {
         kPositionKd,
         kTorqueKd,
         kCurrentLimits,
-        kTorqueLimits,
-        kTorques,
+        // Value 9 belonged to removed torque-limit telemetry.
+        kTorques = 10,
         kTemperatures,
         kForce,
         kForceFns,
@@ -93,8 +91,8 @@ namespace linkerbot::hand {
         kForcePx,
         kFaults,
         kVoltages,
-        kMotionTimes,
-        kStallDetectionTimes,
+        // Value 21 belonged to removed motion-time telemetry.
+        kStallDetectionTimes = 22,
         kStallThresholds,
         kStallHoldCurrents
     };

@@ -34,14 +34,8 @@ namespace linkerbot::hand::o30 {
     struct TorqueEvent {
         TorqueData data;
     };
-    struct TorqueLimitEvent {
-        TorqueLimitData data;
-    };
     struct TemperatureEvent {
         TemperatureData data;
-    };
-    struct MotionTimeEvent {
-        MotionTimeData data;
     };
     struct StallTimeEvent {
         StallTimeData data;
@@ -53,9 +47,9 @@ namespace linkerbot::hand::o30 {
         SensorData data;
     };
 
-    using SensorEvent = std::variant<AngleEvent, SpeedEvent, AccelerationEvent, CurrentEvent, CurrentLimitEvent,
-                                     VoltageEvent, TorqueEvent, TorqueLimitEvent, TemperatureEvent, MotionTimeEvent,
-                                     StallTimeEvent, FaultEvent, ForceSensorEvent>;
+    using SensorEvent =
+        std::variant<AngleEvent, SpeedEvent, AccelerationEvent, CurrentEvent, CurrentLimitEvent, VoltageEvent,
+                     TorqueEvent, TemperatureEvent, StallTimeEvent, FaultEvent, ForceSensorEvent>;
 
     enum class SensorSource {
         kAngle,
@@ -65,10 +59,10 @@ namespace linkerbot::hand::o30 {
         kCurrentLimit,
         kVoltage,
         kTorque,
-        kTorqueLimit,
-        kTemperature,
-        kMotionTime,
-        kStallTime,
+        // Value 7 belonged to removed torque-limit polling.
+        kTemperature = 8,
+        // Value 9 belonged to removed motion-time polling.
+        kStallTime = 10,
         kFault,
         kForceSensor,
         kAllForceSensors
@@ -84,9 +78,7 @@ namespace linkerbot::hand::o30 {
         std::optional<CurrentLimitData> current_limit;
         std::optional<VoltageData> voltage;
         std::optional<TorqueData> torque;
-        std::optional<TorqueLimitData> torque_limit;
         std::optional<TemperatureData> temperature;
-        std::optional<MotionTimeData> motion_time;
         std::optional<StallTimeData> stall_time;
         std::optional<StallThresholdData> stall_threshold;
         std::optional<StallHoldCurrentData> stall_hold_current;

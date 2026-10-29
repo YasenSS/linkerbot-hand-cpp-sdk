@@ -62,7 +62,8 @@ TEST_CASE("force selectors reject malformed names before opening a device", "[co
 
 TEST_CASE("L6 declares raw gain and response-only speed capabilities", "[comm][device][l6-controls]") {
     const auto &caps = declared_capabilities(Model::kL6, HandSide::kLeft);
-    for (const auto semantic : {CommandSemantic::kPositionKp, CommandSemantic::kPositionKd, CommandSemantic::kTorqueKd}) {
+    for (const auto semantic :
+         {CommandSemantic::kPositionKp, CommandSemantic::kPositionKd, CommandSemantic::kTorqueKd}) {
         const auto *command = caps.command(semantic);
         REQUIRE(command != nullptr);
         REQUIRE(command->channels.size() == 6);
@@ -676,12 +677,6 @@ TEST_CASE("HandDevice dispatches every declared non-angle command", "[comm][devi
                 case CommandSemantic::kCurrentLimits:
                     handle = completed(device.set_current_limits(values));
                     break;
-                case CommandSemantic::kTorqueLimits:
-                    handle = completed(device.set_torques_limits(values));
-                    break;
-                case CommandSemantic::kMotionTimes:
-                    handle = completed(device.set_motion_times(values));
-                    break;
                 case CommandSemantic::kStallDetectionTimes:
                     handle = completed(device.set_stall_detection_times(values));
                     break;
@@ -793,10 +788,8 @@ TEST_CASE("HandDevice exposes O30 Manager telemetry through typed getters", "[co
     REQUIRE(device.get_currents(timeout).raw.size() == 20);
     REQUIRE(device.get_current_limits(timeout).raw.size() == 20);
     REQUIRE(device.get_torques(timeout).raw.size() == 20);
-    REQUIRE(device.get_torques_limits(timeout).raw.size() == 20);
     REQUIRE(device.get_temperatures(timeout).raw.size() == 20);
     REQUIRE(device.get_voltages(timeout).raw.size() == 20);
-    REQUIRE(device.get_motion_times(timeout).raw.size() == 20);
     REQUIRE(device.get_faults(timeout).raw.size() == 20);
     REQUIRE(device.get_stall_detection_times(timeout).raw.size() == 20);
     REQUIRE(device.get_stall_thresholds(timeout).raw.size() == 20);
@@ -1650,7 +1643,7 @@ TEST_CASE("HandDevice rejects invalid polling plans before transport IO", "[comm
 
             if (model != Model::kO30) {
                 REQUIRE_THROWS_AS(device.start_polling({
-                                      {TelemetrySemantic::kTorqueLimits, std::chrono::milliseconds{10}},
+                                      {TelemetrySemantic::kVoltages, std::chrono::milliseconds{10}},
                                   }),
                                   UnsupportedOperationError);
                 REQUIRE(transport->sent().size() == before);
@@ -1697,7 +1690,7 @@ TEST_CASE("HandDevice preserves current and torque telemetry semantics", "[comm]
         device.stop_polling();
     }
 
-    SECTION("O30 separates measured torque from configured limits") {
+    SECTION("O30 preserves measured torque and configured current limits") {
         FakeTransport *transport = nullptr;
         std::shared_ptr<o30_comm::HopEndpoint> hop;
         HandDevice device(config_for(Model::kO30), [&] {
@@ -1710,19 +1703,16 @@ TEST_CASE("HandDevice preserves current and torque telemetry semantics", "[comm]
         device.start_polling({
             {TelemetrySemantic::kCurrentLimits, std::chrono::milliseconds{10}},
             {TelemetrySemantic::kTorques, std::chrono::milliseconds{13}},
-            {TelemetrySemantic::kTorqueLimits, std::chrono::milliseconds{17}},
         });
         REQUIRE(wait_until([&device] {
             const auto snapshot = device.get_snapshot();
-            return snapshot.current_limits && snapshot.torques && snapshot.torque_limits;
+            return snapshot.current_limits && snapshot.torques;
         }));
         const auto snapshot = device.get_snapshot();
         REQUIRE(snapshot.current_limits->meta.origin == TelemetryValueOrigin::kDeviceConfigured);
         REQUIRE(snapshot.torques->meta.origin == TelemetryValueOrigin::kDeviceMeasured);
-        REQUIRE(snapshot.torque_limits->meta.origin == TelemetryValueOrigin::kDeviceConfigured);
         REQUIRE(snapshot.current_limits->raw.size() == 20);
         REQUIRE(snapshot.torques->raw.size() == 20);
-        REQUIRE(snapshot.torque_limits->raw.size() == 20);
         device.stop_polling();
     }
 }
@@ -2855,7 +2845,7 @@ TEST_CASE("HandDevice re-verification exposes state without waiting for identity
     REQUIRE(device.get_health().identity_verified);
 }
 
-TEST_CASE("M2 all thirteen setters return before their transport send completes", "[comm][device][m2]") {
+TEST_CASE("M2 all eleven setters return before their transport send completes", "[comm][device][m2]") {
     using Setter = CommandHandle (HandDevice::*)(const std::vector<double> &);
     struct Item {
         Model model;
@@ -2866,11 +2856,9 @@ TEST_CASE("M2 all thirteen setters return before their transport send completes"
         {Model::kL6, CommandSemantic::kSpeeds, &HandDevice::set_speeds},
         {Model::kO6, CommandSemantic::kAccelerations, &HandDevice::set_accelerations},
         {Model::kL6, CommandSemantic::kCurrentLimits, &HandDevice::set_current_limits},
-        {Model::kO30, CommandSemantic::kTorqueLimits, &HandDevice::set_torques_limits},
         {Model::kL6, CommandSemantic::kPositionKp, &HandDevice::set_position_kp},
         {Model::kL6, CommandSemantic::kPositionKd, &HandDevice::set_position_kd},
         {Model::kL6, CommandSemantic::kTorqueKd, &HandDevice::set_torque_kd},
-        {Model::kO30, CommandSemantic::kMotionTimes, &HandDevice::set_motion_times},
         {Model::kL6, CommandSemantic::kStallDetectionTimes, &HandDevice::set_stall_detection_times},
         {Model::kL6, CommandSemantic::kStallThresholds, &HandDevice::set_stall_thresholds},
         {Model::kL6, CommandSemantic::kStallHoldCurrents, &HandDevice::set_stall_hold_currents},
@@ -3454,8 +3442,6 @@ TEST_CASE("O30 configuration caches use complete returned mounted ranges", "[com
         {&HandDevice::set_speeds, [](const auto &s) { return s.configured_speeds.value().raw; }},
         {&HandDevice::set_accelerations, [](const auto &s) { return s.configured_accelerations.value().raw; }},
         {&HandDevice::set_current_limits, [](const auto &s) { return s.current_limits.value().raw; }},
-        {&HandDevice::set_torques_limits, [](const auto &s) { return s.torque_limits.value().raw; }},
-        {&HandDevice::set_motion_times, [](const auto &s) { return s.motion_times.value().raw; }},
         {&HandDevice::set_stall_detection_times, [](const auto &s) { return s.stall_detection_times.value().raw; }},
         {&HandDevice::set_stall_thresholds, [](const auto &s) { return s.stall_thresholds.value().raw; }},
         {&HandDevice::set_stall_hold_currents, [](const auto &s) { return s.stall_hold_currents.value().raw; }},

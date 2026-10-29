@@ -99,13 +99,13 @@ namespace o30_comm {
         }
 
         void seed_defaults() {
-            const std::array<uint8_t, 17> u8_mis{
-                protocol::kMiMapping,      protocol::kMiPosition,       protocol::kMiSpeed,
-                protocol::kMiAcceleration, protocol::kMiCurrent,        protocol::kMiVoltage,
-                protocol::kMiTorque,       protocol::kMiTemperature,    protocol::kMiMotionTime,
-                protocol::kMiStallTime,    protocol::kMiStallThreshold, protocol::kMiStallHoldCurrent,
-                protocol::kMiValidJoint,   protocol::kMiFault,          protocol::kMiPositionPidP,
-                protocol::kMiPositionPidI, protocol::kMiPositionPidD};
+            const std::array<uint8_t, 16> u8_mis{
+                protocol::kMiMapping,        protocol::kMiPosition,         protocol::kMiSpeed,
+                protocol::kMiAcceleration,   protocol::kMiCurrent,          protocol::kMiVoltage,
+                protocol::kMiTorque,         protocol::kMiTemperature,      protocol::kMiStallTime,
+                protocol::kMiStallThreshold, protocol::kMiStallHoldCurrent, protocol::kMiValidJoint,
+                protocol::kMiFault,          protocol::kMiPositionPidP,     protocol::kMiPositionPidI,
+                protocol::kMiPositionPidD};
             for (const auto mi : u8_mis) {
                 put(mi, std::vector<uint8_t>(protocol::kU8ObjectBytes, 0));
             }

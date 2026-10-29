@@ -25,7 +25,6 @@
 #include <linkerbot/hand/o30/events.hpp>
 #include <linkerbot/hand/o30/fault_manager.hpp>
 #include <linkerbot/hand/o30/mapping_manager.hpp>
-#include <linkerbot/hand/o30/motion_manager.hpp>
 #include <linkerbot/hand/o30/pid_manager.hpp>
 #include <linkerbot/hand/o30/preset_manager.hpp>
 #include <linkerbot/hand/o30/sensor_manager.hpp>
@@ -96,7 +95,6 @@ namespace linkerbot::hand::o30 {
         VoltageManager voltage;
         TorqueManager torque;
         TemperatureManager temperature;
-        MotionManager motion;
         StallManager stall;
         EnableManager enable;
         FaultManager fault;

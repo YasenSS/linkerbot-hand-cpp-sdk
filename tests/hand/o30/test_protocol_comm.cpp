@@ -207,7 +207,6 @@ TEST_CASE("comm: O30 writes expose semantic command families", "[comm][o30][prot
     REQUIRE(family(kMiPosition) == "angle_targets");
     REQUIRE(family(kMiSpeed) == "speed_targets");
     REQUIRE(family(kMiCurrent) == "current_limits");
-    REQUIRE(family(kMiTorque) == "torque_targets");
     REQUIRE(family(kMiAcceleration) == "acceleration_targets");
     REQUIRE(family(kMiStallTime) == "stall");
     REQUIRE(family(kMiConfig) == "configuration");
