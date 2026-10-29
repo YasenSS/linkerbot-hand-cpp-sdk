@@ -1,0 +1,56 @@
+#pragma once
+
+#include <chrono>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <variant>
+#include <vector>
+
+#include <linkerbot/hand/api/device.hpp>
+#include <linkerbot/hand/runtime/device_runtime.hpp>
+
+namespace linkerbot::hand::unified_detail {
+    struct CommandRequest {
+        CommandSemantic semantic = CommandSemantic::kAngles;
+        std::vector<double> raw_values;
+        std::chrono::milliseconds timeout{100};
+        AckExpectation ack_expectation = AckExpectation::kNone;
+        std::function<bool()> generation_valid;
+        std::optional<std::chrono::steady_clock::time_point> deadline;
+        std::optional<CommandHandle> completion;
+        std::function<void(uint64_t, std::chrono::steady_clock::time_point)> dispatched;
+        std::function<void()> acknowledged;
+        runtime::CancellationToken cancellation;
+    };
+
+    using TelemetrySample =
+        std::variant<AngleSample, MeasuredSpeedSample, ConfiguredSpeedSample, ConfiguredAccelerationSample,
+                     CurrentSample, CurrentLimitSample, PositionKpSample, PositionKdSample, TorqueKdSample,
+                     TorqueSample, TorqueLimitSample, TemperatureSample, ForceSample, NormalForceResultantSample,
+                     FaultSample, VoltageSample, MotionTimeSample, StallDetectionTimeSample, StallThresholdSample,
+                     StallHoldCurrentSample>;
+
+    class DeviceBackend {
+    public:
+        virtual ~DeviceBackend() = default;
+
+        [[nodiscard]] virtual CommandHandle submit(const CommandRequest &request) = 0;
+        [[nodiscard]] virtual TelemetrySample read(TelemetrySemantic semantic, std::chrono::milliseconds timeout) = 0;
+        [[nodiscard]] virtual CommandHandle operate(DeviceOperation operation, std::chrono::milliseconds timeout) = 0;
+        [[nodiscard]] virtual HandSnapshot snapshot(Model model, HandSide side,
+                                                    const DeviceCapabilities &capabilities) const = 0;
+        [[nodiscard]] virtual HandHealth health() const = 0;
+        [[nodiscard]] virtual DeviceIdentity verify_identity(HandSide side, std::chrono::milliseconds timeout) = 0;
+        virtual void start_polling(const PollingPlan &plan) = 0;
+        virtual void stop_polling() = 0;
+        virtual void recover() = 0;
+        virtual void close() = 0;
+        virtual void cancel_commands() = 0;
+        virtual void assert_external_lifecycle() const = 0;
+    };
+
+    [[nodiscard]] std::unique_ptr<DeviceBackend>
+    make_backend(const HandDeviceConfig &config, const HandDevice::TransportFactory &transport_factory,
+                 const std::shared_ptr<transport::Session> &shared_session);
+} // namespace linkerbot::hand::unified_detail

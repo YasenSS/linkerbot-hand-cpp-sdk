@@ -1,0 +1,16 @@
+Internal ctest changing into directory: /tmp/o30-pr-20260917/build
+Test project /tmp/o30-pr-20260917/build
+    Start 1: comm
+1/5 Test #1: comm ..............................   Passed    9.75 sec
+    Start 2: l6_frequency_benchmark_help
+2/5 Test #2: l6_frequency_benchmark_help .......   Passed    0.00 sec
+    Start 3: l6_frequency_benchmark_dry_run
+3/5 Test #3: l6_frequency_benchmark_dry_run ....   Passed    0.62 sec
+    Start 4: l6_frequency_benchmark_raw_fake
+4/5 Test #4: l6_frequency_benchmark_raw_fake ...   Passed    0.26 sec
+    Start 5: l6_frequency_benchmark_bad_args
+5/5 Test #5: l6_frequency_benchmark_bad_args ...   Passed    0.00 sec
+
+100% tests passed, 0 tests failed out of 5
+
+Total Test time (real) =  10.64 sec

@@ -1,0 +1,2 @@
+PASS identity app=1.1.0 side=RIGHT
+FAIL hardware reports a fault

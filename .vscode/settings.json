@@ -1,0 +1,23 @@
+{
+    "[c]": {
+        "editor.formatOnSave": true,
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true
+    },
+    "[cpp]": {
+        "editor.formatOnSave": true,
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true
+    },
+    "C_Cpp.clang_format_fallbackStyle": "Visual Studio",
+    "C_Cpp.clang_format_style": "file",
+    "C_Cpp.formatting": "clangFormat",
+    "C_Cpp.default.cppStandard": "c++17",
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/compile_commands.json",
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/include",
+        "${workspaceFolder}/../linkerbot-transport-cpp/include",
+        "${workspaceFolder}/../linkerbot-transport-cpp/compat"
+    ],
+    "editor.rulers": [100]
+}

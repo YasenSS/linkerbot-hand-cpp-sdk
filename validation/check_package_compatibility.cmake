@@ -1,0 +1,117 @@
+cmake_minimum_required(VERSION 3.16)
+include(CMakePackageConfigHelpers)
+set(_generator_options)
+foreach(_pair GENERATOR ARCHITECTURE TOOLSET)
+    if(VALIDATION_${_pair})
+        if(_pair STREQUAL "GENERATOR")
+            list(APPEND _generator_options -G "${VALIDATION_${_pair}}")
+        elseif(_pair STREQUAL "ARCHITECTURE")
+            list(APPEND _generator_options -A "${VALIDATION_${_pair}}")
+        else()
+            list(APPEND _generator_options -T "${VALIDATION_${_pair}}")
+        endif()
+    endif()
+endforeach()
+
+if(NOT DEFINED HAND_PREFIX OR HAND_PREFIX STREQUAL "")
+    message(FATAL_ERROR "HAND_PREFIX must point to an installed linkerbot-hand-cpp prefix")
+endif()
+if(NOT DEFINED HAND_VERSION)
+    set(HAND_VERSION 0.3.0)
+endif()
+
+set(_root "${CMAKE_CURRENT_BINARY_DIR}/package-compatibility")
+file(REMOVE_RECURSE "${_root}")
+file(MAKE_DIRECTORY "${_root}/project")
+file(WRITE "${_root}/project/CMakeLists.txt"
+    "cmake_minimum_required(VERSION 3.16)\n"
+    "project(package-compatibility-check LANGUAGES CXX)\n"
+    "find_package(linkerbot-hand-cpp ${HAND_VERSION} CONFIG REQUIRED)\n")
+
+function(run_case name prefix should_pass)
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}" -S "${_root}/project" -B "${_root}/${name}-build"
+            ${_generator_options}
+            "-DCMAKE_PREFIX_PATH=${prefix}"
+            -DCMAKE_FIND_USE_PACKAGE_REGISTRY=FALSE
+            -DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=FALSE
+            -DCMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH=FALSE
+            -DCMAKE_FIND_USE_CMAKE_SYSTEM_PATH=FALSE
+        RESULT_VARIABLE _result
+        OUTPUT_VARIABLE _stdout
+        ERROR_VARIABLE _stderr)
+    if(should_pass AND NOT _result EQUAL 0)
+        message(FATAL_ERROR "${name} package check failed:\n${_stdout}\n${_stderr}")
+    elseif(NOT should_pass AND _result EQUAL 0)
+        message(FATAL_ERROR "${name} package check unexpectedly succeeded")
+    endif()
+    message(STATUS "${name}: expected configure result observed")
+endfunction()
+
+file(GLOB_RECURSE _comm_version_files
+    "${HAND_PREFIX}/*linkerbot-comm-config-version.cmake")
+list(LENGTH _comm_version_files _count)
+if(NOT _count EQUAL 1)
+    message(FATAL_ERROR "Expected one installed comm version file, found ${_count}")
+endif()
+list(GET _comm_version_files 0 _comm_version_file)
+file(RELATIVE_PATH _comm_version_relative "${HAND_PREFIX}" "${_comm_version_file}")
+get_filename_component(_comm_cmake_relative "${_comm_version_relative}" DIRECTORY)
+
+function(comm_version_case name version should_pass)
+    set(_prefix "${_root}/${name}")
+    file(COPY "${HAND_PREFIX}/" DESTINATION "${_prefix}")
+    # Generate a complete version file, including its major/minor comparisons;
+    # replacing PACKAGE_VERSION alone does not model a real release package.
+    write_basic_package_version_file("${_prefix}/${_comm_version_relative}"
+        VERSION "${version}" COMPATIBILITY SameMinorVersion)
+    run_case("${name}" "${_prefix}" "${should_pass}")
+endfunction()
+
+string(REPLACE "." ";" _version_parts "${HAND_VERSION}")
+list(GET _version_parts 0 _major)
+list(GET _version_parts 1 _minor)
+list(GET _version_parts 2 _patch)
+math(EXPR _next_patch "${_patch} + 1")
+math(EXPR _next_minor "${_minor} + 1")
+math(EXPR _previous_minor "${_minor} - 1")
+
+run_case(matching "${HAND_PREFIX}" TRUE)
+comm_version_case(newer-patch "${_major}.${_minor}.${_next_patch}" TRUE)
+comm_version_case(newer-minor "${_major}.${_next_minor}.0" FALSE)
+comm_version_case(older-minor "${_major}.${_previous_minor}.0" FALSE)
+
+file(COPY "${HAND_PREFIX}/" DESTINATION "${_root}/missing-comm")
+file(REMOVE_RECURSE "${_root}/missing-comm/${_comm_cmake_relative}")
+run_case(missing-comm "${_root}/missing-comm" FALSE)
+
+# The source build must also reject a wrong target preloaded by its caller.
+get_filename_component(_hand_source "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
+function(source_target_case name version should_pass)
+    set(_project "${_root}/${name}-project")
+    file(MAKE_DIRECTORY "${_project}")
+    file(WRITE "${_project}/CMakeLists.txt"
+        "cmake_minimum_required(VERSION 3.16)\n"
+        "project(source-target-check LANGUAGES CXX)\n"
+        "add_library(linkerbot::comm INTERFACE IMPORTED)\n"
+        "set_target_properties(linkerbot::comm PROPERTIES LINKERBOT_COMM_VERSION ${version})\n"
+        "add_library(linkerbot::comm-compat INTERFACE IMPORTED)\n"
+        "add_subdirectory(\"${_hand_source}\" hand)\n")
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}" -S "${_project}" -B "${_root}/${name}-build"
+            ${_generator_options}
+            -DLINKERBOT_BUILD_TESTS=OFF -DLINKERBOT_BUILD_TOOLS=OFF
+            -DLINKERBOT_BUILD_EXAMPLES=OFF
+        RESULT_VARIABLE _result OUTPUT_VARIABLE _stdout ERROR_VARIABLE _stderr)
+    if(should_pass AND NOT _result EQUAL 0)
+        message(FATAL_ERROR "${name} failed:\n${_stdout}\n${_stderr}")
+    elseif(NOT should_pass AND (_result EQUAL 0 OR NOT _stderr MATCHES "requires linkerbot-comm"))
+        message(FATAL_ERROR "${name} did not reject the comm version:\n${_stdout}\n${_stderr}")
+    endif()
+    message(STATUS "${name}: expected configure result observed")
+endfunction()
+source_target_case(source-matching "${HAND_VERSION}" TRUE)
+source_target_case(source-newer-patch "${_major}.${_minor}.${_next_patch}" TRUE)
+source_target_case(source-newer-minor "${_major}.${_next_minor}.0" FALSE)
+source_target_case(source-older-minor "${_major}.${_previous_minor}.0" FALSE)
+message(STATUS "linkerbot-hand-cpp package compatibility checks passed")

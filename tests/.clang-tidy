@@ -1,0 +1,12 @@
+InheritParentConfig: true
+CheckOptions:
+  - key: HeaderFilterRegex
+    value: ".*(?<!catch2).*"
+Checks: >
+  -misc-use-anonymous-namespace,
+  -cert-err58-cpp,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-owning-memory,
+  -fuchsia-statically-constructed-objects,
+  -cppcoreguidelines-avoid-do-while,
+  -readability-function-cognitive-complexity

@@ -1,0 +1,241 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COMM_REPOSITORY: ${{ vars.LINKERBOT_COMM_REPOSITORY || format('{0}/linkerbot-transport-cpp', github.repository_owner) }}
+  # Keep this paired comm commit in sync with Gitea CI and README.md.
+  COMM_REF: 37c2e6f05ec93045e13459194b6bee7d1a2f091d
+
+jobs:
+  build-and-test:
+    name: GCC 13 / ${{ matrix.build_type }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CC: gcc-13
+      CXX: g++-13
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Debug, Release]
+
+    steps:
+      - name: Set offline configuration directory
+        run: echo "XDG_CONFIG_HOME=${RUNNER_TEMP}/xdg-config" >> "$GITHUB_ENV"
+
+      - name: Check out hand SDK
+        uses: actions/checkout@v4
+        with:
+          path: hand-cpp
+
+      - name: Check out communication library
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.COMM_REPOSITORY }}
+          ref: ${{ env.COMM_REF }}
+          path: linkerbot-transport-cpp
+          token: ${{ secrets.LINKERBOT_COMM_TOKEN || github.token }}
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build gcc-13 g++-13 python3
+
+      - name: Configure
+        working-directory: hand-cpp
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_INSTALL_PREFIX="${RUNNER_TEMP}/linkerbot-sdk" \
+            -DLINKERBOT_COMM_SOURCE_DIR="${GITHUB_WORKSPACE}/linkerbot-transport-cpp" \
+            -DLINKERBOT_BUILD_EXAMPLES=OFF \
+            -DLINKERBOT_BUILD_TESTS=ON \
+            -DLINKERBOT_BUILD_TOOLS=ON \
+            -DLINKERBOT_COMM_BUILD_TESTS=OFF
+
+      - name: Build SDK and offline test targets
+        working-directory: hand-cpp
+        run: |
+          cmake --build build --parallel 4 --target \
+            linkerbot-cpp-sdk l6_read_version l6_frequency_benchmark \
+            tests protocol-tests
+
+      - name: Run offline tests
+        working-directory: hand-cpp
+        run: ctest --test-dir build --output-on-failure --timeout 120
+
+      - name: Check protocol boundaries
+        if: matrix.build_type == 'Release'
+        working-directory: hand-cpp
+        run: |
+          python3 validation/check_protocol_boundary.py \
+            --source . \
+            --comm-include "${GITHUB_WORKSPACE}/linkerbot-transport-cpp/include" \
+            --compiler g++-13
+          python3 validation/l6/check_boundary.py \
+            --comm-include "${GITHUB_WORKSPACE}/linkerbot-transport-cpp/include" \
+            --compiler g++-13
+
+      - name: Install SDK for public header checks
+        if: matrix.build_type == 'Release'
+        working-directory: hand-cpp
+        run: cmake --install build
+
+      - name: Check installed public headers
+        if: matrix.build_type == 'Release'
+        working-directory: hand-cpp
+        run: |
+          python3 validation/check_headers.py \
+            --include "${RUNNER_TEMP}/linkerbot-sdk/include" \
+            --compiler g++-13 \
+            --jobs 4 \
+            --output "${RUNNER_TEMP}/header-check.json"
+
+      - name: Compile documented asynchronous examples
+        if: matrix.build_type == 'Release'
+        working-directory: hand-cpp
+        run: |
+          python3 validation/check_documented_examples.py \
+            --prefix "${RUNNER_TEMP}/linkerbot-sdk" \
+            --build-dir build-documented-examples
+
+      - name: Check package and source dependency versions
+        if: matrix.build_type == 'Release'
+        working-directory: hand-cpp/build
+        run: |
+          cmake -DHAND_PREFIX="${RUNNER_TEMP}/linkerbot-sdk" \
+            -P ../validation/check_package_compatibility.cmake
+
+      - name: Build and run installed consumer without optional drivers
+        if: matrix.build_type == 'Release'
+        working-directory: hand-cpp
+        run: |
+          cmake -S validation/installed-consumer \
+            -B build-installed-consumer -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${RUNNER_TEMP}/linkerbot-sdk"
+          cmake --build build-installed-consumer --parallel 4
+          ctest --test-dir build-installed-consumer \
+            --output-on-failure --timeout 120
+
+  windows-discovery:
+    name: Windows x64 / ${{ matrix.configuration }} / ${{ matrix.suite }}
+    runs-on: windows-2022
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+        suite: [no-drivers, native-loader]
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+
+    steps:
+      - name: Check out hand SDK
+        uses: actions/checkout@v4
+        with:
+          path: hand-cpp
+
+      - name: Check out fixed communication library
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.COMM_REPOSITORY }}
+          ref: ${{ env.COMM_REF }}
+          path: linkerbot-transport-cpp
+          token: ${{ secrets.LINKERBOT_COMM_TOKEN || github.token }}
+
+      - name: Install fixed CMake and record Windows tools
+        run: ./hand-cpp/validation/setup_windows.ps1
+
+      - name: Validate standalone comm, hand and release packages
+        run: |
+          python hand-cpp/validation/run_release_validation.py `
+            --comm-source linkerbot-transport-cpp `
+            --work-dir "${{ runner.temp }}/windows-${{ matrix.configuration }}-${{ matrix.suite }}" `
+            --config ${{ matrix.configuration }} --suite ${{ matrix.suite }} `
+            --generator 'Visual Studio 17 2022' --architecture x64 --toolset 'v143,version=14.44' `
+            --comm-sha '${{ env.COMM_REF }}' --hand-sha '${{ github.sha }}' --allow-downloads
+          if ($LASTEXITCODE -ne 0) { throw 'Windows release validation failed' }
+
+      - name: Save build, test, consumer and package evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-${{ matrix.configuration }}-${{ matrix.suite }}
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/windows-${{ matrix.configuration }}-${{ matrix.suite }}/evidence/
+            ${{ runner.temp }}/windows-${{ matrix.configuration }}-${{ matrix.suite }}/packages/*/*.zip
+            ${{ runner.temp }}/windows-${{ matrix.configuration }}-${{ matrix.suite }}/packages/*/*.sha256
+
+  sanitizers:
+    name: ASan and UBSan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CC: gcc-13
+      CXX: g++-13
+      ASAN_OPTIONS: detect_leaks=0:halt_on_error=1:strict_string_checks=1
+      UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+
+    steps:
+      - name: Set offline configuration directory
+        run: echo "XDG_CONFIG_HOME=${RUNNER_TEMP}/xdg-config" >> "$GITHUB_ENV"
+
+      - name: Check out hand SDK
+        uses: actions/checkout@v4
+        with:
+          path: hand-cpp
+
+      - name: Check out communication library
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.COMM_REPOSITORY }}
+          ref: ${{ env.COMM_REF }}
+          path: linkerbot-transport-cpp
+          token: ${{ secrets.LINKERBOT_COMM_TOKEN || github.token }}
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build gcc-13 g++-13
+
+      - name: Configure sanitizer build
+        working-directory: hand-cpp
+        run: |
+          cmake -S . -B build-sanitized -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" \
+            -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address,undefined" \
+            -DLINKERBOT_COMM_SOURCE_DIR="${GITHUB_WORKSPACE}/linkerbot-transport-cpp" \
+            -DLINKERBOT_BUILD_EXAMPLES=OFF \
+            -DLINKERBOT_BUILD_TESTS=ON \
+            -DLINKERBOT_BUILD_TOOLS=ON \
+            -DLINKERBOT_COMM_BUILD_TESTS=OFF
+
+      - name: Build sanitizer test targets
+        working-directory: hand-cpp
+        run: |
+          cmake --build build-sanitized --parallel 4 --target \
+            tests protocol-tests l6_read_version l6_frequency_benchmark
+
+      - name: Run sanitizer tests
+        working-directory: hand-cpp
+        run: ctest --test-dir build-sanitized --output-on-failure --timeout 180

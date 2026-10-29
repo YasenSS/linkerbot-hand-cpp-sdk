@@ -1,0 +1,17 @@
+CompileFlags:
+  CompilationDatabase: build
+  Add:
+    - -std=c++17
+    - -Iinclude
+    - -I../linkerbot-transport-cpp/include
+    - -I../linkerbot-transport-cpp/compat
+
+---
+
+# transport-cpp is a sibling library; do not run this repo's clang-tidy on it.
+If:
+  PathMatch: .*/linkerbot-transport-cpp/.*
+Diagnostics:
+  Suppress: "*"
+  ClangTidy:
+    Remove: "*"

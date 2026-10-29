@@ -1,0 +1,3 @@
+Filters: [o30] ~[comm] ~[interactive] "~"Angle: neutral pose is accepted"" "~"Speed: set_all is accepted""
+RNG seed: 3459695803
+All tests passed (182 assertions in 29 test cases)

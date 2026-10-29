@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.16)
+project(linkerbot-installed-consumer LANGUAGES CXX)
+find_package(linkerbot-hand-cpp 0.3 CONFIG REQUIRED)
+add_executable(installed-consumer main.cpp)
+target_link_libraries(installed-consumer PRIVATE linkerbot::cpp-sdk)
+enable_testing()
+add_test(NAME installed-consumer COMMAND installed-consumer)

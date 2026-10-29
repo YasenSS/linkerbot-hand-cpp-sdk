@@ -1,0 +1,194 @@
+# Gitea Actions（语法兼容 GitHub Actions）。
+# 默认 runner 标签是 ubuntu-latest；若 act_runner 注册了别的 label，改 runs-on。
+# act_runner 的 Docker 任务一般是 root 且没有 sudo，装包时不能写死 sudo。
+#
+# 不要写 uses: actions/* 短名：act_runner 会去 github.com 拉 action，
+# 本机 runner 经常 unexpected EOF。检出和缓存 action 都使用本实例镜像。
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Bound Ninja parallelism to avoid exhausting the runner's memory.
+  CMAKE_BUILD_PARALLEL_LEVEL: '2'
+  COMM_REPO: ouyangshun/linkerbot-transport-cpp
+  # Keep this paired comm commit in sync with GitHub CI and README.md.
+  COMM_REF: 37c2e6f05ec93045e13459194b6bee7d1a2f091d
+  CATCH2_REPO: ouyangshun/catch2
+  CATCH2_REF: v3.8.1
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+  CCACHE_BASEDIR: ${{ github.workspace }}
+  CCACHE_COMPILERCHECK: content
+  CCACHE_COMPRESS: 'true'
+
+jobs:
+  package:
+    name: Build and package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install build tools
+        run: |
+          apt_get() { if [ "$(id -u)" -eq 0 ]; then apt-get "$@"; else sudo apt-get "$@"; fi; }
+          apt_get update
+          apt_get install -y --no-install-recommends \
+            build-essential cmake ninja-build git ca-certificates ccache zstd python3
+
+      - name: Prepare compiler cache
+        run: |
+          set -eu
+          mkdir -p "$CCACHE_DIR"
+          ccache --max-size=1G
+          compiler_id=$( { uname -m; c++ -dumpmachine; c++ -dumpfullversion; ccache --version | head -n 1; } | sha256sum | cut -c 1-16)
+          printf 'CCACHE_KEY_PREFIX=hand-cpp-ccache-v1-%s-\n' "$compiler_id" >> "$GITHUB_ENV"
+
+      - name: Restore compiler cache
+        id: compiler-cache
+        continue-on-error: true
+        timeout-minutes: 3
+        uses: https://gitea.linkerhub.work/ouyangshun/actions-cache/restore@v4.2.3
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ env.CCACHE_KEY_PREFIX }}${{ github.sha }}
+          restore-keys: |
+            ${{ env.CCACHE_KEY_PREFIX }}
+
+      - name: Report cache restore
+        env:
+          CACHE_HIT: ${{ steps.compiler-cache.outputs.cache-hit }}
+          MATCHED_KEY: ${{ steps.compiler-cache.outputs.cache-matched-key }}
+          RESTORE_OUTCOME: ${{ steps.compiler-cache.outcome }}
+        run: |
+          printf 'Cache restore outcome: %s\nExact key hit: %s\nMatched key: %s\n' \
+            "$RESTORE_OUTCOME" "$CACHE_HIT" "$MATCHED_KEY"
+          ccache --zero-stats
+
+      - name: Checkout hand-cpp and dependencies
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          git config --global --add safe.directory '*'
+          git_auth() { git -c "http.extraHeader=AUTHORIZATION: bearer ${TOKEN}" "$@"; }
+          git init hand-cpp
+          git -C hand-cpp remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+          if ! git_auth -C hand-cpp fetch --depth 1 origin "${GITHUB_SHA}"; then
+            git_auth -C hand-cpp fetch --depth 1 origin "${GITHUB_REF}"
+          fi
+          git -C hand-cpp checkout --force FETCH_HEAD
+          git_auth clone --no-checkout "${GITHUB_SERVER_URL}/${COMM_REPO}.git" linkerbot-transport-cpp
+          git -C linkerbot-transport-cpp checkout --detach "${COMM_REF}"
+          test "$(git -C linkerbot-transport-cpp rev-parse HEAD)" = "${COMM_REF}"
+          git_auth clone --depth 1 --branch "${CATCH2_REF}" \
+            "${GITHUB_SERVER_URL}/${CATCH2_REPO}.git" catch2
+
+      - name: Build and install Catch2
+        run: |
+          set -eu
+          cmake -S catch2 -B catch2/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/catch2-install" \
+            -DCMAKE_INSTALL_LIBDIR=lib \
+            -DCATCH_BUILD_TESTING=OFF
+          cmake --build catch2/build --parallel 2
+          cmake --install catch2/build
+
+      - name: Configure
+        working-directory: hand-cpp
+        run: |
+          cmake -B build -S . -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/dist" \
+            -DCatch2_DIR="${GITHUB_WORKSPACE}/catch2-install/lib/cmake/Catch2" \
+            -DLINKERBOT_ALLOW_DEPENDENCY_DOWNLOADS=OFF \
+            -DLINKERBOT_BUILD_TESTS=ON \
+            -DLINKERBOT_COMM_BUILD_TESTS=OFF
+
+      - name: Build SDK, example and offline discovery tests
+        working-directory: hand-cpp
+        run: |
+          cmake --build build --target \
+            linkerbot-cpp-sdk example windows_readonly tests protocol-tests
+
+      # Save after compilation so a later test failure does not discard the cache.
+      - name: Compiler cache statistics
+        if: always()
+        run: |
+          if command -v ccache >/dev/null 2>&1; then
+            ccache --show-stats
+          fi
+
+      - name: Save compiler cache
+        if: success() && steps.compiler-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        timeout-minutes: 3
+        uses: https://gitea.linkerhub.work/ouyangshun/actions-cache/save@v4.2.3
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ env.CCACHE_KEY_PREFIX }}${{ github.sha }}
+
+      - name: Run offline tests
+        working-directory: hand-cpp
+        run: ctest --test-dir build --output-on-failure --timeout 120
+
+      - name: Install to prefix
+        working-directory: hand-cpp
+        run: cmake --install build
+
+      - name: Build and run installed consumer without optional drivers
+        working-directory: hand-cpp
+        run: |
+          cmake -S validation/installed-consumer \
+            -B build-installed-consumer -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/dist"
+          cmake --build build-installed-consumer
+          ctest --test-dir build-installed-consumer \
+            --output-on-failure --timeout 120
+
+      - name: Compile documented asynchronous examples
+        working-directory: hand-cpp
+        run: |
+          python3 validation/check_documented_examples.py \
+            --prefix "${GITHUB_WORKSPACE}/dist" \
+            --build-dir build-documented-examples
+
+      - name: Check package and source dependency versions
+        working-directory: hand-cpp/build
+        run: |
+          cmake -DHAND_PREFIX="${GITHUB_WORKSPACE}/dist" \
+            -P ../validation/check_package_compatibility.cmake
+
+      - name: CPack TGZ
+        working-directory: hand-cpp
+        run: cmake --build build --target package
+
+      - name: Smoke-link installed headers and libs
+        run: |
+          cat > sdk_smoke.cpp <<'EOF'
+          #include <linkerbot/hand/l6/l6.hpp>
+          int main() { return 0; }
+          EOF
+          c++ -std=c++17 sdk_smoke.cpp \
+            -I "${GITHUB_WORKSPACE}/dist/include" \
+            -L "${GITHUB_WORKSPACE}/dist/lib" \
+            -llinkerbot-cpp-sdk -llinkerbot-comm -pthread -ldl
+
+      - name: SDK archive exists
+        run: |
+          shopt -s nullglob
+          archives=(hand-cpp/build/linkerbot-hand-cpp-*.tar.gz)
+          if [ "${#archives[@]}" -eq 0 ]; then
+            echo "CPack did not produce linkerbot-hand-cpp-*.tar.gz" >&2
+            ls -la hand-cpp/build || true
+            exit 1
+          fi
+          ls -lh "${archives[@]}"

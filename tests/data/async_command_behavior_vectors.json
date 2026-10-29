@@ -1,0 +1,215 @@
+{
+  "schema_version": 2,
+  "scope": "L6 production codec + unified facade; shared fixtures, not hardware",
+  "language_differences": {
+    "python_wait": "raises TimeoutError without cancellation",
+    "python_execution_budget": "response-stage window; no C++ admission-to-completion deadline",
+    "python_claimed_on_close": "successful claimed write may finish dispatched; pending requests fail ClosedError",
+    "cancel": "C++ has reserved cancelled state but no public cancel; Python has no cancelled state",
+    "malformed_matching_ack": "Python fails ProtocolError; C++ ignores short replies and waits for a complete reply or timeout"
+  },
+  "scenarios": [
+    {
+      "id": "admission_invalid",
+      "event": "setter(argument_invalid_or_unsupported_or_not_ready)",
+      "input": {
+        "capacity": 3,
+        "targets": 10,
+        "timeout_ms": 20
+      },
+      "expected": {
+        "cpp": {
+          "rejected": true,
+          "frames": 0
+        },
+        "python": {
+          "rejected": true,
+          "frames": 0
+        }
+      }
+    },
+    {
+      "id": "dispatch_without_ack",
+      "event": "all_frames_accepted",
+      "input": {
+        "capacity": 3,
+        "targets": 10,
+        "timeout_ms": 20
+      },
+      "expected": {
+        "cpp": {
+          "stage": "dispatched",
+          "error": null
+        },
+        "python": {
+          "stage": "dispatched",
+          "error": null
+        }
+      }
+    },
+    {
+      "id": "ack_after_complete_response",
+      "event": "all_required_response_frames_match",
+      "input": {
+        "capacity": 3,
+        "targets": 10,
+        "timeout_ms": 20
+      },
+      "expected": {
+        "cpp": {
+          "stage": "acknowledged",
+          "partial_terminal": false,
+          "error": null,
+          "partial_stage": "pending"
+        },
+        "python": {
+          "stage": "acknowledged",
+          "partial_terminal": true,
+          "error": null,
+          "partial_stage": "failed+protocol"
+        }
+      }
+    },
+    {
+      "id": "latest_pending_replaced",
+      "event": "new_request_same_latest_family_before_claim",
+      "input": {
+        "capacity": 3,
+        "targets": 10,
+        "timeout_ms": 20
+      },
+      "expected": {
+        "cpp": {
+          "stage": "superseded",
+          "sent_frames": 0
+        },
+        "python": {
+          "stage": "superseded",
+          "sent_frames": 0
+        }
+      }
+    },
+    {
+      "id": "claimed_request_not_replaced",
+      "event": "new_request_same_family_after_claim",
+      "input": {
+        "capacity": 3,
+        "targets": 10,
+        "timeout_ms": 20
+      },
+      "expected": {
+        "cpp": {
+          "stage": "dispatched",
+          "superseded": false
+        },
+        "python": {
+          "stage": "dispatched",
+          "superseded": false
+        }
+      }
+    },
+    {
+      "id": "fifo_full",
+      "event": "fifo_pending_count_reaches_capacity",
+      "input": {
+        "capacity": 3,
+        "targets": 10,
+        "timeout_ms": 20
+      },
+      "expected": {
+        "cpp": {
+          "exception": "queue_full",
+          "accepted_count_unchanged": true,
+          "ordered": true
+        },
+        "python": {
+          "exception": "queue_full",
+          "accepted_count_unchanged": true,
+          "ordered": true
+        }
+      }
+    },
+    {
+      "id": "wait_timeout",
+      "event": "caller_wait_budget_expires",
+      "input": {
+        "capacity": 3,
+        "targets": 10,
+        "timeout_ms": 20
+      },
+      "expected": {
+        "cpp": {
+          "wait": "false",
+          "command_cancelled": false,
+          "stage": "dispatched"
+        },
+        "python": {
+          "wait": "TimeoutError",
+          "command_cancelled": false,
+          "stage": "dispatched"
+        }
+      }
+    },
+    {
+      "id": "execution_timeout",
+      "event": "admission_deadline_expires_before_terminal_success",
+      "input": {
+        "capacity": 3,
+        "targets": 10,
+        "timeout_ms": 20
+      },
+      "expected": {
+        "cpp": {
+          "stage": "failed",
+          "exception": "timeout",
+          "budget": "admission_to_completion"
+        },
+        "python": {
+          "stage": "failed",
+          "exception": "timeout",
+          "budget": "response_window"
+        }
+      }
+    },
+    {
+      "id": "lifecycle_invalidation",
+      "event": "close_or_recover_or_facade_destruction",
+      "input": {
+        "capacity": 3,
+        "targets": 10,
+        "timeout_ms": 20
+      },
+      "expected": {
+        "cpp": {
+          "pending": "failed+closed",
+          "claimed": "failed+closed",
+          "replay": false
+        },
+        "python": {
+          "pending": "failed+closed",
+          "claimed": "dispatched",
+          "replay": false
+        }
+      }
+    },
+    {
+      "id": "polling_fairness",
+      "event": "continuous_setter_submission_with_polling",
+      "input": {
+        "capacity": 3,
+        "targets": 10,
+        "timeout_ms": 20
+      },
+      "expected": {
+        "cpp": {
+          "cached_reads_blocked": false,
+          "poll_progress": true
+        },
+        "python": {
+          "cached_reads_blocked": false,
+          "poll_progress": true
+        }
+      }
+    }
+  ]
+}

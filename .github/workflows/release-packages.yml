@@ -1,0 +1,121 @@
+name: Release packages
+
+"on":
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      comm_sha:
+        description: 'Full 40-character transport commit SHA'
+        required: true
+      expected_version:
+        description: 'Version required in both source projects and packages'
+        required: true
+        default: '0.3.0'
+
+permissions:
+  contents: read
+
+env:
+  COMM_REPOSITORY: ${{ vars.LINKERBOT_COMM_REPOSITORY || format('{0}/linkerbot-transport-cpp', github.repository_owner) }}
+  REQUESTED_COMM_SHA: ${{ inputs.comm_sha }}
+  REQUESTED_VERSION: ${{ inputs.expected_version }}
+  PYTHONUTF8: '1'
+
+jobs:
+  package:
+    name: ${{ matrix.platform }} / Release / ${{ matrix.format }}
+    if: github.event_name != 'push' || github.event.deleted != true
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            runner: ubuntu-24.04
+            format: TGZ
+          - platform: windows
+            runner: windows-2022
+            format: ZIP
+    steps:
+      - name: Check out exact hand revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: hand-cpp
+
+      - name: Resolve tag or manual release inputs
+        shell: python
+        run: |
+          import runpy
+          runpy.run_path('hand-cpp/validation/resolve_release.py', run_name='__main__')
+
+      - name: Check out exact transport revision
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.COMM_REPOSITORY }}
+          ref: ${{ env.COMM_SHA }}
+          path: linkerbot-transport-cpp
+          token: ${{ secrets.LINKERBOT_COMM_TOKEN || github.token }}
+
+      - name: Install Linux release tools
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-13 g++-13 make cmake python3
+
+      - name: Install fixed CMake and record Windows tools
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: ./hand-cpp/validation/setup_windows.ps1
+
+      - name: Build and audit Linux TGZ
+        if: matrix.platform == 'linux'
+        env:
+          CC: gcc-13
+          CXX: g++-13
+        run: |
+          set -eu
+          release_work=$(mktemp -d "${RUNNER_TEMP}/sdk-release-linux-XXXXXX")
+          printf 'RELEASE_WORK=%s\n' "$release_work" >> "$GITHUB_ENV"
+          python3 hand-cpp/validation/run_release_validation.py \
+            --comm-source linkerbot-transport-cpp --work-dir "$release_work" \
+            --hand-sha "$HAND_SHA" --comm-sha "$COMM_SHA" \
+            --expected-version "$RELEASE_VERSION" --package-format TGZ \
+            --config Release --suite all --require-slcan --allow-downloads --jobs 2
+
+      - name: Build and audit Windows ZIP
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Work = Join-Path $env:RUNNER_TEMP ('sdk-release-windows-' + [guid]::NewGuid().ToString('N'))
+          "RELEASE_WORK=$Work" >> $env:GITHUB_ENV
+          python hand-cpp/validation/run_release_validation.py `
+            --comm-source linkerbot-transport-cpp --work-dir $Work `
+            --hand-sha $env:HAND_SHA --comm-sha $env:COMM_SHA `
+            --expected-version $env:RELEASE_VERSION --package-format ZIP `
+            --config Release --suite all --require-slcan --allow-downloads --jobs 2 `
+            --generator 'Visual Studio 17 2022' --architecture x64 --toolset 'v143,version=14.44'
+          if ($LASTEXITCODE -ne 0) { throw 'Windows release acceptance failed' }
+
+      - name: Upload diagnostic evidence
+        if: always() && env.RELEASE_WORK != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          path: ${{ env.RELEASE_WORK }}/evidence/
+
+      - name: Upload validated packages
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}-${{ matrix.format }}-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          path: |
+            ${{ env.RELEASE_WORK }}/packages/*/*.tar.gz
+            ${{ env.RELEASE_WORK }}/packages/*/*.zip
+            ${{ env.RELEASE_WORK }}/packages/*/*.sha256
+            ${{ env.RELEASE_WORK }}/packages/release-manifest.json

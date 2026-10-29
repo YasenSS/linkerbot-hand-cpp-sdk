@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 3.16)
+project(linkerbot_l6_protocol_completion LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+find_package(Catch2 3 REQUIRED)
+get_filename_component(HAND_SOURCE "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+set(LINKERBOT_COMM_INCLUDE "" CACHE PATH "Paired comm value headers")
+if(NOT EXISTS "${LINKERBOT_COMM_INCLUDE}/linkerbot/can/message.hpp")
+    message(FATAL_ERROR "Set LINKERBOT_COMM_INCLUDE to the paired comm include directory")
+endif()
+add_executable(l6-protocol-completion
+    "${HAND_SOURCE}/tests/protocol/main.cpp"
+    "${HAND_SOURCE}/tests/protocol/l6/test_completion_vectors.cpp")
+target_include_directories(l6-protocol-completion PRIVATE
+    "${HAND_SOURCE}/include" "${LINKERBOT_COMM_INCLUDE}")
+target_link_libraries(l6-protocol-completion PRIVATE Catch2::Catch2)
+enable_testing()
+add_test(NAME l6-protocol-completion COMMAND l6-protocol-completion "[protocol][l6][completion]")
