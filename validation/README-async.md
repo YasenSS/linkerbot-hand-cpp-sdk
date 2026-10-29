@@ -30,7 +30,7 @@ The JSON report is written to `build/tests/async-behavior-report.json`.
 The shared scenarios cover L6 admission, complete/short ACK responses, no-ACK
 sending, latest target replacement, claimed writes, FIFO capacity/order, caller
 wait timeout, execution timeout, closing, no replay and polling/cache progress.
-The full C++ regression additionally covers all thirteen setters across supported
+The full C++ regression additionally covers all eleven setters across supported
 models, recover/destruction, admission budgets, rate limiting and arbitration.
 The `[clock]` test injects a monotonic clock into the internal scheduler: pending
 work stays live at deadline minus 1 ms, expires exactly at the deadline without
@@ -58,7 +58,7 @@ python3 validation/check_documented_examples.py \
   --prefix /tmp/linkerbot-install --build-dir /tmp/linkerbot-doc-examples
 ```
 
-The consumer compiles all thirteen setter signatures and actually checks early
+The consumer compiles all eleven setter signatures and actually checks early
 return at a send barrier, independent cache reads, wait timeout without cancelling,
 no-ACK completion, configuration ACK, synchronous zero-frame validation and an
 asynchronous transport error retained on the handle. The documentation check

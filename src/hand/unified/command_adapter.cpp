@@ -337,17 +337,6 @@ namespace linkerbot::hand::unified_detail {
             publish_mounted_ack(device, request, o30::protocol::kMiCurrent, "current_limit",
                                 [](const auto &values, auto at) { return o30::CurrentLimitData{values, at}; });
             break;
-        case CommandSemantic::kTorqueLimits:
-            device.torque.set_torque_limits(raw, request.timeout);
-            publish_mounted_ack(device, request, o30::protocol::kMiTorque, "torque_limit",
-                                [](const auto &values, auto at) { return o30::TorqueLimitData{values, at}; });
-            break;
-        case CommandSemantic::kMotionTimes:
-            device.motion.set_counts(raw, request.timeout);
-            publish_mounted_ack(
-                device, request, o30::protocol::kMiMotionTime, "motion/relay_",
-                [](const auto &values, auto at) { return o30::MotionTimeData{values, o30::ValueKind::kSetpoint, at}; });
-            break;
         case CommandSemantic::kStallDetectionTimes:
             device.stall.set_times(raw, request.timeout);
             publish_mounted_ack(

@@ -37,10 +37,6 @@ namespace linkerbot::hand::unified_detail {
             case CommandSemantic::kPositionKd:
             case CommandSemantic::kTorqueKd:
                 return CommandFamily::kControlGain;
-            case CommandSemantic::kTorqueLimits:
-                return CommandFamily::kTorqueLimit;
-            case CommandSemantic::kMotionTimes:
-                return CommandFamily::kMotionTimeSetting;
             case CommandSemantic::kStallDetectionTimes:
             case CommandSemantic::kStallThresholds:
             case CommandSemantic::kStallHoldCurrents:
@@ -218,8 +214,6 @@ namespace linkerbot::hand::unified_detail {
                     feedback(result.configured_speeds, "speed/relay_");
                     feedback(result.configured_accelerations, "acceleration/relay_");
                     feedback(result.current_limits, "current_limit");
-                    feedback(result.torque_limits, "torque_limit");
-                    feedback(result.motion_times, "motion/relay_");
                     feedback(result.stall_detection_times, "stall/times_relay_");
                     feedback(result.stall_thresholds, "stall/thresholds_relay_");
                     feedback(result.stall_hold_currents, "stall/hold_relay_");

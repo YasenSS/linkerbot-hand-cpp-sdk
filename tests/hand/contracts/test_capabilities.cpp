@@ -372,14 +372,16 @@ TEST_CASE("capabilities: removed unified commands and telemetry stay unassigned"
         for (const auto side : {HandSide::kLeft, HandSide::kRight}) {
             const auto &profile = declared_capabilities(model, side);
             CAPTURE(model, side);
-            for (const auto id : {8, 13}) { // Torque target and limit compensation.
+            for (const auto id : {7, 8, 9, 13}) { // Removed torque, motion-time and compensation commands.
                 const auto semantic = static_cast<CommandSemantic>(id);
                 REQUIRE_FALSE(profile.supports(semantic));
                 REQUIRE(profile.command(semantic) == nullptr);
             }
-            const auto compensation = static_cast<TelemetrySemantic>(25);
-            REQUIRE_FALSE(profile.supports(compensation));
-            REQUIRE(profile.telemetry_channel(compensation) == nullptr);
+            for (const auto id : {9, 21, 25}) { // Removed limits, motion time and compensation telemetry.
+                const auto semantic = static_cast<TelemetrySemantic>(id);
+                REQUIRE_FALSE(profile.supports(semantic));
+                REQUIRE(profile.telemetry_channel(semantic) == nullptr);
+            }
             const auto removed_operation = static_cast<DeviceOperation>(4);
             REQUIRE_FALSE(profile.supports(removed_operation));
             REQUIRE_FALSE(profile.operations.acknowledged(removed_operation));
@@ -397,20 +399,14 @@ TEST_CASE("capabilities: current and torque semantics remain independent", "[cap
     }
 
     const auto &l6 = declared_capabilities(Model::kL6);
-    REQUIRE_FALSE(l6.supports(CommandSemantic::kTorqueLimits));
     REQUIRE(l6.supports(TelemetrySemantic::kTorques));
-    REQUIRE_FALSE(l6.supports(TelemetrySemantic::kTorqueLimits));
 
     const auto &o30 = declared_capabilities(Model::kO30);
-    REQUIRE(o30.supports(CommandSemantic::kTorqueLimits));
     REQUIRE(o30.supports(TelemetrySemantic::kTorques));
-    REQUIRE(o30.supports(TelemetrySemantic::kTorqueLimits));
 
     for (const auto model : {Model::kO6, Model::kL20Lite, Model::kL20, Model::kL30}) {
         const auto &profile = declared_capabilities(model);
-        REQUIRE_FALSE(profile.supports(CommandSemantic::kTorqueLimits));
         REQUIRE_FALSE(profile.supports(TelemetrySemantic::kTorques));
-        REQUIRE_FALSE(profile.supports(TelemetrySemantic::kTorqueLimits));
     }
 }
 

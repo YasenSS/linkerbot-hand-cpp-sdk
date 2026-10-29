@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
                 invalid = true;
             }
             try {
-                (void)hand.set_motion_times(std::vector<double>(6, 1));
+                (void)hand.set_accelerations(std::vector<double>(6, 1));
             } catch (const UnsupportedOperationError &) {
                 unsupported = true;
             }

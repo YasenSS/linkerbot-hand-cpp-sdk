@@ -74,14 +74,13 @@ TEST_CASE("M2 latest slots preserve new sequence and FIFO semantic order", "[com
     auto old = scheduler.accept(request(CommandSemantic::kAngles, 2), AckSupport::kUnsupported, {}, execute);
     std::vector<CommandHandle> retained;
     for (const auto semantic :
-         {CommandSemantic::kMotionTimes, CommandSemantic::kMotionTimes, CommandSemantic::kPositionKp,
-          CommandSemantic::kPositionKd, CommandSemantic::kStallDetectionTimes,
-          CommandSemantic::kStallThresholds, CommandSemantic::kStallHoldCurrents}) {
+         {CommandSemantic::kAccelerations, CommandSemantic::kAccelerations, CommandSemantic::kPositionKp,
+          CommandSemantic::kPositionKd, CommandSemantic::kStallDetectionTimes, CommandSemantic::kStallThresholds,
+          CommandSemantic::kStallHoldCurrents}) {
         retained.push_back(scheduler.accept(request(semantic, retained.size()), AckSupport::kUnsupported, {}, execute));
     }
     auto newest = scheduler.accept(request(CommandSemantic::kAngles, 3), AckSupport::kUnsupported, {}, execute);
-    for (const auto semantic :
-         {CommandSemantic::kSpeeds, CommandSemantic::kCurrentLimits, CommandSemantic::kTorqueLimits}) {
+    for (const auto semantic : {CommandSemantic::kSpeeds, CommandSemantic::kCurrentLimits}) {
         auto previous = scheduler.accept(request(semantic, 4), AckSupport::kUnsupported, {}, execute);
         retained.push_back(scheduler.accept(request(semantic, 5), AckSupport::kUnsupported, {}, execute));
         REQUIRE(previous.stage() == CommandStage::kSuperseded);
@@ -92,24 +91,24 @@ TEST_CASE("M2 latest slots preserve new sequence and FIFO semantic order", "[com
     REQUIRE(old.sent_frames() == 0);
     REQUIRE_FALSE(old.error());
     const auto queued = totals(scheduler.metrics());
-    REQUIRE(queued.pending == 12);
-    REQUIRE(queued.queue.depth == 11);
+    REQUIRE(queued.pending == 11);
+    REQUIRE(queued.queue.depth == 10);
     barrier.open();
     REQUIRE(first.wait_for(std::chrono::seconds{2}));
     for (auto &handle : retained) {
         REQUIRE(handle.wait_for(std::chrono::seconds{2}));
     }
     REQUIRE(newest.wait_for(std::chrono::seconds{2}));
-    REQUIRE(executed.size() == 12);
-    REQUIRE(executed[1] == std::make_pair(CommandSemantic::kMotionTimes, 0.0));
-    REQUIRE(executed[2] == std::make_pair(CommandSemantic::kMotionTimes, 1.0));
+    REQUIRE(executed.size() == 11);
+    REQUIRE(executed[1] == std::make_pair(CommandSemantic::kAccelerations, 0.0));
+    REQUIRE(executed[2] == std::make_pair(CommandSemantic::kAccelerations, 1.0));
     REQUIRE(executed[3].first == CommandSemantic::kPositionKp);
     REQUIRE(executed[4].first == CommandSemantic::kPositionKd);
     REQUIRE(executed[8] == std::make_pair(CommandSemantic::kAngles, 3.0));
     const auto done = totals(scheduler.metrics());
-    REQUIRE(done.accepted == 16);
-    REQUIRE(done.dispatched == 12);
-    REQUIRE(done.superseded == 4);
+    REQUIRE(done.accepted == 14);
+    REQUIRE(done.dispatched == 11);
+    REQUIRE(done.superseded == 3);
     REQUIRE(done.pending == 0);
     REQUIRE(done.queue.depth == 0);
     for (const auto &m : scheduler.metrics()) {
@@ -122,7 +121,7 @@ TEST_CASE("M2 latest slots preserve new sequence and FIFO semantic order", "[com
 TEST_CASE("M2 FIFO capacity excludes latest and executing requests", "[comm][m2][scheduler]") {
     CommandScheduler scheduler(250, 16);
     Barrier barrier;
-    auto first = scheduler.accept(request(CommandSemantic::kMotionTimes, 0), AckSupport::kUnsupported, {},
+    auto first = scheduler.accept(request(CommandSemantic::kAccelerations, 0), AckSupport::kUnsupported, {},
                                   [&, gate = barrier.gate](const auto &) {
                                       barrier.entered.set_value();
                                       gate.wait();
@@ -131,21 +130,20 @@ TEST_CASE("M2 FIFO capacity excludes latest and executing requests", "[comm][m2]
     REQUIRE(barrier.entered.get_future().wait_for(std::chrono::seconds{2}) == std::future_status::ready);
     std::vector<CommandHandle> handles;
     for (size_t i = 0; i < 16; ++i) {
-        handles.push_back(scheduler.accept(request(CommandSemantic::kMotionTimes, i), AckSupport::kUnsupported, {},
+        handles.push_back(scheduler.accept(request(CommandSemantic::kAccelerations, i), AckSupport::kUnsupported, {},
                                            [](const auto &) { return delivered(); }));
     }
     REQUIRE_THROWS_AS(scheduler.accept(request(CommandSemantic::kPositionKd, 20), AckSupport::kUnsupported, {},
                                        [](const auto &) { return delivered(); }),
                       QueueFullError);
-    for (const auto semantic : {CommandSemantic::kAngles, CommandSemantic::kSpeeds, CommandSemantic::kCurrentLimits,
-                                CommandSemantic::kTorqueLimits}) {
+    for (const auto semantic : {CommandSemantic::kAngles, CommandSemantic::kSpeeds, CommandSemantic::kCurrentLimits}) {
         handles.push_back(scheduler.accept(request(semantic, 1), AckSupport::kUnsupported, {},
                                            [](const auto &) { return delivered(); }));
     }
     const auto metrics = totals(scheduler.metrics());
-    REQUIRE(metrics.accepted == 21);
-    REQUIRE(metrics.pending == 21);
-    REQUIRE(metrics.queue.depth == 20);
+    REQUIRE(metrics.accepted == 20);
+    REQUIRE(metrics.pending == 20);
+    REQUIRE(metrics.queue.depth == 19);
     barrier.open();
     REQUIRE(first.wait_for(std::chrono::seconds{2}));
     for (auto &handle : handles) {
@@ -164,7 +162,7 @@ TEST_CASE("M2 pending deadlines expire independently of executor and throttle", 
                                   });
     REQUIRE(barrier.entered.get_future().wait_for(std::chrono::seconds{2}) == std::future_status::ready);
     std::atomic<size_t> executed{0};
-    auto old = scheduler.accept(request(CommandSemantic::kMotionTimes, 1, std::chrono::milliseconds{20}),
+    auto old = scheduler.accept(request(CommandSemantic::kAccelerations, 1, std::chrono::milliseconds{20}),
                                 AckSupport::kUnsupported, {}, [&](const auto &) {
                                     ++executed;
                                     return delivered();
@@ -174,7 +172,7 @@ TEST_CASE("M2 pending deadlines expire independently of executor and throttle", 
     REQUIRE_THROWS_AS(std::rethrow_exception(old.error()), TimeoutError);
     REQUIRE(old.sent_frames() == 0);
     REQUIRE(executed.load() == 0);
-    auto replacement = scheduler.accept(request(CommandSemantic::kMotionTimes, 2), AckSupport::kUnsupported, {},
+    auto replacement = scheduler.accept(request(CommandSemantic::kAccelerations, 2), AckSupport::kUnsupported, {},
                                         [](const auto &) { return delivered(); });
     REQUIRE(replacement.command_id() > old.command_id());
     scheduler.invalidate(std::make_exception_ptr(ClosedError("generation ended")));
@@ -192,7 +190,7 @@ TEST_CASE("M2 concurrent admission executes once with bounded batch rate", "[com
     std::vector<std::future<CommandHandle>> submitted;
     for (size_t i = 0; i < 40; ++i) {
         submitted.push_back(std::async(std::launch::async, [&, i] {
-            return scheduler.accept(request(CommandSemantic::kMotionTimes, i), AckSupport::kUnsupported, {},
+            return scheduler.accept(request(CommandSemantic::kAccelerations, i), AckSupport::kUnsupported, {},
                                     [&](const auto &r) {
                                         const std::lock_guard<std::mutex> lock(mutex);
                                         starts.push_back(HealthClock::now());
@@ -252,13 +250,13 @@ TEST_CASE("M2 execution gate alternates telemetry and commands", "[comm][m2][sch
 TEST_CASE("M2 background failures wake every waiter and leave executor usable", "[comm][m2][scheduler]") {
     CommandScheduler scheduler(250, 16);
     Barrier barrier;
-    auto failed =
-        scheduler.accept(request(CommandSemantic::kMotionTimes, 0), AckSupport::kUnsupported,
-                         {"set_motion_times", "O30", "motion_times", 7}, [&, gate = barrier.gate](const auto &) {
-                             barrier.entered.set_value();
-                             gate.wait();
-                             return test_util::throw_as<CommandHandle>(TransportError("injected send failure"));
-                         });
+    auto failed = scheduler.accept(
+        request(CommandSemantic::kAccelerations, 0), AckSupport::kUnsupported,
+        {"set_accelerations", "O30", "acceleration_targets", 7}, [&, gate = barrier.gate](const auto &) {
+            barrier.entered.set_value();
+            gate.wait();
+            return test_util::throw_as<CommandHandle>(TransportError("injected send failure"));
+        });
     REQUIRE(barrier.entered.get_future().wait_for(std::chrono::seconds{2}) == std::future_status::ready);
     REQUIRE_FALSE(failed.wait_for(std::chrono::milliseconds{1}));
     std::vector<std::future<CommandStage>> waiters;
@@ -273,10 +271,10 @@ TEST_CASE("M2 background failures wake every waiter and leave executor usable", 
     try {
         std::rethrow_exception(failed.error());
     } catch (const HandError &e) {
-        REQUIRE(e.context().operation == "set_motion_times");
+        REQUIRE(e.context().operation == "set_accelerations");
         REQUIRE(e.context().generation == 7);
     }
-    auto success = scheduler.accept(request(CommandSemantic::kMotionTimes, 1), AckSupport::kUnsupported, {},
+    auto success = scheduler.accept(request(CommandSemantic::kAccelerations, 1), AckSupport::kUnsupported, {},
                                     [](const auto &) { return delivered(); });
     REQUIRE(success.wait_for(std::chrono::seconds{2}));
     REQUIRE(success.stage() == CommandStage::kDispatched);

@@ -17,14 +17,10 @@ namespace linkerbot::hand::unified_detail {
             return CommandFamily::kAccelerationSetting;
         case CommandSemantic::kCurrentLimits:
             return CommandFamily::kCurrentLimit;
-        case CommandSemantic::kTorqueLimits:
-            return CommandFamily::kTorqueLimit;
         case CommandSemantic::kPositionKp:
         case CommandSemantic::kPositionKd:
         case CommandSemantic::kTorqueKd:
             return CommandFamily::kControlGain;
-        case CommandSemantic::kMotionTimes:
-            return CommandFamily::kMotionTimeSetting;
         case CommandSemantic::kStallDetectionTimes:
         case CommandSemantic::kStallThresholds:
         case CommandSemantic::kStallHoldCurrents:
@@ -43,12 +39,8 @@ namespace linkerbot::hand::unified_detail {
             return "acceleration_targets";
         case CommandFamily::kCurrentLimit:
             return "current_limits";
-        case CommandFamily::kTorqueLimit:
-            return "torque_limits";
         case CommandFamily::kControlGain:
             return "control_gains";
-        case CommandFamily::kMotionTimeSetting:
-            return "motion_times";
         case CommandFamily::kStallConfiguration:
             return "stall";
         case CommandFamily::kDiscreteOperation:
@@ -120,7 +112,7 @@ namespace linkerbot::hand::unified_detail {
 
     bool CommandScheduler::latest(CommandFamily family) {
         return family == CommandFamily::kAngleTarget || family == CommandFamily::kSpeedSetting ||
-               family == CommandFamily::kCurrentLimit || family == CommandFamily::kTorqueLimit;
+               family == CommandFamily::kCurrentLimit;
     }
 
     size_t CommandScheduler::pending_size() const { return fifo_.size() + latest_.size(); }

@@ -140,11 +140,6 @@ TEST_CASE("unified snapshot projects O30 voltage motion and stall channels", "[c
     voltage.timestamp = now;
     source.voltage = voltage;
 
-    o30::MotionTimeData motion{};
-    motion.counts.fill(14);
-    motion.timestamp = now;
-    source.motion_time = motion;
-
     o30::StallTimeData stall_time{};
     stall_time.times.fill(15);
     stall_time.timestamp = now;
@@ -166,12 +161,10 @@ TEST_CASE("unified snapshot projects O30 voltage motion and stall channels", "[c
     REQUIRE(snapshot.measured_speeds->raw.front() == 11.0);
     REQUIRE(snapshot.configured_accelerations->raw.front() == 12.0);
     REQUIRE(snapshot.voltages->raw.front() == 13.0);
-    REQUIRE(snapshot.motion_times->raw.front() == 14.0);
     REQUIRE(snapshot.stall_detection_times->raw.front() == 15.0);
     REQUIRE(snapshot.stall_thresholds->raw.front() == 16.0);
     REQUIRE(snapshot.stall_hold_currents->raw.front() == 17.0);
     REQUIRE(snapshot.joints.front().voltage_raw == 13.0);
-    REQUIRE(snapshot.joints.front().motion_time_raw == 14.0);
     REQUIRE(snapshot.joints.front().stall_hold_current_raw == 17.0);
 
     source.speed->kind = o30::ValueKind::kSetpoint;

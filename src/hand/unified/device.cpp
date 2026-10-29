@@ -866,9 +866,7 @@ namespace linkerbot::hand {
 
     LINKERBOT_HAND_DEFINE_SETTER(set_speeds, kSpeeds)
     LINKERBOT_HAND_DEFINE_SETTER(set_accelerations, kAccelerations)
-    LINKERBOT_HAND_DEFINE_SETTER(set_motion_times, kMotionTimes)
     LINKERBOT_HAND_DEFINE_SETTER(set_current_limits, kCurrentLimits)
-    LINKERBOT_HAND_DEFINE_SETTER(set_torques_limits, kTorqueLimits)
     LINKERBOT_HAND_DEFINE_SETTER(set_position_kp, kPositionKp)
     LINKERBOT_HAND_DEFINE_SETTER(set_position_kd, kPositionKd)
     LINKERBOT_HAND_DEFINE_SETTER(set_torque_kd, kTorqueKd)
@@ -903,14 +901,12 @@ namespace linkerbot::hand {
     LINKERBOT_HAND_DEFINE_GETTER(get_currents, kCurrents, CurrentSample)
     LINKERBOT_HAND_DEFINE_GETTER(get_current_limits, kCurrentLimits, CurrentLimitSample)
     LINKERBOT_HAND_DEFINE_GETTER(get_torques, kTorques, TorqueSample)
-    LINKERBOT_HAND_DEFINE_GETTER(get_torques_limits, kTorqueLimits, TorqueLimitSample)
     LINKERBOT_HAND_DEFINE_GETTER(get_position_kp, kPositionKp, PositionKpSample)
     LINKERBOT_HAND_DEFINE_GETTER(get_position_kd, kPositionKd, PositionKdSample)
     LINKERBOT_HAND_DEFINE_GETTER(get_torque_kd, kTorqueKd, TorqueKdSample)
     LINKERBOT_HAND_DEFINE_GETTER(get_temperatures, kTemperatures, TemperatureSample)
     LINKERBOT_HAND_DEFINE_GETTER(get_faults, kFaults, FaultSample)
     LINKERBOT_HAND_DEFINE_GETTER(get_voltages, kVoltages, VoltageSample)
-    LINKERBOT_HAND_DEFINE_GETTER(get_motion_times, kMotionTimes, MotionTimeSample)
     LINKERBOT_HAND_DEFINE_GETTER(get_stall_detection_times, kStallDetectionTimes, StallDetectionTimeSample)
     LINKERBOT_HAND_DEFINE_GETTER(get_stall_thresholds, kStallThresholds, StallThresholdSample)
     LINKERBOT_HAND_DEFINE_GETTER(get_stall_hold_currents, kStallHoldCurrents, StallHoldCurrentSample)
@@ -1025,13 +1021,11 @@ namespace linkerbot::hand {
         observe_sample(result.position_kd);
         observe_sample(result.torque_kd);
         observe_sample(result.torques);
-        observe_sample(result.torque_limits);
         observe_sample(result.temperatures);
         observe_sample(result.force);
         observe_sample(result.normal_force_resultant);
         observe_sample(result.faults);
         observe_sample(result.voltages);
-        observe_sample(result.motion_times);
         observe_sample(result.stall_detection_times);
         observe_sample(result.stall_thresholds);
         observe_sample(result.stall_hold_currents);
@@ -1066,7 +1060,6 @@ namespace linkerbot::hand {
         complete_meta(result.position_kd, TelemetrySemantic::kPositionKd);
         complete_meta(result.torque_kd, TelemetrySemantic::kTorqueKd);
         complete_meta(result.torques, TelemetrySemantic::kTorques);
-        complete_meta(result.torque_limits, TelemetrySemantic::kTorqueLimits);
         complete_meta(result.temperatures, TelemetrySemantic::kTemperatures);
         complete_meta(result.force, TelemetrySemantic::kForce);
         if (result.force) {
@@ -1076,7 +1069,6 @@ namespace linkerbot::hand {
         complete_meta(result.normal_force_resultant, TelemetrySemantic::kForceFns);
         complete_meta(result.faults, TelemetrySemantic::kFaults);
         complete_meta(result.voltages, TelemetrySemantic::kVoltages);
-        complete_meta(result.motion_times, TelemetrySemantic::kMotionTimes);
         complete_meta(result.stall_detection_times, TelemetrySemantic::kStallDetectionTimes);
         complete_meta(result.stall_thresholds, TelemetrySemantic::kStallThresholds);
         complete_meta(result.stall_hold_currents, TelemetrySemantic::kStallHoldCurrents);

@@ -80,7 +80,7 @@ def probe(sdk: Path, scenario: str, capacity: int, targets: int, timeout_ms: int
         if scenario == "admission_invalid":
             before = len(script.sent_payloads)
             for action, error in ((lambda: hand.set_angles((1,)), ValidationError),
-                                  (lambda: hand.set_motion_times((1,) * 6), UnsupportedOperationError)):
+                                  (lambda: hand.set_accelerations((1,) * 6), UnsupportedOperationError)):
                 try:
                     action()
                 except error:

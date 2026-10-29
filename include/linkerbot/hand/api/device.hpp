@@ -85,7 +85,7 @@ namespace linkerbot::hand {
         // admission. The device executor sends/waits in the background; runtime
         // failures are observed through handle.stage()/error(). Explicitly wait
         // and check the terminal result when protocol completion is required.
-        // Angles (raw and percent), speeds, current limits and torque limits
+        // Angles (raw and percent), speeds and current limits
         // replace only pending targets of the same family. Other setters use
         // FIFO; a full pending FIFO throws QueueFullError before acceptance.
         // wait_for() timeout does not cancel or retry an accepted command.
@@ -97,9 +97,7 @@ namespace linkerbot::hand {
         [[nodiscard]] CommandHandle set_percent_angles(const std::vector<float> &values);
         [[nodiscard]] CommandHandle set_speeds(const std::vector<double> &values);
         [[nodiscard]] CommandHandle set_accelerations(const std::vector<double> &values);
-        [[nodiscard]] CommandHandle set_motion_times(const std::vector<double> &values);
         [[nodiscard]] CommandHandle set_current_limits(const std::vector<double> &values);
-        [[nodiscard]] CommandHandle set_torques_limits(const std::vector<double> &values);
         [[nodiscard]] CommandHandle set_position_kp(const std::vector<double> &values);
         [[nodiscard]] CommandHandle set_position_kd(const std::vector<double> &values);
         [[nodiscard]] CommandHandle set_torque_kd(const std::vector<double> &values);
@@ -123,8 +121,6 @@ namespace linkerbot::hand {
         [[nodiscard]] CurrentLimitSample
         get_current_limits(std::chrono::milliseconds timeout = std::chrono::milliseconds{100});
         [[nodiscard]] TorqueSample get_torques(std::chrono::milliseconds timeout = std::chrono::milliseconds{100});
-        [[nodiscard]] TorqueLimitSample
-        get_torques_limits(std::chrono::milliseconds timeout = std::chrono::milliseconds{100});
         [[nodiscard]] PositionKpSample get_position_kp(std::chrono::milliseconds timeout = std::chrono::milliseconds{
                                                            100});
         [[nodiscard]] PositionKdSample get_position_kd(std::chrono::milliseconds timeout = std::chrono::milliseconds{
@@ -139,8 +135,6 @@ namespace linkerbot::hand {
         get_normal_force_resultant(std::chrono::milliseconds timeout = std::chrono::milliseconds{100});
         [[nodiscard]] FaultSample get_faults(std::chrono::milliseconds timeout = std::chrono::milliseconds{100});
         [[nodiscard]] VoltageSample get_voltages(std::chrono::milliseconds timeout = std::chrono::milliseconds{100});
-        [[nodiscard]] MotionTimeSample get_motion_times(std::chrono::milliseconds timeout = std::chrono::milliseconds{
-                                                            100});
         [[nodiscard]] StallDetectionTimeSample
         get_stall_detection_times(std::chrono::milliseconds timeout = std::chrono::milliseconds{100});
         [[nodiscard]] StallThresholdSample

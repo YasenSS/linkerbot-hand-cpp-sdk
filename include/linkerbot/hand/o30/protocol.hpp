@@ -45,7 +45,6 @@ namespace linkerbot::hand::o30::protocol {
     inline constexpr uint8_t kMiVoltage = 0x05;
     inline constexpr uint8_t kMiTorque = 0x06;
     inline constexpr uint8_t kMiTemperature = 0x07;
-    inline constexpr uint8_t kMiMotionTime = 0x08;
     inline constexpr uint8_t kMiStallTime = 0x09;
     inline constexpr uint8_t kMiStallThreshold = 0x0A;
     inline constexpr uint8_t kMiStallHoldCurrent = 0x0B;
@@ -95,10 +94,6 @@ namespace linkerbot::hand::o30::protocol {
     inline constexpr uint8_t kEnableOn = 0x04;
     inline constexpr uint8_t kEnableFeedback = 0x08;
     inline constexpr uint8_t kEnableCalibrate = 0x10;
-
-    // Motion-time counts are 10 ms each.
-    inline constexpr uint32_t kMotionTimeMsPerCount = 10;
-    inline constexpr uint32_t kMotionTimeMaxMs = 2550;
 
     class ProtocolError : public ::linkerbot::hand::ProtocolError {
     public:

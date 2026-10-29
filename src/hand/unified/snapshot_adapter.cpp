@@ -343,11 +343,9 @@ namespace linkerbot::hand::unified_detail {
                 joint.position_kp_raw = typed_value_at(snapshot.position_kp, index);
                 joint.position_kd_raw = typed_value_at(snapshot.position_kd, index);
                 joint.torque_kd_raw = typed_value_at(snapshot.torque_kd, index);
-                joint.torque_limit_raw = typed_value_at(snapshot.torque_limits, index);
                 joint.torque_raw = typed_value_at(snapshot.torques, index);
                 joint.temperature_raw = typed_value_at(snapshot.temperatures, index);
                 joint.voltage_raw = typed_value_at(snapshot.voltages, index);
-                joint.motion_time_raw = typed_value_at(snapshot.motion_times, index);
                 joint.stall_detection_time_raw = typed_value_at(snapshot.stall_detection_times, index);
                 joint.stall_threshold_raw = typed_value_at(snapshot.stall_thresholds, index);
                 joint.stall_hold_current_raw = typed_value_at(snapshot.stall_hold_currents, index);
@@ -672,11 +670,6 @@ namespace linkerbot::hand::unified_detail {
             result.torques = vector_sample<TorqueSample>(source.torque->torques, source.torque->timestamp, capabilities,
                                                          TelemetrySemantic::kTorques);
         }
-        if (source.torque_limit) {
-            result.torque_limits =
-                vector_sample<TorqueLimitSample>(source.torque_limit->torque_limits, source.torque_limit->timestamp,
-                                                 capabilities, TelemetrySemantic::kTorqueLimits);
-        }
         if (source.temperature) {
             result.temperatures =
                 vector_sample<TemperatureSample>(source.temperature->temperatures, source.temperature->timestamp,
@@ -685,11 +678,6 @@ namespace linkerbot::hand::unified_detail {
         if (source.voltage) {
             result.voltages = vector_sample<VoltageSample>(source.voltage->voltages, source.voltage->timestamp,
                                                            capabilities, TelemetrySemantic::kVoltages);
-        }
-        if (source.motion_time) {
-            result.motion_times =
-                vector_sample<MotionTimeSample>(source.motion_time->counts, source.motion_time->timestamp, capabilities,
-                                                TelemetrySemantic::kMotionTimes);
         }
         if (source.stall_time) {
             result.stall_detection_times =
@@ -740,7 +728,6 @@ namespace linkerbot::hand::unified_detail {
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kPositionKd, position_kd);
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kTorqueKd, torque_kd);
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kTorques, torques);
-            LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kTorqueLimits, torque_limits);
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kTemperatures, temperatures);
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kForce, force);
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kForceFns, force);
@@ -749,7 +736,6 @@ namespace linkerbot::hand::unified_detail {
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kForcePx, force);
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kFaults, faults);
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kVoltages, voltages);
-            LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kMotionTimes, motion_times);
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kStallDetectionTimes, stall_detection_times);
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kStallThresholds, stall_thresholds);
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kStallHoldCurrents, stall_hold_currents);

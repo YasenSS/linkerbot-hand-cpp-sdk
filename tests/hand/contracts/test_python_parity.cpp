@@ -12,8 +12,8 @@
 using namespace linkerbot::hand;
 
 // Golden contract values exported from Python Hand SDK b6c927a. These cover
-// retained common model channels; removed unified torque writes and limit
-// compensation are excluded. The C++-only L20 current-limit cache has its own policy.
+// retained common model channels; removed unified torque writes, torque limits,
+// motion times and limit compensation are excluded. The C++-only L20 current-limit cache has its own policy.
 TEST_CASE("common models preserve Python telemetry freshness contracts", "[comm][contracts][parity][freshness]") {
     using Entry = std::pair<TelemetrySemantic, double>;
     const std::vector<std::pair<Model, std::vector<Entry>>> expected{
@@ -93,7 +93,6 @@ TEST_CASE("common models preserve Python telemetry freshness contracts", "[comm]
              {TelemetrySemantic::kMeasuredSpeeds, 100},
              {TelemetrySemantic::kConfiguredSpeeds, 100},
              {TelemetrySemantic::kConfiguredAccelerations, 300},
-             {TelemetrySemantic::kTorqueLimits, 100},
              {TelemetrySemantic::kTemperatures, 3000},
              {TelemetrySemantic::kForce, 300},
              {TelemetrySemantic::kCurrents, 300},
@@ -101,7 +100,6 @@ TEST_CASE("common models preserve Python telemetry freshness contracts", "[comm]
              {TelemetrySemantic::kTorques, 300},
              {TelemetrySemantic::kFaults, 500},
              {TelemetrySemantic::kVoltages, 3000},
-             {TelemetrySemantic::kMotionTimes, 300},
              {TelemetrySemantic::kStallDetectionTimes, 3000},
              {TelemetrySemantic::kStallThresholds, 3000},
              {TelemetrySemantic::kStallHoldCurrents, 3000},
@@ -171,9 +169,7 @@ TEST_CASE("common models preserve Python command ACK contracts", "[comm][contrac
              {CommandSemantic::kAngles, AckSupport::kRequired},
              {CommandSemantic::kSpeeds, AckSupport::kRequired},
              {CommandSemantic::kAccelerations, AckSupport::kRequired},
-             {CommandSemantic::kTorqueLimits, AckSupport::kRequired},
              {CommandSemantic::kCurrentLimits, AckSupport::kRequired},
-             {CommandSemantic::kMotionTimes, AckSupport::kRequired},
              {CommandSemantic::kStallDetectionTimes, AckSupport::kRequired},
              {CommandSemantic::kStallThresholds, AckSupport::kRequired},
              {CommandSemantic::kStallHoldCurrents, AckSupport::kRequired},

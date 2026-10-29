@@ -26,11 +26,9 @@ namespace linkerbot::hand {
         std::optional<double> position_kp_raw;
         std::optional<double> position_kd_raw;
         std::optional<double> torque_kd_raw;
-        std::optional<double> torque_limit_raw;
         std::optional<double> torque_raw;
         std::optional<double> temperature_raw;
         std::optional<double> voltage_raw;
-        std::optional<double> motion_time_raw;
         std::optional<double> stall_detection_time_raw;
         std::optional<double> stall_threshold_raw;
         std::optional<double> stall_hold_current_raw;
@@ -55,13 +53,11 @@ namespace linkerbot::hand {
         std::optional<PositionKdSample> position_kd;
         std::optional<TorqueKdSample> torque_kd;
         std::optional<TorqueSample> torques;
-        std::optional<TorqueLimitSample> torque_limits;
         std::optional<TemperatureSample> temperatures;
         std::optional<ForceSample> force;
         std::optional<NormalForceResultantSample> normal_force_resultant;
         std::optional<FaultSample> faults;
         std::optional<VoltageSample> voltages;
-        std::optional<MotionTimeSample> motion_times;
         std::optional<StallDetectionTimeSample> stall_detection_times;
         std::optional<StallThresholdSample> stall_thresholds;
         std::optional<StallHoldCurrentSample> stall_hold_currents;

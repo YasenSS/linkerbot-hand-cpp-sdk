@@ -36,9 +36,7 @@ namespace {
                        CommandHandle>)
     LINKERBOT_ASSERT_SETTER(set_speeds);
     LINKERBOT_ASSERT_SETTER(set_accelerations);
-    LINKERBOT_ASSERT_SETTER(set_motion_times);
     LINKERBOT_ASSERT_SETTER(set_current_limits);
-    LINKERBOT_ASSERT_SETTER(set_torques_limits);
     LINKERBOT_ASSERT_SETTER(set_position_kp);
     LINKERBOT_ASSERT_SETTER(set_position_kd);
     LINKERBOT_ASSERT_SETTER(set_torque_kd);

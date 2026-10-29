@@ -1,5 +1,11 @@
 # Platform and hardware validation scope
 
+The unreleased 0.3.0 API removes O30 motion-time and torque-limit getters, setters,
+model managers, samples, events and snapshot fields. Remove those calls and rebuild
+consumers. Actual torque reads and current-limit reads/writes remain available;
+surviving public enum values retain their numeric IDs. Dated acceptance records
+refer to the SDK revision recorded in each report, before this removal.
+
 The 0.3.0 validation baseline is Ubuntu 24.04 x86_64 / GCC 13 / C++17 and
 Windows 11 x64 / Visual Studio 2022 / MSVC v143 14.44 / C++17. Other operating
 systems, architectures, toolchains and driver versions are not covered by this
@@ -31,6 +37,10 @@ Vendor drivers and DLLs are obtained separately. See the source repository's
 ---
 
 # 平台与硬件验证范围
+
+未发布的 0.3.0 已删除 O30 运动时间和扭矩上限的读写接口、型号入口、样本、事件及快照字段。
+旧调用须移除并重新编译；实际扭矩读取与电流上限读写保留，其余公开枚举编号保持不变。
+历史实机验收以各报告记录的 SDK 版本为准，不代表删除后的接口清单。
 
 `0.3.0` 验证基线为 Ubuntu 24.04 x86_64 / GCC 13 / C++17，以及 Windows 11 x64 /
 Visual Studio 2022 / MSVC v143 14.44 / C++17。其他系统、架构、工具链及驱动版本不在

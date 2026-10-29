@@ -186,9 +186,6 @@ namespace linkerbot::hand::unified_detail {
             case TelemetrySemantic::kTorques:
                 selected[o30::SensorSource::kTorque] = channel.interval;
                 break;
-            case TelemetrySemantic::kTorqueLimits:
-                selected[o30::SensorSource::kTorqueLimit] = channel.interval;
-                break;
             case TelemetrySemantic::kTemperatures:
                 selected[o30::SensorSource::kTemperature] = channel.interval;
                 break;
