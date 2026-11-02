@@ -1,8 +1,8 @@
 # API 使用指南
 
-构建和首次连接见 [Linux 快速开始](../README.md#快速开始linux)或 [Windows 使用指南](windows.md)。
+构建和首次连接见 [Linux 快速开始](../../../README.md#快速开始linux)或 [Windows 使用指南](windows.md)。
 本文说明两种控制策略、常用与高级功能、命令完成判断、后台轮询和生命周期，以及型号可选协议。
-按手型查询完整的功能、读写方式、数值范围和固件限制，见[各型号能力说明](model-capabilities.md)。
+按手型查询完整的功能、读写方式、数值范围和固件限制，见[各型号能力说明](../reference/model-capabilities.md)。
 
 ## 两种控制策略
 
@@ -44,13 +44,13 @@ Linux 先配置 SocketCAN，再打开设备。接口名和速率必须与实际�
 L30 使用扩展 FD，配置 NodeID 和 HostID；O30 使用标准 FD、无 BRS，配置 HOP 请求 ID。
 L6 默认使用 Classic CAN；支持 CAN FD 的设备可显式选择[可选 HOP 协议](#l6-可选-can-fd-协议)，
 并按设备实际速率配置 FD 接口。仅开启接口的 FD 模式不会改变 SDK 选择的 L6 协议。
-Windows 使用[适配器 factory](windows-adapters.md#3-在-c-程序中连接)或[设备发现接口](hand-device-discovery.md)。
+Windows 使用[适配器 factory](../connections/windows-adapters.md#3-在-c-程序中连接)或[设备发现接口](../reference/discovery.md)。
 
 ## 策略一：HandDevice 统一接口
 
 ### 读取与控制
 
-自动连接按 [README 快速开始](../README.md#快速开始linux)，由发现结果提供型号、侧别、通道和地址。
+自动连接按 [README 快速开始](../../../README.md#快速开始linux)，由发现结果提供型号、侧别、通道和地址。
 部署中已知设备配置时，也可以手动填写 `HandDeviceConfig`，调用 `HandDevice hand(config)`；
 下文的统一接口示例使用这种手动连接方式。自动发现和手动配置创建的设备使用同一套控制 API。
 
@@ -326,7 +326,7 @@ int main() try {
 ## 连接与共享总线
 
 通信后端和控制策略可以分别选择。Linux 的字符串便捷构造使用 SocketCAN；
-Windows 先建立[适配器 factory](windows-adapters.md#3-在-c-程序中连接)，再注入 transport 或 Session：
+Windows 先建立[适配器 factory](../connections/windows-adapters.md#3-在-c-程序中连接)，再注入 transport 或 Session：
 
 | 场景 | 统一接口 | 以 L6 为例的型号接口 |
 | --- | --- | --- |
@@ -394,7 +394,7 @@ L30 的 `report.configure()` 控制设备主动上报，不等同于 SDK 发起�
 公开 hand 异常可按 `HandError` 或 `std::runtime_error` 捕获。
 
 升级 SDK 后重新编译应用，使用同一次构建产生的头文件和库。
-高级操作入口见[高级功能](#高级功能)，平台及实机边界见[验证范围](COMPATIBILITY.md)。
+高级操作入口见[高级功能](#高级功能)，平台及实机边界见[验证范围](../reference/compatibility.md)。
 
 ## 型号与协议选项
 

@@ -31,12 +31,14 @@ class ReleasePackageTests(unittest.TestCase):
             metadata = {'version': '0.3.0', 'configuration': 'Release', 'system': 'Linux',
                         'comm_sha': 'b' * 40, 'hand_sha': 'a' * 40, 'source_dirty': False}
             self.write(f'share/{package}/build-info.json', json.dumps(metadata))
-            doc = 'docs/zh/windows-build.md' if key == 'comm' else 'docs/windows.md'
+            doc = 'docs/zh/windows-build.md' if key == 'comm' else 'docs/zh/guides/windows.md'
             self.write(f'share/{package}/{doc}', 'build instructions')
             if key == 'hand':
                 (source / 'README.en.md').write_text('English quick start')
                 self.write(f'share/{package}/README.en.md', 'English quick start')
-                self.write(f'share/{package}/docs/usage.md', 'API usage instructions')
+                self.write(f'share/{package}/docs/zh/guides/usage.md', 'API usage instructions')
+                self.write(f'share/{package}/docs/en/guides/windows.md', 'English build instructions')
+                self.write(f'share/{package}/docs/en/guides/usage.md', 'English API usage instructions')
             for suffix in ['-config.cmake', '-config-version.cmake']:
                 self.write(f'lib/cmake/{package}/{package}{suffix}', '# relocatable')
             self.write(f'lib/lib{library}.a', 'static library placeholder')
@@ -123,7 +125,8 @@ class ReleasePackageTests(unittest.TestCase):
             self.audit('TGZ')
 
     def test_missing_public_guide_is_rejected(self):
-        for guide in ['windows.md', 'usage.md']:
+        for guide in ['zh/guides/windows.md', 'zh/guides/usage.md',
+                      'en/guides/windows.md', 'en/guides/usage.md']:
             with self.subTest(guide=guide):
                 path = self.prefix / 'share/linkerbot-hand-cpp/docs' / guide
                 contents = path.read_text()

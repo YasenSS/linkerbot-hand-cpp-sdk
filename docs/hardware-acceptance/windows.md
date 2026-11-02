@@ -40,14 +40,14 @@ USB 断连恢复可以按每种适配器/驱动/固件组合选一只代表手�
 
 ## 2. 准备电脑和设备
 
-工具、运行库及打包验证见 [Windows 构建说明](../windows.md#构建-sdk)；驱动、DLL、
-通道选择及固件要求见 [适配器接入](../windows-adapters.md)。仅准备本场使用的适配器。
+工具、运行库及打包验证见 [Windows 构建说明](../zh/guides/windows.md#构建-sdk)；驱动、DLL、
+通道选择及固件要求见 [适配器接入](../zh/connections/windows-adapters.md)。仅准备本场使用的适配器。
 核对 USB、供电、CAN H/CAN L、公共地和终端电阻，关闭其他控制程序并留出运动空间。
 出现异常运动、卡住或明显发热时停止运动测试。Windows 不配置 `can0`，不运行 `ip link` 或 `slcand`。
 
 ## 3. 定位已通过离线检查的构建
 
-先按 [构建说明](../windows.md#构建-sdk) 完成所选配置的构建及离线检查，再在源码根目录设置：
+先按 [构建说明](../zh/guides/windows.md#构建-sdk) 完成所选配置的构建及离线检查，再在源码根目录设置：
 
 ```powershell
 $ErrorActionPreference = 'Stop'

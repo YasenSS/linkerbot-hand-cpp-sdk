@@ -1,7 +1,7 @@
 # 参与贡献与问题反馈
 
 通过本仓库的 Issues 提交问题或功能建议，通过 Pull Request 提交修改。
-提交前请先查看 [README](README.md)、[支持范围](docs/COMPATIBILITY.md) 和已有问题。
+提交前请先查看 [README](README.md)、[支持范围](docs/zh/reference/compatibility.md) 和已有问题。
 
 ## 提交问题
 

@@ -23,7 +23,7 @@
   `linkerbot::comm` 系列目标和 `LINKERBOT_COMM_SOURCE_DIR` 保留兼容名称。
   当前 CI 与 README 的依赖提交以 README 的源码基线为准；各历史验收场次保留实际使用的 SHA。
 - 更新 README 的错误处理示例；安装包附带兼容性策略和
-  [0.3 迁移说明](docs/usage.md#命令完成与错误处理)。调用方必须重新编译。
+  [0.3 迁移说明](docs/zh/guides/usage.md#命令完成与错误处理)。调用方必须重新编译。
 - 增加可执行的跨语言异步行为向量，覆盖接纳、发送/ACK、替换、FIFO、超时、生命周期
   和 polling 进展；明确等待超时、执行预算、关闭已 claimed 命令及短 ACK 的语言差异。
   内部调度器支持测试注入时钟，验证 deadline 边界；生产默认仍使用 steady_clock。
@@ -40,4 +40,4 @@
   SLCAN 仍为指定固件配置的实验性接入；不把离线测试或 Debug 结果扩展为 Release 实机通过。
 
 原生型号 Manager、主动 getter 和离散操作保持原执行契约；公开平台及硬件边界见
-[支持与兼容性策略](docs/COMPATIBILITY.md)。
+[支持与兼容性策略](docs/zh/reference/compatibility.md)。

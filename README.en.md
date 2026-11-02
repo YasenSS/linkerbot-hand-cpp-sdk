@@ -7,8 +7,8 @@ and collecting telemetry in the background. CAN/CAN FD communication is provided
 [linkerbot-transport-cpp](https://github.com/linker-bot/linkerbot-transport-cpp).
 
 - **Linux users:** follow the quick start below to connect through SocketCAN.
-- **Windows users:** start with the [Windows guide](docs/windows.md) (Chinese), then select your adapter.
-- **Existing applications:** see the [API guide](docs/usage.md) and [device discovery](docs/hand-device-discovery.md) (Chinese).
+- **Windows users:** start with the [Windows guide](docs/en/guides/windows.md), then select your adapter.
+- **Existing applications:** see the [API guide](docs/en/guides/usage.md) and [device discovery](docs/en/reference/discovery.md).
 
 ## Supported models
 
@@ -22,8 +22,8 @@ and collecting telemetry in the background. CAN/CAN FD communication is provided
 | O30 | 20 | HOP / CAN FD standard frames, no BRS | Request ID defaults to `0x001` |
 
 L6 defaults to Classic CAN. Devices with compatible CAN FD firmware can explicitly select the
-[optional HOP protocol](docs/usage.md#l6-可选-can-fd-协议) (Chinese).
-See [platform and hardware validation scope](docs/COMPATIBILITY.md#platform-and-hardware-validation-scope)
+[optional HOP protocol](docs/en/guides/usage.md#optional-l6-can-fd-protocol).
+See [platform and hardware validation scope](docs/en/reference/compatibility.md#platform-and-hardware-validation-scope)
 for tested platforms, adapters, and limitations.
 
 ## Quick start (Linux)
@@ -71,7 +71,7 @@ ip -details link show can0
 
 The interface should be `UP` with a bitrate of `1000000`. Discovery uses enabled interfaces;
 it does not configure the system CAN interface. For CAN FD models, see
-[CAN bus configuration](docs/usage.md#连接-can-总线) (Chinese).
+[CAN bus configuration](docs/en/guides/usage.md#connecting-the-can-bus).
 
 ### 3. Create a read-only application
 
@@ -136,13 +136,13 @@ cmake --build demo/build --parallel 4
 
 On success, the program prints the discovered channel, product code, and raw angles (six values for L6),
 closes the connection, and exits with code `0`. If no device is found, check interface status, power, bitrate,
-and whether another application is accessing the device. See [device discovery](docs/hand-device-discovery.md)
-for multiple candidates or incomplete identity, and the [API guide](docs/usage.md#读取与控制) for manual configuration (Chinese).
+and whether another application is accessing the device. See [device discovery](docs/en/reference/discovery.md)
+for multiple candidates or incomplete identity, and the [API guide](docs/en/guides/usage.md#reading-and-control) for manual configuration.
 
 ## Next steps
 
 Use the unified `HandDevice` interface for new applications. Model classes such as `l6::L6`
-provide model-specific features. See the [API guide](docs/usage.md) (Chinese) for commands,
+provide model-specific features. See the [API guide](docs/en/guides/usage.md) for commands,
 completion checks, polling, and recovery.
 Unified setters return a `CommandHandle`: returning means the command was accepted;
 inspect the handle to determine its outcome.
@@ -158,16 +158,16 @@ ctest --test-dir build-tests --output-on-failure
 ```
 
 Hardware test configuration and execution are documented in the
-[hardware test guide](tests/hand/device/hardware/README.md) (Chinese).
+[hardware test guide](tests/hand/device/hardware/README.md).
 
 ## Documentation
 
-- [Windows guide](docs/windows.md): environment, build, installation, and application integration (Chinese).
-- [Windows adapters](docs/windows-adapters.md): PCAN, MiniCANFD, and SLCAN configuration and troubleshooting (Chinese).
-- [API guide](docs/usage.md): reading, control, background polling, and lifecycle (Chinese).
-- [Model capabilities](docs/model-capabilities.md): feature matrix, read/write APIs, raw ranges, and firmware limitations (Chinese).
-- [Device discovery](docs/hand-device-discovery.md): discovery and configuration responsibilities (Chinese).
-- [Platform and hardware validation scope](docs/COMPATIBILITY.md): tested environments and communication paths (English / Chinese).
-- [Changelog](CHANGELOG.md), [contributing](CONTRIBUTING.md), and [documentation index](docs/README.md) (Chinese).
+- [Windows guide](docs/en/guides/windows.md): environment, build, installation, and application integration.
+- [Windows adapters](docs/en/connections/windows-adapters.md): PCAN, MiniCANFD, and SLCAN configuration and troubleshooting.
+- [API guide](docs/en/guides/usage.md): reading, control, background polling, and lifecycle.
+- [Model capabilities](docs/en/reference/model-capabilities.md): feature matrix, read/write APIs, raw ranges, and firmware limitations.
+- [Device discovery](docs/en/reference/discovery.md): discovery and configuration responsibilities.
+- [Platform and hardware validation scope](docs/en/reference/compatibility.md): tested environments and communication paths.
+- [Changelog](CHANGELOG.md), [contributing](CONTRIBUTING.md), and [documentation index](docs/en/README.md).
 
 Licensed under the [MIT License](LICENSE). See [NOTICE](NOTICE) for third-party software information.

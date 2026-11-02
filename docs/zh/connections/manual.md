@@ -1,0 +1,463 @@
+# 手动连接
+
+已知型号、左右手、适配器和设备地址时，使用 `HandDeviceConfig` 手动连接。
+所有完整示例只读取当前角度；将型号及参数改为实际值后使用。
+编译方式见[准备接口](prepare-interface.md#编译与链接前提)。
+
+| 型号 | `Model` | 关节数 | 默认通信与地址 |
+| --- | --- | ---: | --- |
+| L6 | `kL6` | 6 | Classic CAN，左 `0x28`，右 `0x27` |
+| O6 | `kO6` | 6 | Classic CAN，左 `0x28`，右 `0x27` |
+| L20 Lite | `kL20Lite` | 10 | Classic CAN，左 `0x28`，右 `0x27` |
+| L20 | `kL20` | 16 | Classic CAN，左 `0x28`，右 `0x27` |
+| L30 | `kL30` | 17 | 扩展 FD，NodeID 默认 1、HostID 默认 0 |
+| O30 | `kO30` | 20 | 标准 FD，无 BRS；HOP 请求 ID 默认 `0x001` |
+
+`interface_name` 是接口或连接标识，不是设备 CAN 地址。Classic CAN 的 `address` 如显式填写，
+必须与左右手推导出的固定 ID 一致；`host_address` 只用于 L30。
+C++ 当前没有 O20 型号，见[支持状态](../tutorials/o20.md)。
+
+<a id="socketcan"></a>
+
+## SocketCAN（Linux）
+
+先按[准备接口](prepare-interface.md)启用实际接口。Linux 上不传 factory 时，SDK 根据型号选取默认 SocketCAN transport。
+
+### 经典 CAN
+
+下面连接 L6 左手，其他 Classic 型号相应修改 `model`；右手改用 `kRight` 和 `0x27`。
+
+```cpp
+#include <chrono>
+#include <exception>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <linkerbot/hand/discovery.hpp>
+#include <linkerbot/hand/adapter_transport.hpp>
+
+using namespace linkerbot::hand;
+using namespace std::chrono_literals;
+
+// 无论读取成功还是异常，都尝试关闭同一个设备对象，并保留原始异常。
+void read_and_close(HandDevice &hand) {
+    std::exception_ptr failure;
+    try {
+        hand.open();
+        const auto angles = hand.get_angles(1s);
+        if (!angles.meta.valid) {
+            throw std::runtime_error("角度样本不可用");
+        }
+        if (angles.meta.stale) {
+            std::cerr << "角度样本已超过新鲜度窗口\n";
+        }
+        for (const auto value : angles.raw) {
+            std::cout << value << ' ';
+        }
+        std::cout << '\n';
+    } catch (...) {
+        failure = std::current_exception();
+    }
+    try {
+        hand.close();
+    } catch (const std::exception &error) {
+        if (!failure) {
+            throw;
+        }
+        std::cerr << "关闭连接失败：" << error.what() << '\n';
+    }
+    if (failure) {
+        std::rethrow_exception(failure);
+    }
+}
+
+int main() try {
+    HandDeviceConfig config;
+    config.model = Model::kL6;
+    config.side = HandSide::kLeft;
+    config.interface_name = "can0";
+    config.address = 0x28;
+    HandDevice hand(config);
+    read_and_close(hand);
+    return 0;
+} catch (const std::exception &error) {
+    std::cerr << error.what() << '\n';
+    return 1;
+}
+```
+
+### CAN FD
+
+下面连接 O30 右手。连接 L30 时，`model` 改为 `Model::kL30`，`address` 为实际 NodeID，
+可用 `host_address` 配置实际 HostID；`side` 按部署填写。两种设备使用不同帧格式，不能只替换地址。
+
+```cpp
+#include <chrono>
+#include <exception>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <linkerbot/hand/discovery.hpp>
+#include <linkerbot/hand/adapter_transport.hpp>
+
+using namespace linkerbot::hand;
+using namespace std::chrono_literals;
+
+// 无论读取成功还是异常，都尝试关闭同一个设备对象，并保留原始异常。
+void read_and_close(HandDevice &hand) {
+    std::exception_ptr failure;
+    try {
+        hand.open();
+        const auto angles = hand.get_angles(1s);
+        if (!angles.meta.valid) {
+            throw std::runtime_error("角度样本不可用");
+        }
+        if (angles.meta.stale) {
+            std::cerr << "角度样本已超过新鲜度窗口\n";
+        }
+        for (const auto value : angles.raw) {
+            std::cout << value << ' ';
+        }
+        std::cout << '\n';
+    } catch (...) {
+        failure = std::current_exception();
+    }
+    try {
+        hand.close();
+    } catch (const std::exception &error) {
+        if (!failure) {
+            throw;
+        }
+        std::cerr << "关闭连接失败：" << error.what() << '\n';
+    }
+    if (failure) {
+        std::rethrow_exception(failure);
+    }
+}
+
+int main() try {
+    HandDeviceConfig config;
+    config.model = Model::kO30;
+    config.side = HandSide::kRight;
+    config.interface_name = "can0";
+    config.address = 0x001;
+    HandDevice hand(config);
+    read_and_close(hand);
+    return 0;
+} catch (const std::exception &error) {
+    std::cerr << error.what() << '\n';
+    return 1;
+}
+```
+
+L6 可选 HOP 固件需显式设置 `config.l6_protocol = L6Protocol::kHopV004`，
+并核对对应地址、速率和能力；不能通过 FD 接口配置推断设备协议。
+详见[可选 HOP 接入](../guides/usage.md#l6-可选-can-fd-协议)。
+
+<a id="pcan-slcan"></a>
+
+## PCAN 与 SLCAN（Windows）
+
+仅修改 `interface_name` 不会自动选择适配器。必须传入对应 factory，或使用[自动连接](automatic.md)。
+
+### PCAN 经典 CAN
+
+库路径、通道及左右手按实际部署填写。下面连接 L6 左手：
+
+```cpp
+#include <chrono>
+#include <exception>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <linkerbot/hand/discovery.hpp>
+#include <linkerbot/hand/adapter_transport.hpp>
+
+using namespace linkerbot::hand;
+using namespace std::chrono_literals;
+
+// 无论读取成功还是异常，都尝试关闭同一个设备对象，并保留原始异常。
+void read_and_close(HandDevice &hand) {
+    std::exception_ptr failure;
+    try {
+        hand.open();
+        const auto angles = hand.get_angles(1s);
+        if (!angles.meta.valid) {
+            throw std::runtime_error("角度样本不可用");
+        }
+        if (angles.meta.stale) {
+            std::cerr << "角度样本已超过新鲜度窗口\n";
+        }
+        for (const auto value : angles.raw) {
+            std::cout << value << ' ';
+        }
+        std::cout << '\n';
+    } catch (...) {
+        failure = std::current_exception();
+    }
+    try {
+        hand.close();
+    } catch (const std::exception &error) {
+        if (!failure) {
+            throw;
+        }
+        std::cerr << "关闭连接失败：" << error.what() << '\n';
+    }
+    if (failure) {
+        std::rethrow_exception(failure);
+    }
+}
+
+int main() try {
+    linkerbot::can::PcanConfig pcan;
+    pcan.channel = linkerbot::can::pcan_channel_handle("PCAN_USBBUS1");
+    pcan.library_path = "C:/vendor/PCANBasic.dll";
+    pcan.nominal_bitrate = 1'000'000;
+    HandDeviceConfig config;
+    config.model = Model::kL6;
+    config.side = HandSide::kLeft;
+    config.interface_name = "pcan:PCAN_USBBUS1";
+    config.address = 0x28;
+    HandDevice hand(config, make_pcan_transport_factory(pcan));
+    read_and_close(hand);
+    return 0;
+} catch (const std::exception &error) {
+    std::cerr << error.what() << '\n';
+    return 1;
+}
+```
+
+### PCAN FD
+
+以下连接 L30。需使用支持 FD 的适配器，位时序应与实际总线匹配；默认 `PcanFdTiming`
+对应 80 MHz 时钟下的 1M/5M 配置，不能据此认定硬件已验收。
+
+```cpp
+#include <chrono>
+#include <exception>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <linkerbot/hand/discovery.hpp>
+#include <linkerbot/hand/adapter_transport.hpp>
+
+using namespace linkerbot::hand;
+using namespace std::chrono_literals;
+
+// 无论读取成功还是异常，都尝试关闭同一个设备对象，并保留原始异常。
+void read_and_close(HandDevice &hand) {
+    std::exception_ptr failure;
+    try {
+        hand.open();
+        const auto angles = hand.get_angles(1s);
+        if (!angles.meta.valid) {
+            throw std::runtime_error("角度样本不可用");
+        }
+        if (angles.meta.stale) {
+            std::cerr << "角度样本已超过新鲜度窗口\n";
+        }
+        for (const auto value : angles.raw) {
+            std::cout << value << ' ';
+        }
+        std::cout << '\n';
+    } catch (...) {
+        failure = std::current_exception();
+    }
+    try {
+        hand.close();
+    } catch (const std::exception &error) {
+        if (!failure) {
+            throw;
+        }
+        std::cerr << "关闭连接失败：" << error.what() << '\n';
+    }
+    if (failure) {
+        std::rethrow_exception(failure);
+    }
+}
+
+int main() try {
+    linkerbot::can::PcanConfig pcan;
+    pcan.channel = linkerbot::can::pcan_channel_handle("PCAN_USBBUS1");
+    pcan.library_path = "C:/vendor/PCANBasic.dll";
+    pcan.mode = linkerbot::can::PcanMode::kFd;
+    pcan.nominal_bitrate = 1'000'000;
+    pcan.data_bitrate = 5'000'000;
+    pcan.fd_timing = linkerbot::can::PcanFdTiming{};
+    HandDeviceConfig config;
+    config.model = Model::kL30;
+    config.side = HandSide::kLeft;
+    config.interface_name = "pcan:PCAN_USBBUS1";
+    config.address = 1;
+    config.host_address = 0;
+    HandDevice hand(config, make_pcan_transport_factory(pcan));
+    read_and_close(hand);
+    return 0;
+} catch (const std::exception &error) {
+    std::cerr << error.what() << '\n';
+    return 1;
+}
+```
+
+### SLCAN CAN FD
+
+示例使用兼容 CANable FD 扩展的固件连接 O30。`COM5`、左右手及地址替换为实际值。
+`serial_baud` 是串口速率，`nominal_bitrate` 和 `data_bitrate` 是总线速率。
+
+```cpp
+#include <chrono>
+#include <exception>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <linkerbot/hand/discovery.hpp>
+#include <linkerbot/hand/adapter_transport.hpp>
+
+using namespace linkerbot::hand;
+using namespace std::chrono_literals;
+
+// 无论读取成功还是异常，都尝试关闭同一个设备对象，并保留原始异常。
+void read_and_close(HandDevice &hand) {
+    std::exception_ptr failure;
+    try {
+        hand.open();
+        const auto angles = hand.get_angles(1s);
+        if (!angles.meta.valid) {
+            throw std::runtime_error("角度样本不可用");
+        }
+        if (angles.meta.stale) {
+            std::cerr << "角度样本已超过新鲜度窗口\n";
+        }
+        for (const auto value : angles.raw) {
+            std::cout << value << ' ';
+        }
+        std::cout << '\n';
+    } catch (...) {
+        failure = std::current_exception();
+    }
+    try {
+        hand.close();
+    } catch (const std::exception &error) {
+        if (!failure) {
+            throw;
+        }
+        std::cerr << "关闭连接失败：" << error.what() << '\n';
+    }
+    if (failure) {
+        std::rethrow_exception(failure);
+    }
+}
+
+int main() try {
+    linkerbot::can::SlcanConfig serial;
+    serial.port = "COM5";
+    serial.serial_baud = 115200;
+    serial.protocol = linkerbot::can::SlcanProtocol::kCanableFd;
+    serial.fd = true;
+    serial.brs = false;
+    serial.nominal_bitrate = 1'000'000;
+    serial.data_bitrate = 5'000'000;
+    HandDeviceConfig config;
+    config.model = Model::kO30;
+    config.side = HandSide::kRight;
+    config.interface_name = "slcan:COM5";
+    config.address = 0x001;
+    HandDevice hand(config, make_slcan_transport_factory(serial));
+    read_and_close(hand);
+    return 0;
+} catch (const std::exception &error) {
+    std::cerr << error.what() << '\n';
+    return 1;
+}
+```
+
+Classic Lawicel 固件使用 `SlcanProtocol::kLawicelClassic`、`fd = false`，并选择 Classic 型号。
+CANable FD 固件也可以承载 Classic 帧，此时同样令 `fd = false`。
+factory 需要提供 SLCAN 后端的配套 transport 库；串口并不会按 VID/PID 自动替换。
+
+<a id="minicanfd"></a>
+
+## MiniCANFD（Linux / Windows）
+
+下面连接 O30。Linux 使用实际设备编号、设备内通道和 `libcanbus.so` 路径；
+Windows 使用厂商通道编号作为 `device_index`，`channel_index = 0`，库路径改为实际 `HCanbus.dll`。
+手动连接只使用指定通道，不尝试其他设备或通道。
+
+```cpp
+#include <chrono>
+#include <exception>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <linkerbot/hand/discovery.hpp>
+#include <linkerbot/hand/adapter_transport.hpp>
+
+using namespace linkerbot::hand;
+using namespace std::chrono_literals;
+
+// 无论读取成功还是异常，都尝试关闭同一个设备对象，并保留原始异常。
+void read_and_close(HandDevice &hand) {
+    std::exception_ptr failure;
+    try {
+        hand.open();
+        const auto angles = hand.get_angles(1s);
+        if (!angles.meta.valid) {
+            throw std::runtime_error("角度样本不可用");
+        }
+        if (angles.meta.stale) {
+            std::cerr << "角度样本已超过新鲜度窗口\n";
+        }
+        for (const auto value : angles.raw) {
+            std::cout << value << ' ';
+        }
+        std::cout << '\n';
+    } catch (...) {
+        failure = std::current_exception();
+    }
+    try {
+        hand.close();
+    } catch (const std::exception &error) {
+        if (!failure) {
+            throw;
+        }
+        std::cerr << "关闭连接失败：" << error.what() << '\n';
+    }
+    if (failure) {
+        std::rethrow_exception(failure);
+    }
+}
+
+int main() try {
+    linkerbot::can::VendorCanFdTransport::Config mini;
+    mini.device_index = 0;
+    mini.channel_index = 0;
+    mini.library_path = "/opt/minicanfd/libcanbus.so";
+    mini.nom_baud = 1'000'000;
+    mini.dat_baud = 5'000'000;
+    HandDeviceConfig config;
+    config.model = Model::kO30;
+    config.side = HandSide::kRight;
+    config.interface_name = "minicanfd:0:0";
+    config.address = 0x001;
+    HandDevice hand(config, make_minicanfd_transport_factory(mini));
+    read_and_close(hand);
+    return 0;
+} catch (const std::exception &error) {
+    std::cerr << error.what() << '\n';
+    return 1;
+}
+```
+
+## 打开、关闭与后续操作
+
+构造 `HandDevice` 或 factory 不代表连接已打开。`open()` 核验身份和基础状态后才能控制；
+调用 `close()` 结束连接。上面每个程序的 `read_and_close()` 在读取失败时也尝试关闭，
+不会将读取失败当作成功。关闭失败时，长期运行的程序应保留同一个对象，排除故障后重试关闭。
+
+功能代码放在 `open()` 成功之后、`close()` 之前；参阅
+[L6](../tutorials/l6.md)、[O6](../tutorials/o6.md)、[L20 Lite](../tutorials/l20lite.md)、
+[L20](../tutorials/l20.md)、[L30](../tutorials/l30.md)、[O30](../tutorials/o30.md)。
+型号 Manager 通常在型号对象构造时建立资源，结束使用 `stop()`，与统一层生命周期不同；
+不要让两种对象同时控制同一台设备。
+
+[返回文档总览](../README.md)

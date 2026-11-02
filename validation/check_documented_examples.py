@@ -17,11 +17,15 @@ root = Path(__file__).resolve().parents[1]
 documents = {
     "readme": "README.md",
     "readme-en": "README.en.md",
-    "windows": "docs/windows.md",
-    "usage": "docs/usage.md",
-    "model-capabilities": "docs/model-capabilities.md",
-    "windows-adapter": "docs/windows-adapters.md",
 }
+for language in ("zh", "en"):
+    for document, relative in {
+        "windows": "guides/windows.md",
+        "usage": "guides/usage.md",
+        "model-capabilities": "reference/model-capabilities.md",
+        "windows-adapter": "connections/windows-adapters.md",
+    }.items():
+        documents[f"{language}-{document}"] = f"docs/{language}/{relative}"
 units = {}
 for document, relative in documents.items():
     snippets = re.findall(r"```cpp\n(.*?)```", (root / relative).read_text(encoding='utf-8'), re.S)

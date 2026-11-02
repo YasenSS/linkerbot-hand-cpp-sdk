@@ -13,7 +13,7 @@
 
 默认入口按表中顺序组合 backend，并共享同一个 `total_timeout`。单个 backend、通道
 或适配器失败不会丢弃其他 backend 已经发现的候选。
-L6 的可选 HOP CAN FD 协议当前不参与自动发现，需按[可选协议说明](usage.md#l6-可选-can-fd-协议)显式配置连接。
+L6 的可选 HOP CAN FD 协议当前不参与自动发现，需按[可选协议说明](../guides/usage.md#l6-可选-can-fd-协议)显式配置连接。
 
 ## 选择 backend、通道和自定义 source
 
@@ -194,7 +194,7 @@ PCAN/SLCAN 原有枚举器和 Transport factory 注入接口继续可用。
 默认 Lawicel Classic 配置只接受 `probe_protocols={TransportKind::kCan}`，不支持 FD/BRS。
 使用 CANable FD 固件时，显式设置 `config.slcan.protocol=SLCANProtocol::kCanableFd`，
 可选择 Classic 或 CAN FD 探测，并设置实际 nominal/data bitrate；FD 扩展需配套 comm
-提供 `LINKERBOT_COMM_SLCAN_FD=1`。协议与配置示例见 [适配器接入](windows-adapters.md)。
+提供 `LINKERBOT_COMM_SLCAN_FD=1`。协议与配置示例见 [适配器接入](../connections/windows-adapters.md)。
 旧版 comm 缺少 SLCAN 后端时返回 `backend_unavailable`。
 
 ```cpp
@@ -209,7 +209,7 @@ auto report = discover_hands(config);
 
 不扫描其他 COM 口；候选 factory 捕获上述配置，不受随后修改 config 影响。
 PCAN、SLCAN 与 MiniCANFD 的 PowerShell 只读步骤、
-完整 FD 时序和六型号注入方式见 [Windows 适配器接入](windows-adapters.md)。
+完整 FD 时序和六型号注入方式见 [Windows 适配器接入](../connections/windows-adapters.md)。
 
 ## 失败诊断
 
@@ -255,5 +255,5 @@ for (const auto &failure : report.failures()) {
   基线。身份不一致时不会进入 Ready，也不会接纳控制命令。
 
 真实适配器验收步骤和证据模板见
-[实机验收中的设备发现检查](hardware-acceptance/README.md#设备发现检查)；
+[实机验收中的设备发现检查](../../hardware-acceptance/README.md#设备发现检查)；
 发行包使用者可在源码仓库的 `docs/hardware-acceptance/README.md` 查看该清单。

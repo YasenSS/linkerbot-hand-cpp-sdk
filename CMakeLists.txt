@@ -124,10 +124,18 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/linkerbot-hand-cpp-config.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/linkerbot-hand-cpp-config-version.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/linkerbot-hand-cpp)
 install(FILES LICENSE README.md README.en.md NOTICE CHANGELOG.md CONTRIBUTING.md
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp)
-install(FILES docs/README.md docs/COMPATIBILITY.md docs/windows.md docs/usage.md
-    docs/model-capabilities.md docs/windows-adapters.md docs/hand-device-discovery.md
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp/docs)
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp
+    COMPONENT Documentation)
+install(FILES docs/README.md docs/README.en.md
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp/docs
+    COMPONENT Documentation)
+install(DIRECTORY docs/zh docs/en docs/hardware-acceptance
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp/docs
+    COMPONENT Documentation
+    FILES_MATCHING PATTERN "*.md")
+install(FILES tests/hand/device/hardware/README.md
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp/tests/hand/device/hardware
+    COMPONENT Documentation)
 install(FILES validation/installed-consumer/CMakeLists.txt validation/installed-consumer/main.cpp
     DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp/validation/installed-consumer)
 install(FILES validation/fake_classic_hand.hpp
