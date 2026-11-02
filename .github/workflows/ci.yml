@@ -89,12 +89,12 @@ jobs:
             --compiler g++-13
 
       - name: Install SDK for public header checks
-        if: matrix.build_type == 'Release'
+        if: matrix.build_type == 'Release' && github.event_name != 'pull_request'
         working-directory: hand-cpp
         run: cmake --install build
 
       - name: Check installed public headers
-        if: matrix.build_type == 'Release'
+        if: matrix.build_type == 'Release' && github.event_name != 'pull_request'
         working-directory: hand-cpp
         run: |
           python3 validation/check_headers.py \
@@ -104,7 +104,7 @@ jobs:
             --output "${RUNNER_TEMP}/header-check.json"
 
       - name: Compile documented asynchronous examples
-        if: matrix.build_type == 'Release'
+        if: matrix.build_type == 'Release' && github.event_name != 'pull_request'
         working-directory: hand-cpp
         run: |
           python3 validation/check_documented_examples.py \
@@ -112,14 +112,14 @@ jobs:
             --build-dir build-documented-examples
 
       - name: Check package and source dependency versions
-        if: matrix.build_type == 'Release'
+        if: matrix.build_type == 'Release' && github.event_name != 'pull_request'
         working-directory: hand-cpp/build
         run: |
           cmake -DHAND_PREFIX="${RUNNER_TEMP}/linkerbot-sdk" \
             -P ../validation/check_package_compatibility.cmake
 
       - name: Build and run installed consumer without optional drivers
-        if: matrix.build_type == 'Release'
+        if: matrix.build_type == 'Release' && github.event_name != 'pull_request'
         working-directory: hand-cpp
         run: |
           cmake -S validation/installed-consumer \
@@ -131,14 +131,13 @@ jobs:
             --output-on-failure --timeout 120
 
   windows-discovery:
-    name: Windows x64 / ${{ matrix.configuration }} / ${{ matrix.suite }}
+    name: Windows x64 / ${{ matrix.configuration }}
     runs-on: windows-2022
     timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:
         configuration: [Debug, Release]
-        suite: [no-drivers, native-loader]
     defaults:
       run:
         shell: pwsh
@@ -162,26 +161,30 @@ jobs:
       - name: Install fixed CMake and record Windows tools
         run: ./hand-cpp/validation/setup_windows.ps1
 
-      - name: Validate standalone comm, hand and release packages
+      # Both suites share these build trees. PRs stop after tests; pushes to the
+      # main branch retain full installation and release-package acceptance.
+      - name: Build once and validate both test suites
         run: |
+          $QuickArgs = @()
+          if ('${{ github.event_name }}' -eq 'pull_request') { $QuickArgs += '--quick' }
           python hand-cpp/validation/run_release_validation.py `
             --comm-source linkerbot-transport-cpp `
-            --work-dir "${{ runner.temp }}/windows-${{ matrix.configuration }}-${{ matrix.suite }}" `
-            --config ${{ matrix.configuration }} --suite ${{ matrix.suite }} `
+            --work-dir "${{ runner.temp }}/windows-${{ matrix.configuration }}" `
+            --config ${{ matrix.configuration }} --suite all `
             --generator 'Visual Studio 17 2022' --architecture x64 --toolset 'v143,version=14.44' `
-            --comm-sha '${{ env.COMM_REF }}' --hand-sha '${{ github.sha }}' --allow-downloads
+            --comm-sha '${{ env.COMM_REF }}' --hand-sha '${{ github.sha }}' --allow-downloads @QuickArgs
           if ($LASTEXITCODE -ne 0) { throw 'Windows release validation failed' }
 
       - name: Save build, test, consumer and package evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: windows-x64-${{ matrix.configuration }}-${{ matrix.suite }}
+          name: windows-x64-${{ matrix.configuration }}
           if-no-files-found: error
           path: |
-            ${{ runner.temp }}/windows-${{ matrix.configuration }}-${{ matrix.suite }}/evidence/
-            ${{ runner.temp }}/windows-${{ matrix.configuration }}-${{ matrix.suite }}/packages/*/*.zip
-            ${{ runner.temp }}/windows-${{ matrix.configuration }}-${{ matrix.suite }}/packages/*/*.sha256
+            ${{ runner.temp }}/windows-${{ matrix.configuration }}/evidence/
+            ${{ runner.temp }}/windows-${{ matrix.configuration }}/packages/*/*.zip
+            ${{ runner.temp }}/windows-${{ matrix.configuration }}/packages/*/*.sha256
 
   sanitizers:
     name: ASan and UBSan

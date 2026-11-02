@@ -7,6 +7,7 @@ param(
     [string]$Suite = 'all',
     [string]$CommSource = (Join-Path $PSScriptRoot '../../linkerbot-transport-cpp'),
     [string]$PythonExecutable = 'python',
+    [switch]$Quick,
     [ValidateRange(1, 64)]
     [int]$Jobs = 4
 )
@@ -39,13 +40,15 @@ try {
     # on Windows hosts that still enforce the traditional MAX_PATH limit.
     $RunRoot = Join-Path $Root ('build/wci-' + [guid]::NewGuid().ToString('N').Substring(0, 12))
     $Configurations = if ($Configuration -eq 'Both') { @('Debug', 'Release') } else { @($Configuration) }
+    $QuickArgs = @()
+    if ($Quick) { $QuickArgs += '--quick' }
     foreach ($Config in $Configurations) {
         $Work = Join-Path $RunRoot $Config
         Write-Host "Windows x64 / $Config / $Suite; evidence: $Work/evidence"
         & $Python (Join-Path $PSScriptRoot 'run_release_validation.py') `
             --comm-source $CommSource --work-dir $Work --config $Config --suite $Suite `
             --generator 'Visual Studio 17 2022' --architecture x64 --toolset v143 `
-            --allow-downloads --jobs $Jobs
+            --allow-downloads --jobs $Jobs @QuickArgs
         if ($LASTEXITCODE -ne 0) { throw "Validation failed; see $Work/evidence/summary.json" }
     }
     Write-Host "Windows validation passed. Evidence: $RunRoot"

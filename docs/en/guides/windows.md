@@ -43,6 +43,9 @@ Install Windows Python 3.9+ in addition to the build tools, then run from the
 repository root in a regular PowerShell:
 
 ```powershell
+# Daily checks: build once, run offline and DLL loader tests, skip install/package.
+./validation/run_windows_ci.ps1 -Quick
+# Full installation and release-package acceptance:
 ./validation/run_windows_ci.ps1
 # Check both Debug and Release:
 ./validation/run_windows_ci.ps1 -Configuration Both
@@ -54,8 +57,11 @@ The script locates VS 2022 and CMake automatically. By default it runs all Windo
 Release checks: transport and SDK offline tests, fixture DLL loading, installed
 consumers, documented examples, and ZIP package audits. No hardware or vendor
 drivers are needed. The first run downloads Catch2. Each run uses a fresh directory
-under `build/windows-validation-*/<configuration>/evidence/` and can test uncommitted
-changes. To reproduce CI, use the transport commit specified above. Local runs use
+under `build/wci-*/<configuration>/evidence/` and can test uncommitted
+changes. GitHub PRs use quick checks; pushes to the main branch and release workflows
+retain full acceptance. Each Windows configuration builds once before running both
+test suites. Use `-PythonExecutable` to select an interpreter if `python` resolves
+to a Store alias. To reproduce CI, use the transport commit specified above. Local runs use
 the installed v143 toolset; remote CI pins CMake 3.31.8 and MSVC 14.44. Linux GCC
 and ASan/UBSan jobs require Linux (for example WSL2) and are not run by this script.
 

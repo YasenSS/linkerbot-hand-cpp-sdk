@@ -42,6 +42,9 @@ Windows 不使用 `can0` 或 Linux 的 `ip link` 命令。
 另外安装 Windows Python 3.9+，在仓库根目录的普通 PowerShell 中执行：
 
 ```powershell
+# 日常快速验证：编译一次，运行离线和 DLL 加载两组测试，不安装或打包。
+./validation/run_windows_ci.ps1 -Quick
+# 完整安装与发布包验收：
 ./validation/run_windows_ci.ps1
 # 同时检查 Debug 和 Release：
 ./validation/run_windows_ci.ps1 -Configuration Both
@@ -52,7 +55,10 @@ Windows 不使用 `can0` 或 Linux 的 `ip link` 命令。
 脚本自动寻找 VS 2022 和 CMake，默认运行 Release 的全部 Windows 验证，包含
 通信库与 SDK 离线测试、模拟 DLL 加载测试、安装消费、文档示例编译及 ZIP 打包审计。
 不需要手或厂商驱动；首次运行会下载 Catch2。日志与结果保存在
-`build/windows-validation-*/<配置>/evidence/`，每次使用新目录，可验证未提交的本地修改。
+`build/wci-*/<配置>/evidence/`，每次使用新目录，可验证未提交的本地修改。
+GitHub PR 使用快速验证；推送到主分支及发布工作流保留完整验收。Windows 每个配置
+只构建一次，然后运行两组测试。若 `python` 指向商店别名，可通过 `-PythonExecutable`
+指定实际的 Python 路径。
 复现 CI 时请使用本文指定的 transport 提交；本地脚本使用已安装的 v143 工具集，
 远程 CI 则固定 CMake 3.31.8 和 MSVC 14.44。Linux GCC 与 ASan/UBSan 任务需要 Linux
 环境（例如 WSL2），不能直接由此 Windows 脚本执行。

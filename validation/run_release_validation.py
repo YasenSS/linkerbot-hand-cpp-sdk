@@ -20,6 +20,8 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--comm-source', type=Path, required=True)
 parser.add_argument('--work-dir', type=Path, required=True)
 parser.add_argument('--suite', choices=['all', 'no-drivers', 'native-loader'], default='all')
+parser.add_argument('--quick', action='store_true',
+                    help='Build and test only; skip installation, packaging and release acceptance')
 parser.add_argument('--comm-sha', help='Require a clean comm checkout at this full SHA')
 parser.add_argument('--hand-sha', help='Require a clean hand checkout at this full SHA')
 parser.add_argument('--catch2-dir', type=Path)
@@ -42,6 +44,7 @@ os.environ['PYTHONUTF8'] = '1'
 os.environ.pop('LINKERBOT_CANFD_LIB', None)
 os.environ.pop('LINKERBOT_PCAN_LIB', None)
 report = {'configuration': args.config, 'suite': args.suite, 'platform': sys.platform,
+          'quick': args.quick,
           'steps': [], 'sources': {}, 'status': 'running', 'require_slcan': args.require_slcan,
           'package_format': args.package_format}
 relocations = []
@@ -184,8 +187,10 @@ try:
     configure('hand-configure', hand, hand_build, [*common, f'-DLINKERBOT_COMM_SOURCE_DIR={comm}',
                '-DLINKERBOT_COMM_BUILD_TESTS=OFF', '-DLINKERBOT_COMM_BUILD_EXAMPLES=OFF',
                '-DLINKERBOT_BUILD_TESTS=ON', '-DLINKERBOT_BUILD_EXAMPLES=ON', '-DLINKERBOT_BUILD_TOOLS=ON'])
-    build('hand-build', hand_build,
-          ['linkerbot-cpp-sdk', 'example', 'windows_readonly', 'l6_hop_readonly', 'tests', 'protocol-tests'])
+    hand_targets = ['linkerbot-cpp-sdk', 'windows_readonly', 'l6_hop_readonly', 'tests', 'protocol-tests']
+    if not args.quick:
+        hand_targets.append('example')
+    build('hand-build', hand_build, hand_targets)
     if args.suite in ['all', 'no-drivers']:
         ctest('comm-no-drivers', comm_build, minimum=30, native=False)
         ctest('hand-no-drivers', hand_build,
@@ -198,7 +203,7 @@ try:
     if args.suite in ['all', 'native-loader']:
         ctest('comm-native-loader', comm_build, required=['pcan-native-loader', 'vendor-native-loader'], native=True)
         ctest('hand-native-loader', hand_build, required=['adapter-native-integration'], native=True)
-    if args.suite in ['all', 'no-drivers']:
+    if not args.quick and args.suite in ['all', 'no-drivers']:
         # A comm-only installation is consumed before any hand package exists.
         comm_prefix = work / 'comm-only-install'
         run('comm-install', ['cmake', '--install', comm_build, '--config', args.config, '--prefix', comm_prefix])
