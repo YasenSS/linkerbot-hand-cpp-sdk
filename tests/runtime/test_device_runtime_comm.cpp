@@ -1038,6 +1038,31 @@ TEST_CASE("comm: optional feedback waits after receipt and never claims an ACK",
     REQUIRE(rig.runtime->runtime_health().in_flight == 0);
 }
 
+TEST_CASE("comm: optional feedback received after send acceptance updates the cache", "[comm][runtime]") {
+    Rig rig;
+    auto optional = plan();
+    // Observation by the test thread is independent of the production 5ms
+    // best-effort window. Keep this transaction open until its injected reply.
+    optional.optional_response_window = 1s;
+    optional.poison_on_timeout = false;
+    auto request = rig.runtime->submit(optional, Clock::now() + 2s);
+    const auto receipt = request.wait_sent_until(Clock::now() + 1s);
+    REQUIRE(receipt.sent_frames == 1);
+    REQUIRE_FALSE(request.completed());
+    Message reply;
+    reply.id = 0x28;
+    reply.dlc = 7;
+    reply.data = {1, 0, 51, 102, 153, 204, 255};
+    rig.fake->inject(reply);
+    const auto sample = request.wait();
+    REQUIRE(sample.valid);
+    const auto cached = rig.runtime->snapshot(optional.domain);
+    REQUIRE(cached.has_value());
+    REQUIRE(cached->valid);
+    REQUIRE(cached->sequence == sample.sequence);
+    REQUIRE(rig.runtime->runtime_health().in_flight == 0);
+}
+
 TEST_CASE("comm: dynamic polling waits and nested waits stop through runtime cancellation",
           "[comm][runtime][lifecycle]") {
     Rig rig;

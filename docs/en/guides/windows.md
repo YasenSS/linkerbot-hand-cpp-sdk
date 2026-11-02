@@ -37,6 +37,28 @@ Building requires neither a vendor development package nor Catch2. `--help` does
 For actual enumeration and read-only connections, follow the [Adapter integration steps](../connections/windows-adapters.md#2-select-an-adapter-and-read).
 Windows does not use `can0` or the Linux `ip link` commands.
 
+## Running Windows CI locally
+
+Install Windows Python 3.9+ in addition to the build tools, then run from the
+repository root in a regular PowerShell:
+
+```powershell
+./validation/run_windows_ci.ps1
+# Check both Debug and Release:
+./validation/run_windows_ci.ps1 -Configuration Both
+# Select a transport source checkout and test suite:
+./validation/run_windows_ci.ps1 -CommSource ../linkerbot-transport-cpp -Suite no-drivers
+```
+
+The script locates VS 2022 and CMake automatically. By default it runs all Windows
+Release checks: transport and SDK offline tests, fixture DLL loading, installed
+consumers, documented examples, and ZIP package audits. No hardware or vendor
+drivers are needed. The first run downloads Catch2. Each run uses a fresh directory
+under `build/windows-validation-*/<configuration>/evidence/` and can test uncommitted
+changes. To reproduce CI, use the transport commit specified above. Local runs use
+the installed v143 toolset; remote CI pins CMake 3.31.8 and MSVC 14.44. Linux GCC
+and ASan/UBSan jobs require Linux (for example WSL2) and are not run by this script.
+
 ## Installation and application integration
 
 From the SDK source root, install into your own development directory:

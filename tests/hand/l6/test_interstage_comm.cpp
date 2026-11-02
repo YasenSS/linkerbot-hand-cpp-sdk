@@ -475,6 +475,9 @@ TEST_CASE("comm: L6 attributes a late nested angle timeout and aborts tactile", 
     plan.angle_enabled = plan.tactile_enabled = true;
     plan.angle_period = 1ms;
     plan.tactile_period = 500ms;
+    // Keep the timed-out key guarded while the test thread observes the timeout
+    // and injects its reply; the production 5ms default is not a test handshake.
+    plan.late_response_guard = 2s;
     plan.interstage.max_angle_transactions = 1;
     plan.interstage.angle_budget = 2ms;
     plan.interstage.request_timeout = 2ms;

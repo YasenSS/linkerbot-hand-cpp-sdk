@@ -214,6 +214,35 @@ TEST_CASE("comm: L30 terminal tactile device error permits next transaction", "[
     raw->on_request(l30_comm::request_id(2, 1, 0), l30_comm::tactile_handler(l30_comm::tactile_ramp()));
     REQUIRE_NOTHROW(hand.force_sensor.get_finger(Finger::kThumb, 500ms));
 }
+TEST_CASE("comm: L30 plan replacement drains an in-flight read without poisoning its response ID",
+          "[comm][l30][runtime-migration]") {
+    auto fake = std::make_unique<FakeTransport>();
+    auto *raw = fake.get();
+    raw->on_request(l30_comm::query_id(protocol::kSubPosition),
+                    l30_comm::i16_handler(l30_comm::filled_i16(42)));
+    L30 hand(std::move(fake), 1, 0, false);
+    raw->arm_tx_gate();
+    hand.start_polling({{SensorSource::kAngle, 10s}});
+    const auto entered = raw->wait_until_tx_entered(500ms);
+    auto replacement = std::async(std::launch::async, [&] {
+        hand.start_polling({{SensorSource::kAngle, 20s}});
+    });
+    const auto replacing = replacement.wait_for(20ms);
+    // Release before any assertion so a failing test cannot strand the writer.
+    raw->release_tx_gate();
+    replacement.get();
+    const auto received = eventually([&] {
+        const auto sample = hand.runtime()->snapshot("l30.angle");
+        return raw->sent().size() >= 2 && sample && sample->valid;
+    });
+    const auto cancelled = hand.runtime_health().cancelled;
+    hand.stop_polling();
+    REQUIRE(entered);
+    REQUIRE(replacing == std::future_status::timeout);
+    REQUIRE(received);
+    REQUIRE(cancelled == 0);
+}
+
 TEST_CASE("comm: L30 Runtime constructor binds the selected endpoint and rejects mismatches",
           "[comm][l30][runtime-migration]") {
     auto session = linkerbot::transport::Session::own(std::make_unique<FakeTransport>());
