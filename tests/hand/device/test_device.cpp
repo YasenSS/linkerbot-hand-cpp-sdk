@@ -3369,6 +3369,9 @@ TEST_CASE("Close terminates claimed and pending setters within its shutdown budg
         DYNAMIC_SECTION("model " << static_cast<int>(model)) {
             auto config = config_for(model);
             config.command_timeout = std::chrono::seconds{3};
+            // Opening/reopening builds a multi-frame baseline on Windows. It is
+            // outside the shutdown timing contract exercised by the gated write.
+            config.transaction_timeout = std::chrono::seconds{1};
             config.shutdown_timeout = std::chrono::milliseconds{80};
             FakeTransport *transport = nullptr;
             std::shared_ptr<o30_comm::HopEndpoint> hop;

@@ -1,4 +1,5 @@
 #include "hand/support/throw_as.hpp"
+#include "../../src/hand/unified/detail/runtime_access.hpp"
 #include <algorithm>
 #include <atomic>
 #include <catch2/catch_test_macros.hpp>
@@ -1010,6 +1011,30 @@ TEST_CASE("comm: named composites preserve unrelated progress and bound nested r
     const auto began = Clock::now();
     REQUIRE_THROWS_AS(rig.runtime->execute(plan(), began + 5s), linkerbot::hand::TimeoutError);
     REQUIRE(Clock::now() - began < 500ms);
+}
+
+TEST_CASE("comm: completed send-only requests retain their send receipt", "[comm][runtime]") {
+    std::atomic<unsigned> observed{0};
+    Rig rig;
+    for (unsigned index = 0; index < 100; ++index) {
+        auto send_only = plan();
+        send_only.consume = {};
+        send_only.optional_response_window.reset();
+        linkerbot::hand::unified_detail::RuntimeAccess::execute_command(
+            *rig.runtime, Clock::now() + 2s, true,
+            [&](const auto &, bool) { ++observed; }, [](const auto &) { return true; }, {}, [&] {
+                auto request = rig.runtime->submit(send_only, Clock::now() + 2s);
+                (void)request.wait_sent_until(Clock::now() + 1s);
+                REQUIRE(observed == index + 1);
+                // Terminal completion must also retain the physical receipt.
+                (void)request.wait_until(Clock::now() + 1s);
+                const auto sent = request.wait_sent_until(Clock::now() + 1s);
+                REQUIRE(sent.outcome == linkerbot::transport::SendOutcome::dispatched);
+                REQUIRE(sent.sent_frames == 1);
+                REQUIRE_FALSE(sent.error);
+            });
+    }
+    REQUIRE(rig.runtime->runtime_health().sent_frames == 100);
 }
 
 TEST_CASE("comm: optional feedback waits after receipt and never claims an ACK", "[comm][runtime]") {

@@ -767,6 +767,12 @@ namespace linkerbot::hand::runtime {
                 if (state->done) {
                     return;
                 }
+                // The writer can finish between reap_locked's receipt checks.
+                // Publish the receipt before publishing successful completion,
+                // even if the earlier harvest observed the send as pending.
+                if (state->receipt && state->receipt->completed()) {
+                    state->sent_result = state->receipt->result();
+                }
                 state->error = error;
                 if (!error && state->response) {
                     state->result = *state->response;
@@ -834,6 +840,10 @@ namespace linkerbot::hand::runtime {
             const auto requests = pending;
             for (const auto &state : requests) {
                 if (state->receipt && state->receipt->completed()) {
+                    // Completion may race the initial harvest above. Deliver
+                    // the facade's send observer before waking native callers;
+                    // otherwise they can return before their handle is Dispatched.
+                    reap_sends_locked();
                     sync_command_receipt_locked(*state);
                     std::lock_guard<std::mutex> request_lock(state->mutex);
                     state->sent_result = state->receipt->result();
