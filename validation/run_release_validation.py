@@ -10,6 +10,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from build_support import add_build_arguments, cmake_options, validation_options
@@ -43,6 +44,7 @@ os.environ.pop('LINKERBOT_PCAN_LIB', None)
 report = {'configuration': args.config, 'suite': args.suite, 'platform': sys.platform,
           'steps': [], 'sources': {}, 'status': 'running', 'require_slcan': args.require_slcan,
           'package_format': args.package_format}
+relocations = []
 if args.require_slcan and not (comm / 'include/linkerbot/can/slcan_transport.hpp').is_file():
     parser.error('--require-slcan needs a matching stage-B comm revision')
 
@@ -139,7 +141,12 @@ def package(name, directory, kind):
     if len(archives) != 1:
         raise RuntimeError(f'{name}: expected exactly one {args.package_format} archive')
     archive = archives[0]
-    relocated = work / ('解压 SDK with spaces ' + name)
+    # A package root already includes version/toolchain/configuration. Keep its
+    # relocation outside a potentially deep workspace so MSVC relative includes
+    # also fit MAX_PATH. Still exercise Unicode and spaces in the install prefix.
+    relocation = tempfile.TemporaryDirectory(prefix='解压 SDK ')
+    relocations.append(relocation)
+    relocated = Path(relocation.name) / name
     prefix, actual = unpack_archive(archive, relocated)
     sources = {key: {**report['sources'][key], 'path': path}
                for key, path in [('hand', hand), ('comm', comm)]}
@@ -177,7 +184,8 @@ try:
     configure('hand-configure', hand, hand_build, [*common, f'-DLINKERBOT_COMM_SOURCE_DIR={comm}',
                '-DLINKERBOT_COMM_BUILD_TESTS=OFF', '-DLINKERBOT_COMM_BUILD_EXAMPLES=OFF',
                '-DLINKERBOT_BUILD_TESTS=ON', '-DLINKERBOT_BUILD_EXAMPLES=ON', '-DLINKERBOT_BUILD_TOOLS=ON'])
-    build('hand-build', hand_build, ['linkerbot-cpp-sdk', 'example', 'windows_readonly', 'tests', 'protocol-tests'])
+    build('hand-build', hand_build,
+          ['linkerbot-cpp-sdk', 'example', 'windows_readonly', 'l6_hop_readonly', 'tests', 'protocol-tests'])
     if args.suite in ['all', 'no-drivers']:
         ctest('comm-no-drivers', comm_build, minimum=30, native=False)
         ctest('hand-no-drivers', hand_build,
@@ -185,7 +193,8 @@ try:
                         'windows_readonly_help', 'windows_readonly_invalid',
                         'windows_readonly_slcan_fd', 'windows_readonly_slcan_allowlist',
                         'windows_readonly_slcan_uart', 'windows_readonly_slcan_fd_rate',
-                        'windows_readonly_slcan_profile', 'windows_readonly_slcan_startup'], native=False)
+                        'windows_readonly_slcan_profile', 'windows_readonly_slcan_startup',
+                        'l6_hop_readonly_help', 'l6_hop_readonly_invalid'], native=False)
     if args.suite in ['all', 'native-loader']:
         ctest('comm-native-loader', comm_build, required=['pcan-native-loader', 'vendor-native-loader'], native=True)
         ctest('hand-native-loader', hand_build, required=['adapter-native-integration'], native=True)
@@ -216,9 +225,12 @@ try:
             '--prefix', paired_prefix, '--build-dir', work / 'documented-examples', *validation_options(args)])
         generator = [f'-DVALIDATION_{name.upper()}={getattr(args, name)}'
                      for name in ['generator', 'architecture', 'toolset'] if getattr(args, name)]
+        # CMake try_compile adds several nested directories below its cwd.
+        compatibility = tempfile.TemporaryDirectory(prefix='lb-compat-')
+        relocations.append(compatibility)
         run('package-compatibility', ['cmake', f'-DHAND_PREFIX={paired_prefix}',
             f'-DHAND_VERSION={report["sources"]["hand"]["version"]}', *generator,
-            '-P', hand / 'validation/check_package_compatibility.cmake'], cwd=work)
+            '-P', hand / 'validation/check_package_compatibility.cmake'], cwd=compatibility.name)
     if report.get('packages'):
         manifest = {'version': report['sources']['hand']['version'], 'configuration': args.config,
                     'platform': sys.platform, 'format': args.package_format,
@@ -233,6 +245,8 @@ except Exception as error:
     report['error'] = str(error)
     print(str(error), file=sys.stderr)
 finally:
+    for relocation in relocations:
+        relocation.cleanup()
     for directory in [work / 'comm-build', work / 'hand-build']:
         for relative in ['CMakeCache.txt', 'Testing/Temporary/LastTest.log']:
             source = directory / relative

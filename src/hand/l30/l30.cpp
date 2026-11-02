@@ -227,8 +227,6 @@ namespace linkerbot::hand::l30 {
         if (stopped_) {
             throw ClosedError("L30 is stopped");
         }
-        stop_polling_locked();
-
         auto effective = intervals;
         if (effective.empty()) {
             effective = {{SensorSource::kAngle, kDefaultPollInterval}};
@@ -270,6 +268,8 @@ namespace linkerbot::hand::l30 {
             };
             tasks.push_back(std::move(task));
         }
+        // Runtime replaces the workers after bounded in-flight reads finish.
+        // An explicit stop here would cancel them and poison L30 response IDs.
         runtime()->start_polling(std::move(tasks));
     }
 

@@ -37,6 +37,26 @@ if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
 实际枚举和只读连接按[适配器接入步骤](../connections/windows-adapters.md#2-选择适配器并读取)执行。
 Windows 不使用 `can0` 或 Linux 的 `ip link` 命令。
 
+## 本地运行 Windows CI
+
+另外安装 Windows Python 3.9+，在仓库根目录的普通 PowerShell 中执行：
+
+```powershell
+./validation/run_windows_ci.ps1
+# 同时检查 Debug 和 Release：
+./validation/run_windows_ci.ps1 -Configuration Both
+# 使用指定的通信库源码：
+./validation/run_windows_ci.ps1 -CommSource ../linkerbot-transport-cpp -Suite no-drivers
+```
+
+脚本自动寻找 VS 2022 和 CMake，默认运行 Release 的全部 Windows 验证，包含
+通信库与 SDK 离线测试、模拟 DLL 加载测试、安装消费、文档示例编译及 ZIP 打包审计。
+不需要手或厂商驱动；首次运行会下载 Catch2。日志与结果保存在
+`build/windows-validation-*/<配置>/evidence/`，每次使用新目录，可验证未提交的本地修改。
+复现 CI 时请使用本文指定的 transport 提交；本地脚本使用已安装的 v143 工具集，
+远程 CI 则固定 CMake 3.31.8 和 MSVC 14.44。Linux GCC 与 ASan/UBSan 任务需要 Linux
+环境（例如 WSL2），不能直接由此 Windows 脚本执行。
+
 ## 安装与应用接入
 
 在 SDK 源码根目录安装到自己的开发目录：

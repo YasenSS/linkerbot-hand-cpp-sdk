@@ -268,7 +268,8 @@ TEST_CASE("comm: L6 scheduler skips overdue periods instead of bursting", "[comm
     plan.angle_period = std::chrono::microseconds{5'000};
     plan.request_timeout = std::chrono::milliseconds{40};
     hand.start_polling(plan);
-    std::this_thread::sleep_for(std::chrono::milliseconds{50});
+    // Worker startup and the first timeout need not fit inside a 50ms sleep.
+    wait_for_stats([&] { return hand.get_runtime_stats().skipped_deadline_count >= 1; });
     hand.stop_polling();
     REQUIRE(hand.get_runtime_stats().skipped_deadline_count >= 1);
     REQUIRE(count_opcode(raw->sent(), 0x01, 1) < 8);
