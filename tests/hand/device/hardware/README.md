@@ -27,7 +27,7 @@ sudo ip link set can0 up
 ```
 
 O30 也需要 CAN FD，但使用标准帧且不使用 BRS；速率按适配器与固件配置，见
-[SDK 连接说明](../../../../docs/usage.md#连接-can-总线)。
+[SDK 连接说明](../../../../docs/zh/guides/usage.md#连接-can-总线)。
 
 Windows 的 PCAN Classic/FD、MiniCANFD 参数、PowerShell 命令及证据要求见
 [Windows 真机验收步骤](../../../../docs/hardware-acceptance/windows.md)。同一套测试通过
@@ -300,4 +300,4 @@ CANable 固件继续用 canable-fd。可选 `HAND_DEVICE_SERIAL_STARTUP_MS=100`�
 Windows 设置相同环境变量，CHANNEL 改为实际 COM 口。Linux 用户需有串口读写权限。
 运动仍遵循本页安全要求和 `HAND_DEVICE_ENABLE_MOTION_TESTS=1` 的显式开关。
 CANable 无串口 ACK，命令写入完成只证明串口驱动已收取字节，验收须以设备反馈为准。
-SLCAN 实物和 Windows 新扩展尚待验收，详情见 [接入文档](../../../../docs/windows-adapters.md)。
+SLCAN 实物和 Windows 新扩展尚待验收，详情见 [接入文档](../../../../docs/zh/connections/windows-adapters.md)。

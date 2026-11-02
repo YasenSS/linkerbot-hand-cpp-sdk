@@ -9,7 +9,7 @@
 下表汇总各型号已有 Linux 与 Windows 场次。实测及离线结果、源码版本和未测范围
 统一记录在对应型号报告，不能从一个平台或适配器的结果推导其他组合通过。
 Windows 的操作步骤见 [Windows 验收](windows.md)。
-公开支持基线与未测路径见 [支持与兼容性策略](../COMPATIBILITY.md#平台与硬件验证范围)。
+公开支持基线与未测路径见 [支持与兼容性策略](../zh/reference/compatibility.md#平台与硬件验证范围)。
 已追加 Windows / PCAN Classic / Debug 记录的型号为 [L6](l6/report.md)、[O6](o6/report.md)、[L20 Lite](l20lite/report.md) 和 [L20](l20/report.md)；
 四种手型的发现、读取及单关节运动恢复均通过，L20 此前 CLI 受阻的记录保留。
 [L6](l6/report.md)、[O6](o6/report.md)、[L20 Lite](l20lite/report.md) 和 [L20](l20/report.md) 已完成 Windows / SLCAN Classic / Debug 的发现、读取及单关节收发恢复；

@@ -65,10 +65,11 @@ def audit_package(prefix, archive, kind, sources, configuration, platform,
     for package, source_name in packages:
         source = sources[source_name]
         share = prefix / 'share' / package
-        build_doc = 'docs/zh/windows-build.md' if source_name == 'comm' else 'docs/windows.md'
+        build_doc = 'docs/zh/windows-build.md' if source_name == 'comm' else 'docs/zh/guides/windows.md'
         documents = ['LICENSE', 'NOTICE', 'README.md', 'build-info.json', build_doc]
         if source_name == 'hand':
-            documents.append('docs/usage.md')
+            documents += ['docs/zh/guides/usage.md', 'docs/en/guides/windows.md',
+                          'docs/en/guides/usage.md']
         for relative in documents:
             if not (share / relative).is_file():
                 raise RuntimeError(f'Required package entry missing: {package}/{relative}')

@@ -3,7 +3,7 @@
 <a id="automatic"></a>
 
 设备发现先读取身份，再由候选创建 `HandDevice`。发现过程不发送角度、力矩、使能等控制命令。
-Linux SocketCAN 请先[准备通信接口](准备通信接口.md)。
+Linux SocketCAN 请先[准备通信接口](prepare-interface.md)。
 
 | 操作系统 | 默认后端 | 需要额外确认的内容 |
 | --- | --- | --- |
@@ -11,7 +11,7 @@ Linux SocketCAN 请先[准备通信接口](准备通信接口.md)。
 | Windows | PCAN、SLCAN、MiniCANFD | PCAN/MiniCANFD 驱动和库；SLCAN 必须填写串口允许列表 |
 
 各后端共用发现总预算；一个后端失败不会丢弃其他后端的成功候选。
-L6 可选 HOP 协议不参与当前自动发现，需[手动配置](手动连接.md#socketcan)。
+L6 可选 HOP 协议不参与当前自动发现，需[手动配置](manual.md#socketcan)。
 
 ## 连接设备
 
@@ -88,7 +88,7 @@ int main() try {
 ### 自动发现多个设备
 
 下面是独立完整程序。C++ 的 `verified_candidates()` 返回候选引用包装列表，通过 `.get()` 访问。
-示例逐台连接、读取、关闭；共享总线的并发使用方式见[设备发现说明](../../hand-device-discovery.md)。
+示例逐台连接、读取、关闭；共享总线的并发使用方式见[设备发现说明](../reference/discovery.md)。
 
 ```cpp
 #include <chrono>
@@ -194,7 +194,7 @@ scan.pcan.nominal_bitrate = 1'000'000;
 ```
 
 探测 FD 时需要改用 `probe_protocols = {TransportKind::kCanFd}`，并按硬件填写
-`data_bitrate` 和 `fd_timing`。PCAN FD 具有代码支持，但应核对[实测范围](../../COMPATIBILITY.md)。
+`data_bitrate` 和 `fd_timing`。PCAN FD 具有代码支持，但应核对[实测范围](../reference/compatibility.md)。
 
 ### SLCAN（Windows）
 
@@ -257,14 +257,14 @@ auto hand = candidate.create_hand_device(runtime, HandSide::kLeft);
 
 请同时检查 `report.failures()` 的 `code()`、`message()`、`backend()` 和 `native_channel()`。
 常见原因包括无回复、接口未启用、通道占用、动态库缺失、串口允许列表缺失或发现预算耗尽。
-完整错误码说明见[设备发现诊断](../../hand-device-discovery.md#失败诊断)。
+完整错误码说明见[设备发现诊断](../reference/discovery.md#失败诊断)。
 
 关闭失败时应保留同一个设备对象，在排除驱动或连接故障后重试 `close()`；
 不要把清理错误当成已关闭，也不要立即另开同一设备。上面的命令行程序记录关闭错误并退出，
 长期运行的应用应由自己的连接管理器保留对象并安排清理重试。
 
-连接后使用[各型号教程](../教程/l6.md)，或按型号选择
-[O6](../教程/o6.md)、[L20 Lite](../教程/l20lite.md)、[L20](../教程/l20.md)、
-[L30](../教程/l30.md)、[O30](../教程/o30.md)。
+连接后使用[各型号教程](../tutorials/l6.md)，或按型号选择
+[O6](../tutorials/o6.md)、[L20 Lite](../tutorials/l20lite.md)、[L20](../tutorials/l20.md)、
+[L30](../tutorials/l30.md)、[O30](../tutorials/o30.md)。
 
-[返回文档总览](../../README.md)
+[返回文档总览](../README.md)

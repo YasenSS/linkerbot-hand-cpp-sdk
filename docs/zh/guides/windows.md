@@ -1,8 +1,8 @@
 # Windows 使用指南
 
 本文说明 Windows 下的构建、安装和 C++ 项目接入。首次使用先完成构建，再按
-[适配器接入指南](windows-adapters.md)读取设备。PCAN、MiniCANFD、SLCAN 的驱动与连接参数统一在该文档维护。
-实测范围见 [平台与硬件验证范围](COMPATIBILITY.md#平台与硬件验证范围)。
+[适配器接入指南](../connections/windows-adapters.md)读取设备。PCAN、MiniCANFD、SLCAN 的驱动与连接参数统一在该文档维护。
+实测范围见 [平台与硬件验证范围](../reference/compatibility.md#平台与硬件验证范围)。
 
 ## 环境要求
 
@@ -34,7 +34,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
 ```
 
 构建不需要厂商开发包或 Catch2。`--help` 不加载驱动、不访问硬件。
-实际枚举和只读连接按[适配器接入步骤](windows-adapters.md#2-选择适配器并读取)执行。
+实际枚举和只读连接按[适配器接入步骤](../connections/windows-adapters.md#2-选择适配器并读取)执行。
 Windows 不使用 `can0` 或 Linux 的 `ip link` 命令。
 
 ## 安装与应用接入
@@ -112,7 +112,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Consumer build failed' }
 ```
 
 成功时输出产品码和 16 个原始角度。改用 MiniCANFD 或 SLCAN 时替换 factory 配置，见
-[适配器接入指南](windows-adapters.md#3-在-c-程序中连接)。
+[适配器接入指南](../connections/windows-adapters.md#3-在-c-程序中连接)。
 直接使用 `HandDevice(config)` 的默认 transport 为 Linux SocketCAN；Windows 需要适配器 factory 或共享 Session。
 连接后的控制、轮询及错误处理见 [API 使用指南](usage.md)。
 
@@ -130,8 +130,8 @@ ctest --test-dir build-windows -C Release --output-on-failure
 ```
 
 Catch2 不在默认搜索路径时添加 `-DCatch2_DIR=C:/path/to/Catch2/lib/cmake/Catch2`。
-真实设备验证另见 [Windows 真机验收步骤](hardware-acceptance/windows.md)。
+真实设备验证另见 [Windows 真机验收步骤](../../hardware-acceptance/windows.md)。
 
 默认角度映射文件保存在 `%LOCALAPPDATA%\linkerbot\hand_angle_mappings.toml`，也可显式设置
-`config.angle_mapping_path`，目录优先级见[配置目录说明](windows-adapters.md#角度映射配置目录)。
-应用被系统策略阻止运行时，先解决运行权限；DLL 加载、端口占用等问题见[适配器排错](windows-adapters.md#常见问题)。
+`config.angle_mapping_path`，目录优先级见[配置目录说明](../connections/windows-adapters.md#角度映射配置目录)。
+应用被系统策略阻止运行时，先解决运行权限；DLL 加载、端口占用等问题见[适配器排错](../connections/windows-adapters.md#常见问题)。

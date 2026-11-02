@@ -1,13 +1,13 @@
 # Windows 适配器接入
 
 本文说明如何通过 PCAN、MiniCANFD 或 SLCAN 读取设备，再将连接方式用于自己的 C++ 程序。
-各型号的实测范围见 [平台与硬件验证范围](COMPATIBILITY.md#平台与硬件验证范围)。
+各型号的实测范围见 [平台与硬件验证范围](../reference/compatibility.md#平台与硬件验证范围)。
 L6 默认使用 Classic CAN，下文的 L6 示例按此配置；支持 CAN FD 的设备可按
-[可选协议说明](usage.md#l6-可选-can-fd-协议)显式选择 HOP，并使用匹配的 FD 适配器。
+[可选协议说明](../guides/usage.md#l6-可选-can-fd-协议)显式选择 HOP，并使用匹配的 FD 适配器。
 
 ## 1. 准备环境
 
-先按 [Windows 构建步骤](windows.md#构建-sdk)生成 `windows_readonly.exe`。
+先按 [Windows 构建步骤](../guides/windows.md#构建-sdk)生成 `windows_readonly.exe`。
 厂商驱动和 DLL 需要单独安装，DLL、程序均使用 x64。
 
 | 适配器 | 需要准备 | 通道示例 |
@@ -143,8 +143,8 @@ SLCAN 设置 `port`、`serial_baud`、`nominal_bitrate`；CANable FD 固件还�
 PCAN FD 需设置 `mode = can::PcanMode::kFd`、双速率及 `fd_timing`。
 
 `open()` 建立连接并核验身份。读取成功后，控制与轮询使用同一套
-[HandDevice API](usage.md#读取与控制)。
-也可以通过[设备发现接口](hand-device-discovery.md)创建已绑定适配器配置的设备。
+[HandDevice API](../guides/usage.md#读取与控制)。
+也可以通过[设备发现接口](../reference/discovery.md)创建已绑定适配器配置的设备。
 
 ## 角度映射配置目录
 

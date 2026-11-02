@@ -48,7 +48,7 @@ int main(int argc, char **argv) try {
     return 0;
 #else
     std::cerr << "This example uses Linux SocketCAN. On Windows, use windows_readonly\n"
-                 "or the adapter factories documented in docs/windows-adapters.md.\n";
+                 "or the adapter factories documented in docs/en/connections/windows-adapters.md.\n";
     return 1;
 #endif
 } catch (const std::exception &error) {

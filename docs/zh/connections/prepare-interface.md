@@ -6,7 +6,7 @@
 
 需要 C++17 编译器、CMake 3.16+，以及与 hand SDK 配套的 `linkerbot-transport-cpp`。
 hand 与 transport 使用兼容的 `0.3.x` 版本，transport 版本不得低于 hand。
-构建和安装步骤见[项目快速开始](../../../README.md)；Windows 见[Windows 使用指南](../../windows.md)。
+构建和安装步骤见[项目快速开始](../../../README.md)；Windows 见[Windows 使用指南](../guides/windows.md)。
 
 本目录的完整程序可保存为应用的 `main.cpp`。SDK 安装后，最小 `CMakeLists.txt` 为：
 
@@ -62,7 +62,7 @@ ip -details link show can0
 
 L30 使用扩展 FD 帧，O30 使用标准 FD 帧、无 BRS；帧格式由型号实现决定。
 L6 默认仍是 Classic CAN。只有设备固件匹配时才显式选择可选 HOP CAN FD 协议；
-仅将系统接口设成 FD 不会切换 L6 协议，详见[可选协议](../../usage.md#l6-可选-can-fd-协议)。
+仅将系统接口设成 FD 不会切换 L6 协议，详见[可选协议](../guides/usage.md#l6-可选-can-fd-协议)。
 
 ## Windows 与独立适配器后端
 
@@ -79,14 +79,14 @@ Linux MiniCANFD 的发现必须提供已确认的设备/通道组合，不会自
 Windows 的 MiniCANFD `device_index` 表示厂商枚举的通道编号，`channel_index` 固定为 0；
 Linux 两者分别表示设备编号和设备内通道编号。
 
-驱动安装、动态库路径和已验收范围见[适配器接入](../../windows-adapters.md)与
-[平台和硬件验证范围](../../COMPATIBILITY.md)。可调用接口并不代表所有硬件组合都已完成实测。
+驱动安装、动态库路径和已验收范围见[适配器接入](windows-adapters.md)与
+[平台和硬件验证范围](../reference/compatibility.md)。可调用接口并不代表所有硬件组合都已完成实测。
 
 <a id="checks"></a>
 
 ## 下一步
 
-- 型号、地址或通道未知：阅读[自动连接](自动连接.md)。
-- 已知部署配置：阅读[手动连接](手动连接.md)。
+- 型号、地址或通道未知：阅读[自动连接](automatic.md)。
+- 已知部署配置：阅读[手动连接](manual.md)。
 
-[返回文档总览](../../README.md)
+[返回文档总览](../README.md)
