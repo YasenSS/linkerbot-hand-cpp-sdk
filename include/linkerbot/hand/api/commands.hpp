@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <linkerbot/hand/capabilities.hpp>
+#include <linkerbot/transport/session.hpp>
 
 namespace linkerbot::hand {
     enum class CommandStage : uint8_t { kAccepted, kDispatched, kAcknowledged, kFailed, kSuperseded, kCancelled };
@@ -56,6 +57,13 @@ namespace linkerbot::hand {
         // still Accepted. Dispatched requires the entire command batch.
         [[nodiscard]] uint64_t sent_frames() const noexcept;
         [[nodiscard]] std::exception_ptr error() const noexcept;
+        // Terminal physical batch receipts for unified asynchronous setters,
+        // in observation order. Legacy synchronous operations do not collect
+        // receipts. A composite
+        // command can produce multiple receipts. Logical failure/cancellation
+        // does not discard a later receipt from already-claimed backend I/O.
+        // Empty means no terminal receipt has been observed, not zero delivery.
+        [[nodiscard]] std::vector<transport::SendResult> send_results() const;
         [[nodiscard]] std::vector<CommandTransition> history() const;
         [[nodiscard]] bool done() const noexcept;
 

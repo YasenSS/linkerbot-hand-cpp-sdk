@@ -9,6 +9,7 @@
 namespace linkerbot::hand::command_detail {
     class CommandHandleAccess {
     public:
+        static void record_send_result(CommandHandle &handle, const transport::SendResult &result);
         static void record_sent(CommandHandle &handle, uint64_t sent_frames);
         static void mark_dispatched(CommandHandle &handle, uint64_t sent_frames,
                                     std::chrono::steady_clock::time_point timestamp = std::chrono::steady_clock::now());

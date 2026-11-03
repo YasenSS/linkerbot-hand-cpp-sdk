@@ -501,3 +501,22 @@ Transaction timeout retains the last complete sample and quarantines the affecte
 
 Hardware acceptance must record identity, address, communication settings, complete ACKs, the three-region layout, and sensor descriptors;
 then verify small single-joint motions, direction, and return to the original position. Passing offline tests does not mean hardware acceptance is complete.
+
+### Inspect physical command delivery
+
+`CommandHandle::send_results()` returns a snapshot of terminal physical batch
+receipts observed for unified asynchronous `set_*` commands, in observation order.
+Legacy synchronous device operations do not collect these receipts. Composite commands can
+have several receipts. Inspect each receipt's `outcome`, `sent_frames`,
+`total_frames`, `current_frame_uncertain`, and `generation`. An empty list means
+no terminal receipt has been observed; it does not prove zero delivery.
+
+Logical completion and physical delivery are independent. A driver write already
+in progress can complete after a command fails due to timeout, close, or recovery.
+Later snapshots retain that receipt without changing the existing `stage()`,
+`error()`, `sent_frames()`, or transition history. `wait()` and `wait_for()` wait
+for logical completion, not for collection of late physical receipts. Do not
+automatically replay motion or configuration writes solely because of a timeout.
+
+Old handles retain old-generation evidence after recovery. Read fresh state with
+new requests and check cache validity and connection generation.

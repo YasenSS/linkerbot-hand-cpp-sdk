@@ -1624,3 +1624,56 @@ TEST_CASE("comm: runtime nested semantic operations expose the inherited absolut
     assigned = std::move(moved);
     REQUIRE(assigned.deadline() == deadline);
 }
+
+TEST_CASE("comm: recovery preserves old send evidence without reusing old response state",
+          "[comm][runtime][lifecycle][regression]") {
+    auto session = Session::create([] {
+        auto fake = std::make_unique<FakeTransport>();
+        fake->echo_cmd(0x28, 1, 6, 42);
+        return fake;
+    });
+    auto core = DeviceRuntime::acquire(session, "receipt-recovery", {{0x28, false}});
+    auto old = core->submit(plan(), Clock::now() + 1s);
+    const auto previous = old.wait();
+    const auto before = old.send_result();
+    core->recover();
+    const auto after = old.send_result();
+    auto next = core->execute(plan(), Clock::now() + 1s);
+    core->close();
+    session->close();
+    REQUIRE(before.has_value());
+    REQUIRE(after.has_value());
+    REQUIRE(after->outcome == linkerbot::transport::SendOutcome::dispatched);
+    REQUIRE(after->generation == before->generation);
+    REQUIRE(after->sent_frames == before->sent_frames);
+    REQUIRE(next.physical_generation != previous.physical_generation);
+    REQUIRE(next.device_generation != previous.device_generation);
+    REQUIRE(old.wait().physical_generation == previous.physical_generation);
+}
+
+TEST_CASE("comm: failed recovery rejects work and a retry installs a fresh generation",
+          "[comm][runtime][lifecycle][regression]") {
+    bool reject_open = false;
+    auto session = Session::create([&]() -> std::unique_ptr<linkerbot::can::CANTransport> {
+        if (reject_open) {
+            throw std::runtime_error("injected reopen failure");
+        }
+        auto fake = std::make_unique<FakeTransport>();
+        fake->echo_cmd(0x28, 1, 6, 42);
+        return fake;
+    });
+    auto core = DeviceRuntime::acquire(session, "retry-recovery", {{0x28, false}});
+    const auto previous = core->execute(plan(), Clock::now() + 1s);
+    reject_open = true;
+    REQUIRE_THROWS(core->recover());
+    REQUIRE(core->runtime_health().state == linkerbot::hand::runtime::DeviceState::faulted);
+    REQUIRE_FALSE(core->snapshot("angle")->valid);
+    REQUIRE_THROWS(core->execute(plan(), Clock::now() + 1s));
+    reject_open = false;
+    REQUIRE_NOTHROW(core->recover());
+    const auto next = core->execute(plan(), Clock::now() + 1s);
+    core->close();
+    session->close();
+    REQUIRE(next.valid);
+    REQUIRE(next.physical_generation != previous.physical_generation);
+}
