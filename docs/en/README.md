@@ -26,6 +26,7 @@
 
 | Document | Purpose |
 | --- | --- |
+| [Build and validation guide](guides/validation.md) | Dependency selection, offline test targets, CI failures and result interpretation |
 | [Windows guide](guides/windows.md) | Environment, building, installation, and application integration |
 | [API guide](guides/usage.md) | Unified APIs, model Managers, and lifecycle |
 | [Windows adapter integration](connections/windows-adapters.md) | PCAN, MiniCANFD, and SLCAN parameters, commands, and troubleshooting |

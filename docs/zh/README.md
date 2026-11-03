@@ -26,6 +26,7 @@
 
 | 文档 | 用途 |
 | --- | --- |
+| [构建与验证指南](guides/validation.md) | 依赖选择、离线测试目标、CI 排错与结果判断 |
 | [Windows 使用指南](guides/windows.md) | 环境、构建、安装和应用接入 |
 | [API 使用指南](guides/usage.md) | 统一接口和型号 Manager 的操作方式及生命周期 |
 | [Windows 适配器接入](connections/windows-adapters.md) | PCAN、MiniCANFD、SLCAN 参数、命令与排错 |

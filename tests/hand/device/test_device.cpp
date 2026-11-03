@@ -578,7 +578,11 @@ TEST_CASE("HandDevice converts dynamic angle commands for every model", "[comm][
         DYNAMIC_SECTION("model " << static_cast<int>(model)) {
             FakeTransport *transport = nullptr;
             std::shared_ptr<o30_comm::HopEndpoint> hop;
-            HandDevice device(config_for(model), [&] {
+            auto config = config_for(model);
+            // Encoding coverage must tolerate Windows host scheduling; deadline
+            // behavior is covered separately by command scheduler tests.
+            config.command_timeout = std::chrono::seconds{1};
+            HandDevice device(config, [&] {
                 auto next = std::make_unique<FakeTransport>();
                 transport = next.get();
                 install_fake_device(model, transport, hop);
@@ -603,7 +607,11 @@ TEST_CASE("HandDevice converts percent angle commands for every model", "[comm][
         DYNAMIC_SECTION("model " << static_cast<int>(model)) {
             FakeTransport *transport = nullptr;
             std::shared_ptr<o30_comm::HopEndpoint> hop;
-            HandDevice device(config_for(model), [&] {
+            auto config = config_for(model);
+            // Encoding coverage must tolerate Windows host scheduling; deadline
+            // behavior is covered separately by command scheduler tests.
+            config.command_timeout = std::chrono::seconds{1};
+            HandDevice device(config, [&] {
                 auto next = std::make_unique<FakeTransport>();
                 transport = next.get();
                 install_fake_device(model, transport, hop);

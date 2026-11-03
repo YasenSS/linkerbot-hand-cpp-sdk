@@ -38,7 +38,7 @@ L6 默认使用 Classic CAN；支持 CAN FD 的设备可显式选择[可选 HOP 
 mkdir sdk-build && cd sdk-build
 git clone https://github.com/linker-bot/linkerbot-transport-cpp.git
 git -C linkerbot-transport-cpp checkout --detach a46177e86e403bbd18834aedb6e81ef3233c6c22
-git clone https://github.com/linker-bot/linkerbot-hand-cpp.git
+git clone https://github.com/linker-bot/linkerbot-hand-cpp-sdk.git linkerbot-hand-cpp
 cd linkerbot-hand-cpp
 
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
@@ -143,8 +143,10 @@ cmake --build demo/build --parallel 4
 ```bash
 cmake -S . -B build-tests -DCMAKE_BUILD_TYPE=Release \
   -DLINKERBOT_BUILD_TESTS=ON -DLINKERBOT_BUILD_TOOLS=OFF \
+  -DLINKERBOT_COMM_SOURCE_DIR=../linkerbot-transport-cpp \
+  -DLINKERBOT_BUILD_EXAMPLES=OFF \
   -DLINKERBOT_ALLOW_DEPENDENCY_DOWNLOADS=OFF -DLINKERBOT_COMM_BUILD_TESTS=OFF
-cmake --build build-tests --parallel 4
+cmake --build build-tests --parallel 4 --target tests protocol-tests
 ctest --test-dir build-tests --output-on-failure
 ```
 
@@ -152,6 +154,7 @@ ctest --test-dir build-tests --output-on-failure
 
 ## 文档
 
+- [构建与验证指南](docs/zh/guides/validation.md)
 - [Windows 使用指南](docs/zh/guides/windows.md)：环境、构建、安装和应用接入。
 - [Windows 适配器接入](docs/zh/connections/windows-adapters.md)：PCAN、MiniCANFD、SLCAN 命令和配置。
 - [API 使用指南](docs/zh/guides/usage.md)：读取、控制、后台轮询和生命周期。
