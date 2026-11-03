@@ -6,7 +6,7 @@ This guide is for the C++ SDK. Build and install the SDK first, then prepare the
 
 You need a C++17 compiler, CMake 3.16+, and a `linkerbot-transport-cpp` version compatible with the hand SDK.
 Use compatible `0.3.x` versions of hand and transport; the transport version must not be older than the hand version.
-For build and installation steps, see the [Project quick start](../../../README.en.md); for Windows, see the [Windows guide](../guides/windows.md).
+For build and installation steps, see the [Project quick start](../../../README.md); for Windows, see the [Windows guide](../guides/windows.md).
 
 Save a complete program from this directory as your application's `main.cpp`. After installing the SDK, use this minimal `CMakeLists.txt`:
 

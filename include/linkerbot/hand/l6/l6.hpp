@@ -50,7 +50,7 @@ namespace linkerbot::hand::l6 {
         ~L6();
         std::shared_ptr<runtime::DeviceRuntime> runtime() const { return runtime_; }
         [[nodiscard]] HandHealth health() const { return runtime_->health(); }
-        // Compatibility adapter retained throughout 0.2.x; prefer health().
+        // Compatibility adapter for older callers; prefer health().
         [[nodiscard]] runtime::RuntimeHealth runtime_health() const { return runtime_->runtime_health(); }
         void recover();
         std::shared_ptr<EventQueue<SensorEvent>> stream_handle(size_t maxsize = 100);

@@ -1,6 +1,6 @@
 # API 使用指南
 
-构建和首次连接见 [Linux 快速开始](../../../README.md#快速开始linux)或 [Windows 使用指南](windows.md)。
+构建和首次连接见 [Linux 快速开始](../../../README.zh-CN.md#快速开始linux)或 [Windows 使用指南](windows.md)。
 本文说明两种控制策略、常用与高级功能、命令完成判断、后台轮询和生命周期，以及型号可选协议。
 按手型查询完整的功能、读写方式、数值范围和固件限制，见[各型号能力说明](../reference/model-capabilities.md)。
 
@@ -50,7 +50,7 @@ Windows 使用[适配器 factory](../connections/windows-adapters.md#3-在-c-程
 
 ### 读取与控制
 
-自动连接按 [README 快速开始](../../../README.md#快速开始linux)，由发现结果提供型号、侧别、通道和地址。
+自动连接按 [README 快速开始](../../../README.zh-CN.md#快速开始linux)，由发现结果提供型号、侧别、通道和地址。
 部署中已知设备配置时，也可以手动填写 `HandDeviceConfig`，调用 `HandDevice hand(config)`；
 下文的统一接口示例使用这种手动连接方式。自动发现和手动配置创建的设备使用同一套控制 API。
 

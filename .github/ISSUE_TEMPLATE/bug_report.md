@@ -1,21 +1,21 @@
 ---
-name: 问题反馈
-about: 构建、接口或设备接入问题
+name: Bug report (English)
+about: Build, API or device-integration problems
 title: ''
 labels: ''
 assignees: ''
 ---
 
-## 问题与预期行为
+## Problem and expected behavior
 
-## 版本和环境
+## Versions and environment
 
-- hand / transport 版本或提交号、是否有本地修改：
-- 系统 / 架构 / 编译器 / CMake / Debug 或 Release：
-- 实机问题：手型 / 左右手 / 固件 / backend / 适配器及驱动、DLL、固件 / 通道及速率：
+- Hand SDK / transport versions or commits, and local changes:
+- OS / architecture / compiler / CMake / Debug or Release:
+- For hardware: model / side / firmware / backend / adapter and driver, DLL, firmware / channel and bitrate:
 
-## 最小复现代码和命令
+## Minimal reproducer and exact commands
 
-## 实际结果及错误日志
+## Actual result and error logs
 
-提交前请移除口令、令牌、内部地址和个人目录信息；不要附带厂商二进制文件。
+Remove credentials, private addresses and personal paths before submitting. Do not attach vendor binaries.

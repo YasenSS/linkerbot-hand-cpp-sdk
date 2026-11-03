@@ -1,5 +1,7 @@
 # O30 HOP 0.0.4 实机验收
 
+[English summary](README.en.md) | [中文原始记录](README.md)
+
 本文为删除 O30 运动时间、扭矩上限功能之前的历史验收记录；其中接口及配置描述仅对应记录的 SDK 版本。
 
 `verify_fixes.cc` 是独立验收程序，未加入默认离线 CTest。

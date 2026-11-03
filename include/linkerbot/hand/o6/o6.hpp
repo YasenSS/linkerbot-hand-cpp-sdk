@@ -58,7 +58,7 @@ namespace linkerbot::hand::o6 {
         [[nodiscard]] std::shared_ptr<runtime::DeviceRuntime> runtime() const { return runtime_; }
         void recover();
         [[nodiscard]] HandHealth health() const { return runtime_->health(); }
-        // Compatibility adapter retained throughout 0.2.x; prefer health().
+        // Compatibility adapter for older callers; prefer health().
         [[nodiscard]] runtime::RuntimeHealth runtime_health() const { return runtime_->runtime_health(); }
 
         void stop();

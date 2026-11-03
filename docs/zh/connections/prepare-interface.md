@@ -6,7 +6,7 @@
 
 需要 C++17 编译器、CMake 3.16+，以及与 hand SDK 配套的 `linkerbot-transport-cpp`。
 hand 与 transport 使用兼容的 `0.3.x` 版本，transport 版本不得低于 hand。
-构建和安装步骤见[项目快速开始](../../../README.md)；Windows 见[Windows 使用指南](../guides/windows.md)。
+构建和安装步骤见[项目快速开始](../../../README.zh-CN.md)；Windows 见[Windows 使用指南](../guides/windows.md)。
 
 本目录的完整程序可保存为应用的 `main.cpp`。SDK 安装后，最小 `CMakeLists.txt` 为：
 

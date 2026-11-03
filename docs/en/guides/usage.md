@@ -1,6 +1,6 @@
 # API Guide
 
-For building and initial connection, see the [Linux quick start](../../../README.en.md#quick-start-linux) or [Windows guide](windows.md).
+For building and initial connection, see the [Linux quick start](../../../README.md#quick-start-linux) or [Windows guide](windows.md).
 This guide covers two control strategies, common and advanced features, command completion, background polling, lifecycle, and optional model protocols.
 For complete features, read/write behavior, numeric ranges, and firmware limitations by model, see [Model capabilities](../reference/model-capabilities.md).
 
@@ -50,7 +50,7 @@ On Windows, use an [Adapter factory](../connections/windows-adapters.md#3-connec
 
 ### Reading and control
 
-For automatic connection, follow the [README quick start](../../../README.en.md#quick-start-linux); discovery supplies the model, side, channel, and address.
+For automatic connection, follow the [README quick start](../../../README.md#quick-start-linux); discovery supplies the model, side, channel, and address.
 When deployment configuration is known, fill in `HandDeviceConfig` manually and construct `HandDevice hand(config)`;
 the unified examples below use this manual approach. Devices created by discovery and manual configuration share the same control API.
 
