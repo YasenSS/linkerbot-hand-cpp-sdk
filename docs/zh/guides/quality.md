@@ -14,7 +14,7 @@ full 模式运行 clang-format、Cppcheck、clang-tidy（`clang-analyzer-*`、`b
 历史独立程序 `tests/hand/o30/hardware/verify_fixes.cc` 针对旧版 API，未纳入现行 CMake
 构建，因此明确排除；不按诊断结果排除源码。格式以 `.clang-format` 为准。
 
-首次接入建立完整基线。缺少工具、缺失编译单元、分析错误或覆盖不完整会使 CI 失败；
+CI 要求完整报告且 error 级别诊断为零。缺少工具、缺失编译单元、分析错误或覆盖不完整会使 CI 失败；
 已有诊断保留在 JSON/Markdown 报告中。工作流通过不代表零问题或 A+，分数也不代表
 测试覆盖或硬件兼容。后续收紧质量门禁应先审查基线，不通过排除代码或关闭规则美化分数。
 

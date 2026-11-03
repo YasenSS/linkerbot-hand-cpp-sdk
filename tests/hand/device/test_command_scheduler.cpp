@@ -77,7 +77,8 @@ TEST_CASE("M2 latest slots preserve new sequence and FIFO semantic order", "[com
          {CommandSemantic::kAccelerations, CommandSemantic::kAccelerations, CommandSemantic::kStallThresholds,
           CommandSemantic::kStallHoldCurrents, CommandSemantic::kStallDetectionTimes, CommandSemantic::kStallThresholds,
           CommandSemantic::kStallHoldCurrents}) {
-        retained.push_back(scheduler.accept(request(semantic, retained.size()), AckSupport::kUnsupported, {}, execute));
+        retained.push_back(scheduler.accept(request(semantic, static_cast<double>(retained.size())),
+                                            AckSupport::kUnsupported, {}, execute));
     }
     auto newest = scheduler.accept(request(CommandSemantic::kAngles, 3), AckSupport::kUnsupported, {}, execute);
     for (const auto semantic : {CommandSemantic::kSpeeds, CommandSemantic::kCurrentLimits}) {
@@ -130,8 +131,8 @@ TEST_CASE("M2 FIFO capacity excludes latest and executing requests", "[comm][m2]
     REQUIRE(barrier.entered.get_future().wait_for(std::chrono::seconds{2}) == std::future_status::ready);
     std::vector<CommandHandle> handles;
     for (size_t i = 0; i < 16; ++i) {
-        handles.push_back(scheduler.accept(request(CommandSemantic::kAccelerations, i), AckSupport::kUnsupported, {},
-                                           [](const auto &) { return delivered(); }));
+        handles.push_back(scheduler.accept(request(CommandSemantic::kAccelerations, static_cast<double>(i)),
+                                           AckSupport::kUnsupported, {}, [](const auto &) { return delivered(); }));
     }
     REQUIRE_THROWS_AS(scheduler.accept(request(CommandSemantic::kStallHoldCurrents, 20), AckSupport::kUnsupported, {},
                                        [](const auto &) { return delivered(); }),
@@ -190,8 +191,8 @@ TEST_CASE("M2 concurrent admission executes once with bounded batch rate", "[com
     std::vector<std::future<CommandHandle>> submitted;
     for (size_t i = 0; i < 40; ++i) {
         submitted.push_back(std::async(std::launch::async, [&, i] {
-            return scheduler.accept(request(CommandSemantic::kAccelerations, i), AckSupport::kUnsupported, {},
-                                    [&](const auto &r) {
+            return scheduler.accept(request(CommandSemantic::kAccelerations, static_cast<double>(i)),
+                                    AckSupport::kUnsupported, {}, [&](const auto &r) {
                                         const std::lock_guard<std::mutex> lock(mutex);
                                         starts.push_back(HealthClock::now());
                                         executed.push_back(r.raw_values[0]);

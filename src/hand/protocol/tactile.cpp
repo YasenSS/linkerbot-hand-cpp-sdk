@@ -69,7 +69,7 @@ namespace linkerbot::hand::protocol::hop {
                 }
                 double value = bits;
                 if (type.front() == 'I' && (bits & (uint32_t{1} << (width * 8 - 1)))) {
-                    value = static_cast<double>(bits) - std::ldexp(1.0, width * 8);
+                    value = static_cast<double>(bits) - std::ldexp(1.0, static_cast<int>(width * 8));
                 }
                 if (type == "F32" && field.semantic != "Rsv") {
                     float number;

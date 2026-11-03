@@ -23,7 +23,7 @@ namespace {
                     msg.data[0] = 0xC0;
                     msg.data[1] = static_cast<uint8_t>(offsets ? chunk * 6 : chunk);
                     for (size_t i = 0; i < 6; ++i) {
-                        const auto index = chunk * 6 + i;
+                        const auto index = static_cast<size_t>(chunk) * 6 + i;
                         msg.data[2 + i] = index < code.size() ? code[index] : 0;
                     }
                     replies.push_back(msg);

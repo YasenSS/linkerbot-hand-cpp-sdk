@@ -852,7 +852,8 @@ namespace {
         result.actual_duration_s = result.metrics.measurement_duration_s;
         const auto period_count = [&](double hz) {
             const auto period = period_for_hz(hz);
-            return static_cast<uint64_t>(std::ceil(result.actual_duration_s * 1e6 / period.count()));
+            return static_cast<uint64_t>(
+                std::ceil(result.actual_duration_s * 1e6 / static_cast<double>(period.count())));
         };
         result.metrics.angle_requested_period_count = wants_angle(options.data) ? period_count(options.angle_hz) : 0;
         result.metrics.tactile_requested_period_count =

@@ -66,7 +66,7 @@ namespace linkerbot::hand::l6::hop {
         }
         std::array<uint16_t, 6> result{};
         for (size_t i = 0; i < result.size(); ++i) {
-            result[i] = hand::protocol::hop::read_u16_le(data.data() + 2 * (kJointSlots[i] - 5));
+            result[i] = hand::protocol::hop::read_u16_le(data.data() + 2 * static_cast<size_t>(kJointSlots[i] - 5));
         }
         return result;
     }
@@ -88,9 +88,10 @@ namespace linkerbot::hand::l6::hop {
         if (canonical.size() != 6 * width) {
             throw ValidationError("L6 HOP requires six joint values");
         }
-        std::vector<uint8_t> thumb(canonical.begin() + width, canonical.begin() + 2 * width);
-        std::vector<uint8_t> roots(canonical.begin(), canonical.begin() + width);
-        roots.insert(roots.end(), canonical.begin() + 2 * width, canonical.end());
+        std::vector<uint8_t> thumb(canonical.begin() + static_cast<std::ptrdiff_t>(width),
+                                   canonical.begin() + static_cast<std::ptrdiff_t>(2 * width));
+        std::vector<uint8_t> roots(canonical.begin(), canonical.begin() + static_cast<std::ptrdiff_t>(width));
+        roots.insert(roots.end(), canonical.begin() + static_cast<std::ptrdiff_t>(2 * width), canonical.end());
         auto first = transaction(id, mi, 5 * width, width, thumb, rts, family);
         auto second = transaction(id, mi, 10 * width, 5 * width, roots, rts, family);
         first.frames.push_back(second.frames.front());
@@ -113,7 +114,7 @@ namespace linkerbot::hand::l6::hop {
                 }
                 std::vector<uint8_t> range(10 * width);
                 std::copy(parts[0]->begin(), parts[0]->end(), range.begin());
-                std::copy(parts[1]->begin(), parts[1]->end(), range.begin() + 5 * width);
+                std::copy(parts[1]->begin(), parts[1]->end(), range.begin() + static_cast<std::ptrdiff_t>(5 * width));
                 return hand::protocol::Progress::complete(std::move(range), hand::protocol::Origin::command_feedback);
             }
             return hand::protocol::Progress::unmatched();

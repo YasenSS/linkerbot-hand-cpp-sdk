@@ -44,8 +44,11 @@ The checked optional helper returns an owned value and throws if disengaged, inc
 for temporary and nested optionals. Existing value assertions remain in place; hardware
 checks are compiled and analyzed but require real devices to execute.
 
+Numeric conversions use explicit bounded iterator offsets, widening before integer multiplication,
+and explicit floating conversions for reporting statistics. Existing range checks remain in place.
+
 Remaining findings include private/public parameter-domain clarity, guarded runtime optional
-accesses, numeric conversions and non-destructor catch policies. These require individual
+accesses and non-destructor catch policies. These require individual
 review; changing a public signature or hiding a restoration failure for a better score is
 not acceptable. Future quality gates should be based on the completed report, with errors
 resolved first and warning reduction measured by affected files as well as diagnostic count.

@@ -145,10 +145,10 @@ TEST_CASE("HandDevice hardware sustained angle read load", "[hardware][device][l
     REQUIRE_FALSE(latencies.empty());
     std::sort(latencies.begin(), latencies.end());
     const auto percentile = [&](double fraction) {
-        return latencies[static_cast<size_t>(std::ceil(fraction * latencies.size())) - 1];
+        return latencies[static_cast<size_t>(std::ceil(fraction * static_cast<double>(latencies.size()))) - 1];
     };
     const auto missed = expected - attempted;
-    const auto completion = 100.0 * completed / expected;
+    const auto completion = 100.0 * static_cast<double>(completed) / static_cast<double>(expected);
     std::cout << "load elapsed_s=" << elapsed << " attempted=" << attempted << " missed=" << missed
               << " completion_percent=" << completion << " timeouts=" << timeouts << " errors=" << errors
               << " p50_ms=" << percentile(0.50) << " p95_ms=" << percentile(0.95) << " p99_ms=" << percentile(0.99)

@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
             const auto claimed = device.block();
             std::vector<CommandHandle> pending;
             for (size_t i = 0; i < capacity; ++i) {
-                pending.push_back(hand.set_stall_thresholds(std::vector<double>(6, i + 1)));
+                pending.push_back(hand.set_stall_thresholds(std::vector<double>(6, static_cast<double>(i + 1))));
             }
             const auto accepted = [&] {
                 uint64_t count = 0;

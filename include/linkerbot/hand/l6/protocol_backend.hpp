@@ -210,7 +210,7 @@ namespace linkerbot::hand::l6::protocol {
         std::array<float, 6> values{};
         const float scale = opcode == kStallTimeOpcode ? 10.0f : 1400.0f / 255.0f;
         for (size_t i = 0; i < 6; ++i) {
-            values[i] = msg.data[i + 1] * scale;
+            values[i] = static_cast<float>(msg.data[i + 1]) * scale;
         }
         if (opcode == kStallTimeOpcode) {
             return common::Progress::complete(StallTimeData{StallTime::from_array(values), {}}, origin);
