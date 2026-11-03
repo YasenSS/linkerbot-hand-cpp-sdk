@@ -35,7 +35,8 @@ checkout. Follow the workflow's configure/build/install/consumer steps, then:
 
 ```bash
 python3 validation/prepare_report_db.py --output build/report-compile-commands.json \
-  build/report/compile_commands.json build/report-consumer/compile_commands.json
+  build/report/compile_commands.json build/report-consumer/compile_commands.json \
+  build/report-l6/compile_commands.json
 cppreportcard-cli --config .cppreportcard.json --mode full --fail-on none --threshold 0 \
   --output-dir .github/cppreportcard
 python3 validation/check_report_complete.py .github/cppreportcard/report.json

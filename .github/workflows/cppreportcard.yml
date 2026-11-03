@@ -49,8 +49,13 @@ jobs:
           cmake -S validation/installed-consumer -B build/report-consumer -G Ninja \
             -DCMAKE_CXX_COMPILER=clang++-18 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DCMAKE_PREFIX_PATH="$PWD/build/report-install"
+          cmake -S validation/l6 -B build/report-l6 -G Ninja \
+            -DCMAKE_CXX_COMPILER=clang++-18 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DLINKERBOT_CATCH2_SOURCE_DIR="$PWD/build/report/_deps/catch2-src" \
+            -DLINKERBOT_COMM_INCLUDE="$PWD/external/linkerbot-transport-cpp/include"
           python3 validation/prepare_report_db.py --output build/report-compile-commands.json \
-            build/report/compile_commands.json build/report-consumer/compile_commands.json
+            build/report/compile_commands.json build/report-consumer/compile_commands.json \
+            build/report-l6/compile_commands.json
           python3 -m unittest discover -s validation -p 'test_quality_tools.py'
       - name: Generate complete quality report
         if: ${{ !cancelled() && steps.inputs.outcome == 'success' }}
