@@ -26,7 +26,7 @@ silently exclude code or disable diagnostics to improve the badge.
 
 Every run uploads `report.json`, `report.md`, `badge.svg` and the merged compilation
 database as `cppreportcard-ubuntu-24.04-arm`. Reports are not automatically committed.
-The [report index](../../../.github/cppreportcard/README.md) links to the workflow.
+The [report index](https://github.com/soulteary/linkerbot-hand-cpp-sdk/blob/main/.github/cppreportcard/README.md) links to the workflow.
 
 ## Reproduce
 
@@ -44,8 +44,9 @@ python3 validation/check_report_complete.py .github/cppreportcard/report.json
 
 Use the CLI from the action revision pinned in `.github/workflows/cppreportcard.yml`.
 When running the CLI directly, add `--output-dir .github/cppreportcard` if its default
-output directory differs. The wrapper models Catch2 macros for Cppcheck; ordinary
-C++ compilation and clang-tidy still use the real headers. Review tool diagnostics
+output directory differs. The wrapper models Catch2 macros, selects the actual Linux target and preserves
+CMake string-macro quoting for Cppcheck. Ordinary C++ compilation and clang-tidy
+still use the real headers and original argument vectors. Review tool diagnostics
 rather than treating all warnings as defects or suppressing them wholesale.
 
 ## Documentation contract

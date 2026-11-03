@@ -3,6 +3,7 @@ import argparse
 import json
 from pathlib import Path
 import shlex
+import re
 
 
 def prepare(root, databases):
@@ -18,7 +19,12 @@ def prepare(root, databases):
             if source.relative_to(root).parts[0] in {"build", "external"}:
                 continue
             command = entry.get("arguments") or shlex.split(entry["command"])
-            entry.pop("command", None)
+            # Keep CMake's shell escaping for Cppcheck 2.13: it strips literal
+            # quotes from -D string values in an arguments-only database.
+            if "command" in entry:
+                entry["command"] = re.sub(r"(?<!\S)-isystem(?=\s)", "-I", entry["command"])
+            else:
+                entry["command"] = shlex.join(command)
             # Cppcheck 2.13 does not resolve all -isystem entries from a database.
             entry["arguments"] = ["-I" if item == "-isystem" else item for item in command]
             entries.append(entry)
