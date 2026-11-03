@@ -1,4 +1,5 @@
 #include "hand/o30/comm_helpers.hpp"
+#include "hand/support/optional_value.hpp"
 #include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
@@ -50,15 +51,15 @@ TEST_CASE("comm: O30i every polling source reaches the correct snapshot and even
     h.hand->stop_stream(); // Close before draining so a missing event cannot hang the suite.
     const auto snapshot = h.hand->get_snapshot();
     REQUIRE(complete(snapshot));
-    REQUIRE(snapshot.angle->angles.to_raw() == expected[0]);
-    REQUIRE(snapshot.speed->speeds == expected[1]);
-    REQUIRE(snapshot.acceleration->accelerations == expected[2]);
-    REQUIRE(snapshot.current->currents == expected[3]);
-    REQUIRE(snapshot.voltage->voltages == expected[4]);
-    REQUIRE(snapshot.torque->torques == expected[5]);
-    REQUIRE(snapshot.temperature->temperatures == expected[6]);
-    REQUIRE(snapshot.stall_time->times == expected[7]);
-    REQUIRE(snapshot.fault->faults == expected[8]);
+    REQUIRE(test_support::require_value(snapshot.angle).angles.to_raw() == expected[0]);
+    REQUIRE(test_support::require_value(snapshot.speed).speeds == expected[1]);
+    REQUIRE(test_support::require_value(snapshot.acceleration).accelerations == expected[2]);
+    REQUIRE(test_support::require_value(snapshot.current).currents == expected[3]);
+    REQUIRE(test_support::require_value(snapshot.voltage).voltages == expected[4]);
+    REQUIRE(test_support::require_value(snapshot.torque).torques == expected[5]);
+    REQUIRE(test_support::require_value(snapshot.temperature).temperatures == expected[6]);
+    REQUIRE(test_support::require_value(snapshot.stall_time).times == expected[7]);
+    REQUIRE(test_support::require_value(snapshot.fault).faults == expected[8]);
     std::array<bool, 9> seen{};
     while (const auto event = queue.pop()) {
         if (const auto *e = std::get_if<AngleEvent>(&*event)) {

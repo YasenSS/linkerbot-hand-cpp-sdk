@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <linkerbot/hand/errors.hpp>
@@ -123,24 +124,25 @@ TEST_CASE("comm: L30 configured speeds cache dispatch targets independently", "[
     REQUIRE(raw->sent().empty());
     hand.speed.set_speeds(sample_speeds());
     const auto configured = hand.speed.get_configured_snapshot();
-    REQUIRE(configured->speeds == sample_speeds());
-    REQUIRE(hand.get_snapshot().configured_speeds->speeds == sample_speeds());
+    REQUIRE(test_support::require_value(configured).speeds == sample_speeds());
+    REQUIRE(test_support::require_value(hand.get_snapshot().configured_speeds).speeds == sample_speeds());
     REQUIRE_FALSE(hand.speed.get_snapshot());
     REQUIRE(raw->sent().size() == 1);
 
     REQUIRE(hand.speed.get_blocking(kTimeout).speeds == filled_u16(7));
     raw->inject(l30_comm::periodic_i16_frame(kSubSpeed, l30_comm::filled_i16(9)));
     REQUIRE(wait_until([&] { return hand.speed.get_snapshot()->speeds == filled_u16(9); }));
-    REQUIRE(hand.speed.get_configured_snapshot()->speeds == sample_speeds());
-    REQUIRE(hand.speed.get_configured_snapshot()->timestamp == configured->timestamp);
+    REQUIRE(test_support::require_value(hand.speed.get_configured_snapshot()).speeds == sample_speeds());
+    REQUIRE(test_support::require_value(hand.speed.get_configured_snapshot()).timestamp ==
+            test_support::require_value(configured).timestamp);
 
     REQUIRE_THROWS_AS(hand.speed.set_all(0), linkerbot::hand::ValidationError);
-    REQUIRE(hand.speed.get_configured_snapshot()->speeds == sample_speeds());
+    REQUIRE(test_support::require_value(hand.speed.get_configured_snapshot()).speeds == sample_speeds());
     hand.speed.set_all(250);
-    REQUIRE(hand.speed.get_configured_snapshot()->speeds == filled_u16(250));
+    REQUIRE(test_support::require_value(hand.speed.get_configured_snapshot()).speeds == filled_u16(250));
     raw->fail_writes("configured speed write failed");
     REQUIRE_THROWS(hand.speed.set_all(1));
-    REQUIRE(hand.speed.get_configured_snapshot()->speeds == filled_u16(250));
+    REQUIRE(test_support::require_value(hand.speed.get_configured_snapshot()).speeds == filled_u16(250));
 }
 
 // 边界 1 和 250 都该被接受。
@@ -188,7 +190,7 @@ TEST_CASE("comm: speed get_blocking decodes counts", "[comm][l30][speed]") {
     REQUIRE(frames.front().dlc == kEmptyRequestBytes);
     REQUIRE(data.speeds == sample_speeds());
     REQUIRE(hand.speed.get_snapshot().has_value());
-    REQUIRE(hand.speed.get_snapshot()->speeds == sample_speeds());
+    REQUIRE(test_support::require_value(hand.speed.get_snapshot()).speeds == sample_speeds());
 }
 
 // 计数换 rpm 由调用方乘 kSpeedRpmPerCount=0.732：250 计数 ≈ 183 rpm。
@@ -228,7 +230,7 @@ TEST_CASE("comm: speed periodic report updates snapshot", "[comm][l30][speed]") 
     raw->inject(frame);
 
     REQUIRE(wait_until([&hand] { return hand.speed.get_snapshot().has_value(); }));
-    REQUIRE(hand.speed.get_snapshot()->speeds == sample_speeds());
+    REQUIRE(test_support::require_value(hand.speed.get_snapshot()).speeds == sample_speeds());
     REQUIRE(l30_comm::frames_for(raw, kQueryId).empty());
 }
 

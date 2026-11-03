@@ -60,6 +60,8 @@ namespace linkerbot::hand::l6 {
     AngleManager::~AngleManager() {
         try {
             stop();
+            // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+            // NOLINTNEXTLINE(bugprone-empty-catch)
         } catch (...) {
         }
         channel_.drain_calls();

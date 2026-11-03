@@ -57,7 +57,8 @@ namespace linkerbot::hand {
         unified_detail::validate_force_field(name);
         for (auto &field : force_fields()) {
             if (field.name == name) {
-                return std::move(field);
+                auto result = std::move(field);
+                return result;
             }
         }
         throw ValidationError("unknown force field");

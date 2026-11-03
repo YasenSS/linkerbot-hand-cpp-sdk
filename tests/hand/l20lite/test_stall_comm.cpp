@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <linkerbot/hand/errors.hpp>
@@ -85,7 +86,7 @@ TEST_CASE("comm: stall time 0xC6 encodes milliseconds as raw/10", "[comm][l20lit
     const auto data = hand.stall.get_times_blocking(kTimeout);
     const auto after_get = l20lite_comm::payloads(raw);
     REQUIRE(after_get == sent);
-    REQUIRE(data.timestamp == hand.stall.get_time_snapshot()->timestamp);
+    REQUIRE(data.timestamp == test_support::require_value(hand.stall.get_time_snapshot()).timestamp);
     REQUIRE(data.timestamp == hand.stall.get_times_blocking(kTimeout).timestamp);
     for (auto v : data.time.to_array()) {
         REQUIRE(v == Catch::Approx(500.0f));
@@ -223,8 +224,8 @@ TEST_CASE("comm: incomplete stall writes never publish partial or requested valu
     REQUIRE(after.has_value() == previous.has_value());
     const auto sent = raw->sent().size();
     if (previous) {
-        REQUIRE(after->time.to_array() == previous->time.to_array());
-        REQUIRE(after->timestamp == previous->timestamp);
+        REQUIRE(test_support::require_value(after).time.to_array() == previous->time.to_array());
+        REQUIRE(test_support::require_value(after).timestamp == previous->timestamp);
         REQUIRE(hand.stall.get_times_blocking().timestamp == previous->timestamp);
     } else {
         REQUIRE_THROWS_AS(hand.stall.get_times_blocking(), linkerbot::hand::DeviceNotReadyError);

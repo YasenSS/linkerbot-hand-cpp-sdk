@@ -946,26 +946,13 @@ namespace {
     std::string sample_round_json(const std::string &phase, double angle_hz, bool passed, double command_hz) {
         std::ostringstream out;
         out << std::fixed << std::setprecision(6);
-        out << "{"
-            << "\"phase\":\"" << phase << "\","
-            << "\"requested_angle_hz\":" << angle_hz << ","
-            << "\"actual_angle_hz\":" << angle_hz << ","
-            << "\"requested_command_hz\":" << command_hz << ","
-            << "\"scheduled_count\":1,"
-            << "\"sent_count\":1,"
-            << "\"completed_count\":1,"
-            << "\"timeout_count\":0,"
-            << "\"protocol_error_count\":0,"
-            << "\"late_response_count\":0,"
-            << "\"forced_polling_stop_count\":0,"
-            << "\"event_drop_count\":0,"
-            << "\"unknown_origin_count\":0,"
-            << "\"pending_count\":0,"
-            << "\"in_flight_count\":0,"
-            << "\"angle_latency\":{\"count\":1},"
-            << "\"deadline_jitter\":{\"count\":1},"
-            << "\"socketcan_delta\":{\"available\":false},"
-            << "\"transport_healthy\":true,"
+        out << "{" << "\"phase\":\"" << phase << "\"," << "\"requested_angle_hz\":" << angle_hz << ","
+            << "\"actual_angle_hz\":" << angle_hz << "," << "\"requested_command_hz\":" << command_hz << ","
+            << "\"scheduled_count\":1," << "\"sent_count\":1," << "\"completed_count\":1," << "\"timeout_count\":0,"
+            << "\"protocol_error_count\":0," << "\"late_response_count\":0," << "\"forced_polling_stop_count\":0,"
+            << "\"event_drop_count\":0," << "\"unknown_origin_count\":0," << "\"pending_count\":0,"
+            << "\"in_flight_count\":0," << "\"angle_latency\":{\"count\":1}," << "\"deadline_jitter\":{\"count\":1},"
+            << "\"socketcan_delta\":{\"available\":false}," << "\"transport_healthy\":true,"
             << "\"passed\":" << (passed ? "true" : "false") << "}";
         return out.str();
     }
@@ -974,22 +961,12 @@ namespace {
                                    double winning_hz) {
         std::ostringstream out;
         out << std::fixed << std::setprecision(6);
-        out << "{"
-            << "\"schema_version\":1,"
-            << "\"hardware_verified\":false,"
-            << "\"layer\":\"fake\","
-            << "\"data\":\"angle\","
-            << "\"mode\":\"" << mode << "\","
-            << "\"angle_policy\":\"" << policy << "\","
-            << "\"search\":{"
-            << "\"requested\":true,"
-            << "\"bracketed\":true,"
-            << "\"highest_candidate_pass_hz\":" << winning_hz << ","
-            << "\"first_fail_hz\":" << (winning_hz + 10.0) << ","
-            << "\"final_validation_run\":true,"
-            << "\"final_validation_passed\":true"
-            << "},"
-            << "\"rounds\":[" << rounds_json << "]}";
+        out << "{" << "\"schema_version\":1," << "\"hardware_verified\":false," << "\"layer\":\"fake\","
+            << "\"data\":\"angle\"," << "\"mode\":\"" << mode << "\"," << "\"angle_policy\":\"" << policy << "\","
+            << "\"search\":{" << "\"requested\":true," << "\"bracketed\":true,"
+            << "\"highest_candidate_pass_hz\":" << winning_hz << "," << "\"first_fail_hz\":" << (winning_hz + 10.0)
+            << "," << "\"final_validation_run\":true," << "\"final_validation_passed\":true" << "}," << "\"rounds\":["
+            << rounds_json << "]}";
         return out.str();
     }
 

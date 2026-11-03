@@ -1,4 +1,5 @@
 #include "hand/o30/comm_helpers.hpp"
+#include "hand/support/optional_value.hpp"
 #include <atomic>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
@@ -256,9 +257,10 @@ TEST_CASE("comm: O30 response and snapshot retain the actual receive timestamp",
     const auto data = h.hand->speed.get_blocking(500ms);
     const auto sample = h.hand->runtime()->snapshot("speed/relay_");
     REQUIRE(sample.has_value());
-    REQUIRE(data.timestamp == sample->received_at);
-    REQUIRE(h.hand->speed.get_snapshot()->timestamp == sample->received_at);
-    REQUIRE(h.hand->runtime()->response_provenance().received_at == sample->received_at);
+    REQUIRE(data.timestamp == test_support::require_value(sample).received_at);
+    REQUIRE(test_support::require_value(h.hand->speed.get_snapshot()).timestamp ==
+            test_support::require_value(sample).received_at);
+    REQUIRE(h.hand->runtime()->response_provenance().received_at == test_support::require_value(sample).received_at);
 }
 
 TEST_CASE("comm: O30 stream handles survive replacement and reject creation after stop",

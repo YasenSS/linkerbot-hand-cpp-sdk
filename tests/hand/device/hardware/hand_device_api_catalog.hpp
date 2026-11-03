@@ -18,14 +18,15 @@ namespace linkerbot::hand::hardware_test {
         VectorReader read;
     };
 
-    inline const std::array<VectorApi, 11> vector_apis{{
-#define HW_GET(Name, Semantic) {#Name, TelemetrySemantic::Semantic, read_vector<&HandDevice::Name>}
+    inline const std::array<VectorApi, 11> vector_apis {{
+#define HW_GET(Name, Semantic)                                                                                         \
+    { #Name, TelemetrySemantic::Semantic, read_vector<&HandDevice::Name> }
         HW_GET(get_speeds, kMeasuredSpeeds), HW_GET(get_configured_speeds, kConfiguredSpeeds),
         HW_GET(get_configured_accelerations, kConfiguredAccelerations), HW_GET(get_currents, kCurrents),
         HW_GET(get_current_limits, kCurrentLimits), HW_GET(get_torques, kTorques),
         HW_GET(get_temperatures, kTemperatures), HW_GET(get_voltages, kVoltages),
-        HW_GET(get_stall_detection_times, kStallDetectionTimes),
-        HW_GET(get_stall_thresholds, kStallThresholds), HW_GET(get_stall_hold_currents, kStallHoldCurrents)
+        HW_GET(get_stall_detection_times, kStallDetectionTimes), HW_GET(get_stall_thresholds, kStallThresholds),
+        HW_GET(get_stall_hold_currents, kStallHoldCurrents)
 #undef HW_GET
     }};
 
@@ -39,7 +40,10 @@ namespace linkerbot::hand::hardware_test {
     };
 
 #define HW_PARAM(Set, Get, Command, Telemetry, Env)                                                                    \
-    {#Set, Env, CommandSemantic::Command, &HandDevice::Set, TelemetrySemantic::Telemetry, read_vector<&HandDevice::Get>}
+    {                                                                                                                  \
+        #Set, Env, CommandSemantic::Command, &HandDevice::Set, TelemetrySemantic::Telemetry,                           \
+            read_vector<&HandDevice::Get>                                                                              \
+    }
 
     inline const std::array<ParameterApi, 6> parameter_apis{
         {HW_PARAM(set_speeds, get_configured_speeds, kSpeeds, kConfiguredSpeeds, "HAND_DEVICE_BASELINE_SPEEDS"),

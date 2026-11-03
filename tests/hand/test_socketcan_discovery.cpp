@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include "hand/support/throw_as.hpp"
 #include <catch2/catch_test_macros.hpp>
 
@@ -260,7 +261,7 @@ TEST_CASE("SocketCAN discovery preserves an O30 missing-side identity for explic
 
     hop->put_ascii(o30_comm::protocol::kMiProductInfo, 0x39, 0x20, "DEVICE-UID-O30");
     REQUIRE_NOTHROW(hand->open());
-    REQUIRE(hand->get_identity()->side == HandSide::kLeft);
+    REQUIRE(test_support::require_value(hand->get_identity()).side == HandSide::kLeft);
     REQUIRE(hand->get_capabilities().side == HandSide::kLeft);
     hand->close();
 

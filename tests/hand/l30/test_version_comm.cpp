@@ -163,6 +163,8 @@ TEST_CASE("comm: hand side name covers left and right", "[comm][l30][version]") 
     REQUIRE(hand_side_name(HandSide::kLeft) == "left");
     REQUIRE(hand_side_name(HandSide::kRight) == "right");
 
+    // Fixed-underlying-type enum values are valid C++17, including unknown values and bit masks.
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
     const auto bogus = static_cast<HandSide>(7);
     REQUIRE_THROWS_AS(hand_side_name(bogus), linkerbot::hand::ValidationError);
     REQUIRE(throws_with([bogus] { (void)hand_side_name(bogus); }, "unknown L30 hand side"));

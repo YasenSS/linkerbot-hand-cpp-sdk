@@ -86,7 +86,7 @@ namespace {
     }
 }
 
-int main() {
+static int run_consumer() {
     try {
         verify_unified_contract();
     } catch (const std::exception &error) {
@@ -147,4 +147,13 @@ int main() {
     hand.stop();
     session->close();
     return valid && l30_valid && optional_backends_are_runtime_optional ? 0 : 1;
+}
+
+int main() {
+    try {
+        return run_consumer();
+    } catch (const std::exception &error) {
+        std::cerr << error.what() << '\n';
+        return 1;
+    }
 }

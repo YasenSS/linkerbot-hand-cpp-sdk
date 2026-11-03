@@ -15,6 +15,8 @@ namespace linkerbot::hand::l6 {
     ConfigManager::~ConfigManager() {
         try {
             stop();
+            // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+            // NOLINTNEXTLINE(bugprone-empty-catch)
         } catch (...) {
         }
         ids_.drain_calls();

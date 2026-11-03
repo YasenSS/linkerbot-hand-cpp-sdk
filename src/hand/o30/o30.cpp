@@ -102,6 +102,8 @@ namespace linkerbot::hand::o30 {
             try {
                 stop_stream();
                 client_->runtime()->quiesce_for_destruction();
+                // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+                // NOLINTNEXTLINE(bugprone-empty-catch)
             } catch (...) {
             }
         }

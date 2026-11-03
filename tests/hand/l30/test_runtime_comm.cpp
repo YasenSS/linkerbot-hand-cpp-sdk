@@ -1,5 +1,6 @@
 #include "hand/l30/comm_helpers.hpp"
 #include "hand/o6/legacy_regressions.hpp"
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <condition_variable>
 #include <future>
@@ -126,8 +127,8 @@ TEST_CASE("comm: L30 an early full response cannot hide a failed backend send or
     REQUIRE(entered);
     REQUIRE(pending == std::future_status::timeout);
     REQUIRE(read.get());
-    REQUIRE(during->timestamp == old.timestamp);
-    REQUIRE(hand.angle.get_snapshot()->timestamp == old.timestamp);
+    REQUIRE(test_support::require_value(during).timestamp == old.timestamp);
+    REQUIRE(test_support::require_value(hand.angle.get_snapshot()).timestamp == old.timestamp);
     REQUIRE(hand.runtime_health().in_flight == 0);
 }
 TEST_CASE("comm: L30 partial five-finger failure preserves only the previous complete cache",
@@ -145,7 +146,7 @@ TEST_CASE("comm: L30 partial five-finger failure preserves only the previous com
         return frames;
     });
     REQUIRE_THROWS(hand.force_sensor.get_blocking(40ms));
-    REQUIRE(hand.force_sensor.get_snapshot()->timestamp == previous.timestamp);
+    REQUIRE(test_support::require_value(hand.force_sensor.get_snapshot()).timestamp == previous.timestamp);
     REQUIRE(hand.runtime_health().in_flight == 0);
 }
 TEST_CASE("comm: L30 report event worker cannot block RX or synchronous request completion",
@@ -218,15 +219,12 @@ TEST_CASE("comm: L30 plan replacement drains an in-flight read without poisoning
           "[comm][l30][runtime-migration]") {
     auto fake = std::make_unique<FakeTransport>();
     auto *raw = fake.get();
-    raw->on_request(l30_comm::query_id(protocol::kSubPosition),
-                    l30_comm::i16_handler(l30_comm::filled_i16(42)));
+    raw->on_request(l30_comm::query_id(protocol::kSubPosition), l30_comm::i16_handler(l30_comm::filled_i16(42)));
     L30 hand(std::move(fake), 1, 0, false);
     raw->arm_tx_gate();
     hand.start_polling({{SensorSource::kAngle, 10s}});
     const auto entered = raw->wait_until_tx_entered(500ms);
-    auto replacement = std::async(std::launch::async, [&] {
-        hand.start_polling({{SensorSource::kAngle, 20s}});
-    });
+    auto replacement = std::async(std::launch::async, [&] { hand.start_polling({{SensorSource::kAngle, 20s}}); });
     const auto replacing = replacement.wait_for(20ms);
     // Release before any assertion so a failing test cannot strand the writer.
     raw->release_tx_gate();
@@ -335,6 +333,6 @@ TEST_CASE("comm: L30 a queued old report cannot overwrite a newer blocking read"
     client.remove_report_handler(2, fence);
     REQUIRE(entered);
     REQUIRE(processed == std::future_status::ready);
-    REQUIRE(manager.get_snapshot()->timestamp == latest.timestamp);
-    REQUIRE(manager.get_snapshot()->angles.values == latest.angles.values);
+    REQUIRE(test_support::require_value(manager.get_snapshot()).timestamp == latest.timestamp);
+    REQUIRE(test_support::require_value(manager.get_snapshot()).angles.values == latest.angles.values);
 }

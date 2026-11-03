@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
@@ -27,7 +28,8 @@ TEST_CASE("comm: dual-frame assembler waits for both frames", "[comm][l20lite][d
     const std::array<uint8_t, 4> second{7, 8, 9, 10};
     const auto assembled = assembler.put(0x04, second.data(), second.size());
     REQUIRE(assembled.has_value());
-    REQUIRE(*assembled == (std::array<uint8_t, kJointCount>{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}));
+    REQUIRE(test_support::require_value(assembled) ==
+            (std::array<uint8_t, kJointCount>{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}));
 }
 
 // force must not supersede a request that is still on the wire.

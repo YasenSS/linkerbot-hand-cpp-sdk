@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
@@ -78,8 +79,10 @@ TEST_CASE("comm: a periodic report reaches only its own node", "[comm][l30][shar
     const auto second_snapshot = second.get_snapshot();
     REQUIRE(first_snapshot.angle.has_value());
     REQUIRE(second_snapshot.angle.has_value());
-    REQUIRE(first_snapshot.angle->angles.values[0] == Catch::Approx(raw_to_percent(kFirstRaw, kJointSpecs[0])));
-    REQUIRE(second_snapshot.angle->angles.values[0] == Catch::Approx(raw_to_percent(kSecondRaw, kJointSpecs[0])));
+    REQUIRE(test_support::require_value(first_snapshot.angle).angles.values[0] ==
+            Catch::Approx(raw_to_percent(kFirstRaw, kJointSpecs[0])));
+    REQUIRE(test_support::require_value(second_snapshot.angle).angles.values[0] ==
+            Catch::Approx(raw_to_percent(kSecondRaw, kJointSpecs[0])));
 
     first.stop();
     second.stop();

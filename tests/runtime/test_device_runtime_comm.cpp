@@ -1,5 +1,6 @@
-#include "hand/support/throw_as.hpp"
 #include "../../src/hand/unified/detail/runtime_access.hpp"
+#include "hand/support/optional_value.hpp"
+#include "hand/support/throw_as.hpp"
 #include <algorithm>
 #include <atomic>
 #include <catch2/catch_test_macros.hpp>
@@ -107,8 +108,10 @@ TEST_CASE("comm: health latency window stays bounded during concurrent reads", "
     REQUIRE(health.transaction_latency.p50.has_value());
     REQUIRE(health.transaction_latency.p95.has_value());
     REQUIRE(health.transaction_latency.p99.has_value());
-    REQUIRE(*health.transaction_latency.p50 <= *health.transaction_latency.p95);
-    REQUIRE(*health.transaction_latency.p95 <= *health.transaction_latency.p99);
+    REQUIRE(test_support::require_value(health.transaction_latency.p50) <=
+            test_support::require_value(health.transaction_latency.p95));
+    REQUIRE(test_support::require_value(health.transaction_latency.p95) <=
+            test_support::require_value(health.transaction_latency.p99));
 }
 TEST_CASE("comm: health exposes registered channels before their first sample", "[comm][runtime][health]") {
     Rig rig;
@@ -153,13 +156,13 @@ TEST_CASE("comm: health retains structured context for the latest request error"
     const auto health = rig.runtime->health();
     REQUIRE(health.consecutive_errors == 1);
     REQUIRE(health.recent_error.has_value());
-    REQUIRE(health.recent_error->code == linkerbot::hand::ErrorCode::kTimeout);
-    REQUIRE(health.recent_error->error_type == "TimeoutError");
-    REQUIRE(health.recent_error->context.operation == "runtime.submit");
-    REQUIRE(health.recent_error->context.model == "test/0x28");
-    REQUIRE(health.recent_error->context.channel == "angle");
-    REQUIRE(health.recent_error->context.generation == health.connection_generation);
-    REQUIRE(health.recent_error->context.arbitration_id == 0x28);
+    REQUIRE(test_support::require_value(health.recent_error).code == linkerbot::hand::ErrorCode::kTimeout);
+    REQUIRE(test_support::require_value(health.recent_error).error_type == "TimeoutError");
+    REQUIRE(test_support::require_value(health.recent_error).context.operation == "runtime.submit");
+    REQUIRE(test_support::require_value(health.recent_error).context.model == "test/0x28");
+    REQUIRE(test_support::require_value(health.recent_error).context.channel == "angle");
+    REQUIRE(test_support::require_value(health.recent_error).context.generation == health.connection_generation);
+    REQUIRE(test_support::require_value(health.recent_error).context.arbitration_id == 0x28);
 }
 TEST_CASE("comm: runtime classifies a full send queue at the hand boundary", "[comm][runtime][health][errors]") {
     FakeTransport *fake = nullptr;
@@ -203,12 +206,12 @@ TEST_CASE("comm: runtime classifies a full send queue at the hand boundary", "[c
 
     const auto health = runtime->health();
     REQUIRE(health.recent_error.has_value());
-    REQUIRE(health.recent_error->code == linkerbot::hand::ErrorCode::kQueueFull);
-    REQUIRE(health.recent_error->error_type == "QueueFullError");
-    REQUIRE(health.recent_error->context.operation == "runtime.submit");
-    REQUIRE(health.recent_error->context.model == "queue-health/0x28");
-    REQUIRE(health.recent_error->context.channel == "configuration");
-    REQUIRE(health.recent_error->context.arbitration_id == 0x28);
+    REQUIRE(test_support::require_value(health.recent_error).code == linkerbot::hand::ErrorCode::kQueueFull);
+    REQUIRE(test_support::require_value(health.recent_error).error_type == "QueueFullError");
+    REQUIRE(test_support::require_value(health.recent_error).context.operation == "runtime.submit");
+    REQUIRE(test_support::require_value(health.recent_error).context.model == "queue-health/0x28");
+    REQUIRE(test_support::require_value(health.recent_error).context.channel == "configuration");
+    REQUIRE(test_support::require_value(health.recent_error).context.arbitration_id == 0x28);
     REQUIRE(health.session.queue_high_water == 1);
 
     gate_release.release();
@@ -243,12 +246,12 @@ TEST_CASE("comm: runtime classifies protocol decoder failures in health", "[comm
 
     const auto health = rig.runtime->health();
     REQUIRE(health.recent_error.has_value());
-    REQUIRE(health.recent_error->code == linkerbot::hand::ErrorCode::kProtocol);
-    REQUIRE(health.recent_error->error_type == "ProtocolError");
-    REQUIRE(health.recent_error->context.operation == "runtime.submit");
-    REQUIRE(health.recent_error->context.model == "test/0x28");
-    REQUIRE(health.recent_error->context.channel == "protocol_probe");
-    REQUIRE(health.recent_error->context.arbitration_id == 0x28);
+    REQUIRE(test_support::require_value(health.recent_error).code == linkerbot::hand::ErrorCode::kProtocol);
+    REQUIRE(test_support::require_value(health.recent_error).error_type == "ProtocolError");
+    REQUIRE(test_support::require_value(health.recent_error).context.operation == "runtime.submit");
+    REQUIRE(test_support::require_value(health.recent_error).context.model == "test/0x28");
+    REQUIRE(test_support::require_value(health.recent_error).context.channel == "protocol_probe");
+    REQUIRE(test_support::require_value(health.recent_error).context.arbitration_id == 0x28);
 }
 TEST_CASE("comm: health does not wait for a pending device response", "[comm][runtime][health]") {
     Rig rig;
@@ -419,18 +422,20 @@ TEST_CASE("comm: runtime health recording normalizes errors and resets their str
     const auto failed = rig.runtime->health();
     REQUIRE(failed.consecutive_errors == 1);
     REQUIRE(failed.recent_error.has_value());
-    REQUIRE(failed.recent_error->code == linkerbot::hand::ErrorCode::kTimeout);
-    REQUIRE(failed.recent_error->context.operation == "poll.angles");
-    REQUIRE(failed.recent_error->context.model == "test/0x28");
-    REQUIRE(failed.recent_error->context.channel == "angles");
-    REQUIRE(failed.recent_error->context.generation == failed.connection_generation);
+    REQUIRE(test_support::require_value(failed.recent_error).code == linkerbot::hand::ErrorCode::kTimeout);
+    REQUIRE(test_support::require_value(failed.recent_error).context.operation == "poll.angles");
+    REQUIRE(test_support::require_value(failed.recent_error).context.model == "test/0x28");
+    REQUIRE(test_support::require_value(failed.recent_error).context.channel == "angles");
+    REQUIRE(test_support::require_value(failed.recent_error).context.generation == failed.connection_generation);
 
     rig.runtime->record_channel_success("angles");
     const auto recovered = rig.runtime->health();
     REQUIRE(recovered.consecutive_errors == 0);
     REQUIRE(recovered.recent_error.has_value());
-    REQUIRE(recovered.recent_error->code == failed.recent_error->code);
-    REQUIRE(recovered.recent_error->message == failed.recent_error->message);
+    REQUIRE(test_support::require_value(recovered.recent_error).code ==
+            test_support::require_value(failed.recent_error).code);
+    REQUIRE(test_support::require_value(recovered.recent_error).message ==
+            test_support::require_value(failed.recent_error).message);
 }
 TEST_CASE("comm: runtime health recording is thread safe", "[comm][runtime][health][metrics]") {
     Rig rig;
@@ -581,7 +586,7 @@ TEST_CASE("comm: polling timeout updates its canonical channel", "[comm][runtime
     REQUIRE(channel->timeouts == 1);
     REQUIRE_FALSE(channel->polling_active);
     REQUIRE(health.recent_error.has_value());
-    REQUIRE(health.recent_error->code == linkerbot::hand::ErrorCode::kTimeout);
+    REQUIRE(test_support::require_value(health.recent_error).code == linkerbot::hand::ErrorCode::kTimeout);
 }
 TEST_CASE("comm: an isolated poller keeps sibling rate on a shared channel", "[comm][runtime][health][polling]") {
     Rig rig;
@@ -715,7 +720,8 @@ TEST_CASE("comm: runtime send failure leaves no pending transaction", "[comm][ru
     rig.fake->fail_writes("deterministic write failure");
     REQUIRE_THROWS(rig.runtime->execute(plan(), Clock::now() + 500ms));
     REQUIRE(rig.runtime->runtime_health().in_flight == 0);
-    REQUIRE_FALSE((rig.runtime->snapshot("angle").has_value() && rig.runtime->snapshot("angle")->valid));
+    REQUIRE_FALSE((rig.runtime->snapshot("angle").has_value() &&
+                   test_support::require_value(rig.runtime->snapshot("angle")).valid));
 }
 TEST_CASE("comm: cancellation of queued request prevents later backend write", "[comm][runtime]") {
     Rig rig;
@@ -973,7 +979,7 @@ TEST_CASE("comm: shared physical recovery invalidates both devices and reopens o
     REQUIRE(first->health().connection_generation == 2);
     REQUIRE(first->health().reconnect_count == 1);
     REQUIRE(first->health().connected());
-    REQUIRE_FALSE(second->snapshot("angle")->valid);
+    REQUIRE_FALSE(test_support::require_value(second->snapshot("angle")).valid);
     (void)second->execute(other_plan, Clock::now() + 1s);
     first->close();
     (void)second->execute(other_plan, Clock::now() + 1s);
@@ -1021,8 +1027,9 @@ TEST_CASE("comm: completed send-only requests retain their send receipt", "[comm
         send_only.consume = {};
         send_only.optional_response_window.reset();
         linkerbot::hand::unified_detail::RuntimeAccess::execute_command(
-            *rig.runtime, Clock::now() + 2s, true,
-            [&](const auto &, bool) { ++observed; }, [](const auto &) { return true; }, {}, [&] {
+            *rig.runtime, Clock::now() + 2s, true, [&](const auto &, bool) { ++observed; },
+            [](const auto &) { return true; }, {},
+            [&] {
                 auto request = rig.runtime->submit(send_only, Clock::now() + 2s);
                 (void)request.wait_sent_until(Clock::now() + 1s);
                 REQUIRE(observed == index + 1);
@@ -1083,8 +1090,8 @@ TEST_CASE("comm: optional feedback received after send acceptance updates the ca
     REQUIRE(sample.valid);
     const auto cached = rig.runtime->snapshot(optional.domain);
     REQUIRE(cached.has_value());
-    REQUIRE(cached->valid);
-    REQUIRE(cached->sequence == sample.sequence);
+    REQUIRE(test_support::require_value(cached).valid);
+    REQUIRE(test_support::require_value(cached).sequence == sample.sequence);
     REQUIRE(rig.runtime->runtime_health().in_flight == 0);
 }
 
@@ -1168,8 +1175,8 @@ TEST_CASE("comm: a shorter request wait deadline is a timeout with send uncertai
     rig.fake->release_tx_gate();
     REQUIRE(timed_out);
     REQUIRE(receipt.has_value());
-    REQUIRE(receipt->claimed_at.has_value());
-    REQUIRE(receipt->outcome == linkerbot::transport::SendOutcome::pending);
+    REQUIRE(test_support::require_value(receipt).claimed_at.has_value());
+    REQUIRE(test_support::require_value(receipt).outcome == linkerbot::transport::SendOutcome::pending);
     REQUIRE(health.timeouts == 1);
     REQUIRE(health.cancelled == 0);
     REQUIRE(health.in_flight == 0);
@@ -1224,8 +1231,8 @@ TEST_CASE("comm: timeout preserves claimed IO warning whichever thread expires t
     REQUIRE(rig.runtime->runtime_health().in_flight == 0);
     const auto receipt = request.send_result();
     REQUIRE(receipt.has_value());
-    REQUIRE(receipt->claimed_at.has_value());
-    REQUIRE(receipt->outcome == linkerbot::transport::SendOutcome::pending);
+    REQUIRE(test_support::require_value(receipt).claimed_at.has_value());
+    REQUIRE(test_support::require_value(receipt).outcome == linkerbot::transport::SendOutcome::pending);
 }
 
 namespace {
@@ -1311,7 +1318,7 @@ TEST_CASE("comm: report factories discard partial data across physical recovery"
     fake->inject(fragment(2, 4));
     REQUIRE(probe.wait(4, 2));
     REQUIRE(core->snapshot_as<int>("reports") == 0x304);
-    REQUIRE(core->snapshot("reports")->device_generation == 2);
+    REQUIRE(test_support::require_value(core->snapshot("reports")).device_generation == 2);
     core->close();
     session->close();
 }
@@ -1324,7 +1331,7 @@ TEST_CASE("comm: failed report resets assembler and exposes conflict health", "[
     REQUIRE(probe.wait(2, 2));
     rig.fake->inject(fragment(2, 7));
     REQUIRE(probe.wait(3, 2));
-    REQUIRE_FALSE(rig.runtime->snapshot("reports")->valid);
+    REQUIRE_FALSE(test_support::require_value(rig.runtime->snapshot("reports")).valid);
     REQUIRE(rig.runtime->runtime_health().conflicting_duplicate_frames == 1);
     REQUIRE(rig.runtime->runtime_health().protocol_errors == 1);
     rig.fake->inject(fragment(1, 3));
@@ -1409,7 +1416,7 @@ TEST_CASE("comm: report factory reset failure faults runtime instead of using st
     rig.fake->inject(fragment(1));
     REQUIRE(rig.runtime->wait_for_fault(Clock::now() + 1s));
     REQUIRE(rig.runtime->runtime_health().state == linkerbot::hand::runtime::DeviceState::faulted);
-    REQUIRE_FALSE(rig.runtime->snapshot("reports")->valid);
+    REQUIRE_FALSE(test_support::require_value(rig.runtime->snapshot("reports")).valid);
     REQUIRE_THROWS(rig.runtime->submit(plan(), Clock::now() + 1s));
 }
 
@@ -1440,7 +1447,7 @@ TEST_CASE("comm: recovery waits for active callbacks and discards queued old sam
     release.set_value();
     recovery.get();
     REQUIRE(state == std::future_status::timeout);
-    REQUIRE_FALSE(core->snapshot("angle")->valid);
+    REQUIRE_FALSE(test_support::require_value(core->snapshot("angle")).valid);
     (void)core->execute(plan(), Clock::now() + 1s);
     REQUIRE(next_generation.get_future().wait_for(1s) == std::future_status::ready);
     REQUIRE(called == 2);
@@ -1538,14 +1545,14 @@ TEST_CASE("comm: deferred batch publication retains the last success on send fai
     rig.fake->inject(reply);
     REQUIRE(parsed.get_future().wait_for(500ms) == std::future_status::ready);
     REQUIRE_FALSE(request.completed());
-    REQUIRE(rig.runtime->snapshot("angle")->sequence == previous.sequence);
+    REQUIRE(test_support::require_value(rig.runtime->snapshot("angle")).sequence == previous.sequence);
     rig.fake->fail_writes("failed after early reply");
     rig.fake->release_tx_gate();
     REQUIRE_THROWS(request.wait());
     REQUIRE(rig.runtime->runtime_health().in_flight == 0);
     const auto cached = rig.runtime->snapshot("angle");
-    REQUIRE(cached->valid);
-    REQUIRE(cached->sequence == previous.sequence);
+    REQUIRE(test_support::require_value(cached).valid);
+    REQUIRE(test_support::require_value(cached).sequence == previous.sequence);
     rig.runtime->unobserve(observer);
 }
 
@@ -1643,9 +1650,9 @@ TEST_CASE("comm: recovery preserves old send evidence without reusing old respon
     session->close();
     REQUIRE(before.has_value());
     REQUIRE(after.has_value());
-    REQUIRE(after->outcome == linkerbot::transport::SendOutcome::dispatched);
-    REQUIRE(after->generation == before->generation);
-    REQUIRE(after->sent_frames == before->sent_frames);
+    REQUIRE(test_support::require_value(after).outcome == linkerbot::transport::SendOutcome::dispatched);
+    REQUIRE(test_support::require_value(after).generation == test_support::require_value(before).generation);
+    REQUIRE(test_support::require_value(after).sent_frames == test_support::require_value(before).sent_frames);
     REQUIRE(next.physical_generation != previous.physical_generation);
     REQUIRE(next.device_generation != previous.device_generation);
     REQUIRE(old.wait().physical_generation == previous.physical_generation);
@@ -1667,7 +1674,7 @@ TEST_CASE("comm: failed recovery rejects work and a retry installs a fresh gener
     reject_open = true;
     REQUIRE_THROWS(core->recover());
     REQUIRE(core->runtime_health().state == linkerbot::hand::runtime::DeviceState::faulted);
-    REQUIRE_FALSE(core->snapshot("angle")->valid);
+    REQUIRE_FALSE(test_support::require_value(core->snapshot("angle")).valid);
     REQUIRE_THROWS(core->execute(plan(), Clock::now() + 1s));
     reject_open = false;
     REQUIRE_NOTHROW(core->recover());
@@ -1682,9 +1689,9 @@ TEST_CASE("comm: receipt preparation failure occurs before physical admission", 
     Rig rig;
     using Access = linkerbot::hand::unified_detail::RuntimeAccess;
     REQUIRE_THROWS_AS(Access::execute_command(
-        *rig.runtime, Clock::now() + 1s, true, {}, {}, {},
-        [&] { rig.runtime->execute(plan(), Clock::now() + 1s); },
-        [] { throw std::bad_alloc(); }), std::bad_alloc);
+                          *rig.runtime, Clock::now() + 1s, true, {}, {}, {},
+                          [&] { rig.runtime->execute(plan(), Clock::now() + 1s); }, [] { throw std::bad_alloc(); }),
+                      std::bad_alloc);
     REQUIRE(rig.fake->sent().empty());
     REQUIRE(rig.runtime->runtime_health().in_flight == 0);
     REQUIRE(rig.runtime->runtime_health().state == linkerbot::hand::runtime::DeviceState::ready);
@@ -1698,11 +1705,14 @@ TEST_CASE("comm: a throwing receipt observer cannot replay send accounting", "[c
     std::string observer_error;
     using Access = linkerbot::hand::unified_detail::RuntimeAccess;
     try {
-        Access::execute_command(*rig.runtime, Clock::now() + 1s, true,
+        Access::execute_command(
+            *rig.runtime, Clock::now() + 1s, true,
             [&](const linkerbot::transport::SendResult &, bool) {
                 ++calls;
                 throw std::bad_alloc();
-            }, [](const auto &) { return true; }, {}, [&] {
+            },
+            [](const auto &) { return true; }, {},
+            [&] {
                 auto request = rig.runtime->submit(plan(), Clock::now() + 1s);
                 (void)request.wait_sent_until(Clock::now() + 1s);
             });

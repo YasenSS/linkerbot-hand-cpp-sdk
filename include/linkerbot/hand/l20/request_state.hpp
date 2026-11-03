@@ -225,6 +225,8 @@ namespace linkerbot::hand::l20::detail {
                 }
                 try {
                     (void)receipt.wait_until(std::min(deadline, Clock::now() + std::chrono::milliseconds{1}));
+                    // The loop rechecks cancellation and the shared deadline after this bounded wait.
+                    // NOLINTNEXTLINE(bugprone-empty-catch)
                 } catch (const can::TimeoutError &) { /* recheck cancellation and total deadline */
                 }
             }

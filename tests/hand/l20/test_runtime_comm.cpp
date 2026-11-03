@@ -1,4 +1,5 @@
 #include "hand/o6/legacy_regressions.hpp"
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <future>
 #include <linkerbot/can/fake_transport.hpp>
@@ -85,7 +86,7 @@ TEST_CASE("comm: L20 full tactile replies cannot hide a failed final send", "[co
     REQUIRE(hand.runtime_health().in_flight == 0);
     auto snapshot = hand.force_sensor.get_snapshot();
     REQUIRE(snapshot.has_value());
-    REQUIRE(snapshot->thumb.timestamp == first.thumb.timestamp);
+    REQUIRE(test_support::require_value(snapshot).thumb.timestamp == first.thumb.timestamp);
 }
 
 TEST_CASE("comm: L20 polling fault remains isolated to its source", "[comm][l20][runtime-migration]") {

@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
@@ -77,9 +78,10 @@ namespace {
             REQUIRE(joint.raw_angle_range.contains(joint.raw_angle_range.minimum));
             REQUIRE(joint.raw_angle_range.contains(joint.raw_angle_range.maximum));
             REQUIRE(joint.percent_mapping.has_value());
-            REQUIRE(joint.raw_angle_range.contains(joint.percent_mapping->raw_at_zero));
-            REQUIRE(joint.raw_angle_range.contains(joint.percent_mapping->raw_at_hundred));
-            REQUIRE(joint.percent_mapping->raw_at_zero != joint.percent_mapping->raw_at_hundred);
+            REQUIRE(joint.raw_angle_range.contains(test_support::require_value(joint.percent_mapping).raw_at_zero));
+            REQUIRE(joint.raw_angle_range.contains(test_support::require_value(joint.percent_mapping).raw_at_hundred));
+            REQUIRE(test_support::require_value(joint.percent_mapping).raw_at_zero !=
+                    test_support::require_value(joint.percent_mapping).raw_at_hundred);
         }
 
         std::set<CommandSemantic> command_semantics;
@@ -104,8 +106,10 @@ namespace {
                 REQUIRE(dimension > 0);
             }
             if (telemetry.raw_range.has_value()) {
-                REQUIRE(telemetry.raw_range->contains(telemetry.raw_range->minimum));
-                REQUIRE(telemetry.raw_range->contains(telemetry.raw_range->maximum));
+                REQUIRE(test_support::require_value(telemetry.raw_range)
+                            .contains(test_support::require_value(telemetry.raw_range).minimum));
+                REQUIRE(test_support::require_value(telemetry.raw_range)
+                            .contains(test_support::require_value(telemetry.raw_range).maximum));
             }
             REQUIRE(profile.supports(telemetry.semantic));
             REQUIRE(profile.telemetry_channel(telemetry.semantic) == &telemetry);
@@ -118,9 +122,10 @@ namespace {
         REQUIRE(angles->percent_mappings.size() == profile.joints.size());
         for (size_t index = 0; index < profile.joints.size(); ++index) {
             REQUIRE(angles->percent_mappings[index].has_value());
-            REQUIRE(angles->percent_mappings[index]->raw_at_zero == profile.joints[index].percent_mapping->raw_at_zero);
-            REQUIRE(angles->percent_mappings[index]->raw_at_hundred ==
-                    profile.joints[index].percent_mapping->raw_at_hundred);
+            REQUIRE(test_support::require_value(angles->percent_mappings[index]).raw_at_zero ==
+                    test_support::require_value(profile.joints[index].percent_mapping).raw_at_zero);
+            REQUIRE(test_support::require_value(angles->percent_mappings[index]).raw_at_hundred ==
+                    test_support::require_value(profile.joints[index].percent_mapping).raw_at_hundred);
         }
 
         const auto *angle_telemetry = profile.telemetry_channel(TelemetrySemantic::kAngles);
@@ -324,7 +329,11 @@ TEST_CASE("capabilities: registry returns complete immutable model profiles", "[
 
 TEST_CASE("capabilities: registry rejects unknown enum values", "[capabilities]") {
     REQUIRE_THROWS_AS(declared_capabilities(Model::kUnknown), std::invalid_argument);
+    // Fixed-underlying-type enum values are valid C++17, including unknown values and bit masks.
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
     REQUIRE_THROWS_AS(declared_capabilities(static_cast<Model>(255)), std::invalid_argument);
+    // Fixed-underlying-type enum values are valid C++17, including unknown values and bit masks.
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
     REQUIRE_THROWS_AS(declared_capabilities(Model::kL6, static_cast<HandSide>(255)), std::invalid_argument);
 }
 
@@ -382,6 +391,8 @@ TEST_CASE("capabilities: removed unified commands and telemetry stay unassigned"
                 REQUIRE_FALSE(profile.supports(semantic));
                 REQUIRE(profile.telemetry_channel(semantic) == nullptr);
             }
+            // Fixed-underlying-type enum values are valid C++17, including unknown values and bit masks.
+            // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
             const auto removed_operation = static_cast<DeviceOperation>(4);
             REQUIRE_FALSE(profile.supports(removed_operation));
             REQUIRE_FALSE(profile.operations.acknowledged(removed_operation));
@@ -431,8 +442,8 @@ TEST_CASE("capabilities: cached configuration is not reported as measurement", "
     REQUIRE_FALSE(l30_speeds->device_queried);
     REQUIRE_FALSE(l30_speeds->can_query);
     REQUIRE_FALSE(l30_speeds->can_report);
-    REQUIRE(l30_speeds->raw_range->minimum == 1);
-    REQUIRE(l30_speeds->raw_range->maximum == 250);
+    REQUIRE(test_support::require_value(l30_speeds->raw_range).minimum == 1);
+    REQUIRE(test_support::require_value(l30_speeds->raw_range).maximum == 250);
     REQUIRE(l30_speeds->freshness_ms == 1000);
 }
 
@@ -445,7 +456,7 @@ TEST_CASE("comm: L30 and O30 public percent directions agree across profiles and
                 const auto &joint = profile.joints[i];
                 const auto reversed =
                     model == Model::kL30 ? i == 0 || i == 1 || (i >= 5 && i <= 10) || i == 14 || i == 15 : i >= 6;
-                const auto &mapping = *joint.percent_mapping;
+                const auto &mapping = test_support::require_value(joint.percent_mapping);
                 REQUIRE(mapping.raw_at_zero ==
                         (reversed ? joint.raw_angle_range.maximum : joint.raw_angle_range.minimum));
                 REQUIRE(mapping.raw_at_hundred ==

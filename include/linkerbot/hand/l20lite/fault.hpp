@@ -20,6 +20,8 @@ namespace linkerbot::hand::l20lite {
     };
 
     constexpr FaultCode operator|(FaultCode lhs, FaultCode rhs) {
+        // Fixed-underlying-type enum values are valid C++17, including unknown values and bit masks.
+        // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
         return static_cast<FaultCode>(static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs));
     }
 

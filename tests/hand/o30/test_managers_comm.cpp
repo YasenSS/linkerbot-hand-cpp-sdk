@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <linkerbot/hand/errors.hpp>
 
@@ -102,8 +103,8 @@ TEST_CASE("comm: O30 actual torque keeps valid snapshots on read failure", "[com
     const auto data = h.hand->torque.get_torques(kTimeout);
     REQUIRE(data.torques == o30_comm::projected_ramp());
     REQUIRE(data.timestamp.time_since_epoch().count() > 0);
-    REQUIRE(h.hand->torque.get_snapshot()->torques == data.torques);
-    REQUIRE(h.hand->get_snapshot().torque->torques == data.torques);
+    REQUIRE(test_support::require_value(h.hand->torque.get_snapshot()).torques == data.torques);
+    REQUIRE(test_support::require_value(h.hand->get_snapshot().torque).torques == data.torques);
     REQUIRE(o30_comm::last_payload(h.transport) == std::vector<uint8_t>{0x06, 0, 36});
 
     h.transport->on_request(1, [](const auto &) {
@@ -111,9 +112,9 @@ TEST_CASE("comm: O30 actual torque keeps valid snapshots on read failure", "[com
             o30_comm::hop_reply(0x401, 0x06, false, 0, std::vector<uint8_t>(35, 0))};
     });
     REQUIRE_THROWS_AS(h.hand->torque.get_torques(kTimeout), linkerbot::hand::o30::protocol::ProtocolError);
-    REQUIRE(h.hand->torque.get_snapshot()->torques == data.torques);
-    REQUIRE(h.hand->torque.get_snapshot()->timestamp == data.timestamp);
-    REQUIRE(h.hand->get_snapshot().torque->torques == data.torques);
+    REQUIRE(test_support::require_value(h.hand->torque.get_snapshot()).torques == data.torques);
+    REQUIRE(test_support::require_value(h.hand->torque.get_snapshot()).timestamp == data.timestamp);
+    REQUIRE(test_support::require_value(h.hand->get_snapshot().torque).torques == data.torques);
 }
 
 // set_all 类写入都走三段装配槽。

@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 
 #include <chrono>
@@ -106,8 +107,8 @@ TEST_CASE("comm: force sensor polling populates snapshot", "[comm][l6][force_sen
 
     const auto snap = hand.get_snapshot();
     REQUIRE(snap.force_sensor.has_value());
-    REQUIRE(snap.force_sensor->thumb.values[0][0] == kFill);
-    REQUIRE(snap.force_sensor->pinky.values[11][5] == kFill);
+    REQUIRE(test_support::require_value(snap.force_sensor).thumb.values[0][0] == kFill);
+    REQUIRE(test_support::require_value(snap.force_sensor).pinky.values[11][5] == kFill);
 }
 
 TEST_CASE("comm: force sensor stream emits ForceSensorEvent", "[comm][l6][force_sensor]") {

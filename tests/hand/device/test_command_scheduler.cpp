@@ -285,8 +285,7 @@ TEST_CASE("M2 background failures wake every waiter and leave executor usable", 
 TEST_CASE("comm: command receipts survive logical failure and preserve uncertainty", "[comm][command][regression]") {
     CommandHandle handle(1001, CommandFamily::kAngleTarget, AckSupport::kUnsupported);
     REQUIRE(handle.send_results().empty());
-    command_detail::CommandHandleAccess::mark_failed(
-        handle, std::make_exception_ptr(TimeoutError("deadline")), 0);
+    command_detail::CommandHandleAccess::mark_failed(handle, std::make_exception_ptr(TimeoutError("deadline")), 0);
     linkerbot::transport::SendResult receipt;
     receipt.outcome = linkerbot::transport::SendOutcome::failed;
     receipt.total_frames = 3;

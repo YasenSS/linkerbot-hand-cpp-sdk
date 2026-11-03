@@ -137,6 +137,8 @@ namespace linkerbot::hand::l30::protocol {
             fields.parent != kParentPeriodic) {
             return common::Progress::unmatched();
         }
+        // Progress owns this payload through std::any; covered by ownership regression tests.
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         return common::Progress::complete(Report{fields.subcmd, {m.data.begin(), m.data.begin() + m.dlc}},
                                           common::Origin::report);
     }

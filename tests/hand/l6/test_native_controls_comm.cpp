@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
@@ -72,18 +73,18 @@ TEST_CASE("comm: L6 native gain managers retain readback and pre-write response 
             manager.set_values(target, 500ms);
             const auto written = manager.get_snapshot();
             REQUIRE(written.has_value());
-            REQUIRE(written->values == initial.values);
-            REQUIRE(written->command_response);
-            REQUIRE(written->sequence > initial.sequence);
-            REQUIRE(written->generation > initial.generation);
+            REQUIRE(test_support::require_value(written).values == initial.values);
+            REQUIRE(test_support::require_value(written).command_response);
+            REQUIRE(test_support::require_value(written).sequence > initial.sequence);
+            REQUIRE(test_support::require_value(written).generation > initial.generation);
             const auto queried = manager.get_blocking(500ms);
             REQUIRE(queried.values == target);
             REQUIRE_FALSE(queried.command_response);
-            REQUIRE(queried.sequence > written->sequence);
+            REQUIRE(queried.sequence > test_support::require_value(written).sequence);
             const auto cached = hand.get_snapshot().*gain.cached;
             REQUIRE(cached.has_value());
-            REQUIRE(cached->values == target);
-            REQUIRE(cached->sequence == queried.sequence);
+            REQUIRE(test_support::require_value(cached).values == target);
+            REQUIRE(test_support::require_value(cached).sequence == queried.sequence);
 
             const auto sent = raw->sent();
             REQUIRE(sent.size() == 3);
@@ -97,13 +98,12 @@ TEST_CASE("comm: L6 native gain managers retain readback and pre-write response 
             // Reads retain firmware evidence even beyond Kp's documented write range.
             settings.fill(255);
             REQUIRE(manager.get_blocking(500ms).values == settings);
-            REQUIRE(manager.get_snapshot()->values == settings);
+            REQUIRE(test_support::require_value(manager.get_snapshot()).values == settings);
         }
     }
 }
 
-TEST_CASE("comm: L6 native position Kp rejects writes above its range before I O",
-          "[comm][l6][native-controls]") {
+TEST_CASE("comm: L6 native position Kp rejects writes above its range before I O", "[comm][l6][native-controls]") {
     for (const auto side : {Side::kLeft, Side::kRight}) {
         auto transport = std::make_unique<FakeTransport>();
         auto *raw = transport.get();
@@ -119,8 +119,7 @@ TEST_CASE("comm: L6 native position Kp rejects writes above its range before I O
     }
 }
 
-TEST_CASE("comm: L6 native gains time out on unrelated incomplete or absent replies",
-          "[comm][l6][native-controls]") {
+TEST_CASE("comm: L6 native gains time out on unrelated incomplete or absent replies", "[comm][l6][native-controls]") {
     for (const auto side : {Side::kLeft, Side::kRight}) {
         for (const auto &gain : gains) {
             for (const auto kind : {0, 1, 2, 3, 4}) {
@@ -164,7 +163,8 @@ TEST_CASE("comm: L6 native gains time out on unrelated incomplete or absent repl
     }
 }
 
-TEST_CASE("comm: L6 native torque and limit compensation retain read and write support", "[comm][l6][native-controls]") {
+TEST_CASE("comm: L6 native torque and limit compensation retain read and write support",
+          "[comm][l6][native-controls]") {
     for (const auto side : {Side::kLeft, Side::kRight}) {
         DYNAMIC_SECTION("side " << static_cast<int>(side)) {
             const uint32_t id = side == Side::kLeft ? 0x28 : 0x27;
@@ -195,7 +195,7 @@ TEST_CASE("comm: L6 native torque and limit compensation retain read and write s
             hand.limit_compensation.set_values(target, 500ms);
             REQUIRE(hand.limit_compensation.get_blocking(500ms).values == target);
             REQUIRE(hand.limit_compensation.get_snapshot().has_value());
-            REQUIRE(hand.limit_compensation.get_snapshot()->values == target);
+            REQUIRE(test_support::require_value(hand.limit_compensation.get_snapshot()).values == target);
 
             const auto sent = raw->sent();
             REQUIRE(sent.size() == 4);

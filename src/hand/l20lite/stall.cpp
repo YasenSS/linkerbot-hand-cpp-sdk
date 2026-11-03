@@ -10,6 +10,8 @@ namespace linkerbot::hand::l20lite {
     StallManager::~StallManager() {
         try {
             stop();
+            // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+            // NOLINTNEXTLINE(bugprone-empty-catch)
         } catch (...) {
         }
     }

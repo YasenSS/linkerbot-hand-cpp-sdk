@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <linkerbot/hand/errors.hpp>
@@ -176,7 +177,7 @@ TEST_CASE("comm: angle get_blocking decodes reply", "[comm][l30][angle]") {
     REQUIRE(data.angles.to_raw() == sample_raw());
     REQUIRE(data.angles[16] == Catch::Approx(0.0F).margin(0.01));
     REQUIRE(hand.angle.get_snapshot().has_value());
-    REQUIRE(hand.angle.get_snapshot()->angles.to_raw() == sample_raw());
+    REQUIRE(test_support::require_value(hand.angle.get_snapshot()).angles.to_raw() == sample_raw());
 }
 
 // timeout<=0 立刻抛 invalid_argument，不发帧。
@@ -216,7 +217,7 @@ TEST_CASE("comm: angle periodic report updates snapshot", "[comm][l30][angle]") 
     raw->inject(l30_comm::periodic_i16_frame(kSubPosition, sample_raw()));
 
     REQUIRE(wait_until([&hand] { return hand.angle.get_snapshot().has_value(); }));
-    REQUIRE(hand.angle.get_snapshot()->angles.to_raw() == sample_raw());
+    REQUIRE(test_support::require_value(hand.angle.get_snapshot()).angles.to_raw() == sample_raw());
     REQUIRE(l30_comm::frames_for(raw, kQueryId).empty());
 }
 

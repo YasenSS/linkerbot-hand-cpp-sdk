@@ -101,8 +101,8 @@ namespace linkerbot::hand {
         handle.state_->reserved_receipts = capacity;
     }
 
-    void command_detail::CommandHandleAccess::record_send_result(
-        CommandHandle &handle, const transport::SendResult &result) {
+    void command_detail::CommandHandleAccess::record_send_result(CommandHandle &handle,
+                                                                 const transport::SendResult &result) {
         const std::lock_guard<std::mutex> lock(handle.state_->mutex);
         // Runtime preparation reserves one slot per batch before physical I/O.
         handle.state_->send_results.push_back(result);

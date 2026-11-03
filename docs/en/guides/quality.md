@@ -64,3 +64,5 @@ examples against an installed SDK; neither check executes motion.
 
 Use C++17 syntax, explicit ownership and units, truthful timeout/ACK language and
 commands that build required targets. Keep historical results labeled by revision.
+
+[Diagnostic review and baseline ledger](quality-review.md).

@@ -1,5 +1,6 @@
 #include "hand/l20/comm_helpers.hpp"
 #include "hand/o6/followup_regressions.hpp"
+#include "hand/support/optional_value.hpp"
 #include "hand/support/temp_path.hpp"
 #include <algorithm>
 #include <atomic>
@@ -715,19 +716,20 @@ TEST_CASE("comm: l20 force snapshot preserves last complete batch after partial 
     manager.start();
     REQUIRE_FALSE(manager.get_snapshot());
     (void)manager.get_blocking(200ms);
-    REQUIRE(manager.get_snapshot()->thumb.values[0][0] == 1);
-    REQUIRE(manager.get_snapshot()->pinky.values[0][0] == 1);
+    REQUIRE(test_support::require_value(manager.get_snapshot()).thumb.values[0][0] == 1);
+    REQUIRE(test_support::require_value(manager.get_snapshot()).pinky.values[0][0] == 1);
     generation.store(2);
     (void)manager.get_finger("thumb").get_blocking(100ms);
-    REQUIRE(manager.get_finger("thumb").get_snapshot()->values[0][0] == 2);
-    REQUIRE(manager.get_snapshot()->thumb.values[0][0] == 1); // single update is not an all-finger sample
+    REQUIRE(test_support::require_value(manager.get_finger("thumb").get_snapshot()).values[0][0] == 2);
+    REQUIRE(test_support::require_value(manager.get_snapshot()).thumb.values[0][0] ==
+            1); // single update is not an all-finger sample
     generation.store(3);
     REQUIRE_THROWS(manager.get_blocking(50ms));
-    REQUIRE(manager.get_finger("thumb").get_snapshot()->values[0][0] == 3);
-    REQUIRE(manager.get_snapshot()->thumb.values[0][0] == 1);
-    REQUIRE(manager.get_snapshot()->index.values[0][0] == 1);
-    REQUIRE(manager.get_snapshot()->middle.values[0][0] == 1);
-    REQUIRE(manager.get_snapshot()->pinky.values[0][0] == 1);
+    REQUIRE(test_support::require_value(manager.get_finger("thumb").get_snapshot()).values[0][0] == 3);
+    REQUIRE(test_support::require_value(manager.get_snapshot()).thumb.values[0][0] == 1);
+    REQUIRE(test_support::require_value(manager.get_snapshot()).index.values[0][0] == 1);
+    REQUIRE(test_support::require_value(manager.get_snapshot()).middle.values[0][0] == 1);
+    REQUIRE(test_support::require_value(manager.get_snapshot()).pinky.values[0][0] == 1);
 }
 
 TEST_CASE("comm: l20 force polling keeps previous full snapshot when next cycle loses a row", "[comm][l20][rfix]") {
@@ -751,13 +753,13 @@ TEST_CASE("comm: l20 force polling keeps previous full snapshot when next cycle 
     const bool faulted = hand.wait_for_polling_fault(1s);
     hand.stop_polling();
     REQUIRE(faulted);
-    REQUIRE(hand.force_sensor.get_finger("thumb").get_snapshot()->values[0][0] == 2);
+    REQUIRE(test_support::require_value(hand.force_sensor.get_finger("thumb").get_snapshot()).values[0][0] == 2);
     const auto whole = hand.force_sensor.get_snapshot();
     REQUIRE(whole);
-    REQUIRE(whole->thumb.values[0][0] == 1);
-    REQUIRE(whole->index.values[0][0] == 1);
-    REQUIRE(whole->middle.values[0][0] == 1);
-    REQUIRE(whole->pinky.values[0][0] == 1);
+    REQUIRE(test_support::require_value(whole).thumb.values[0][0] == 1);
+    REQUIRE(test_support::require_value(whole).index.values[0][0] == 1);
+    REQUIRE(test_support::require_value(whole).middle.values[0][0] == 1);
+    REQUIRE(test_support::require_value(whole).pinky.values[0][0] == 1);
 }
 
 TEST_CASE("comm: l20 destruction cancels and drains a blocking manager request", "[comm][l20][rfix]") {
@@ -829,8 +831,8 @@ TEST_CASE("comm: l20 pending polling batch keeps its original thumb", "[comm][l2
     REQUIRE(complete.get_future().wait_for(1s) == std::future_status::ready);
     const auto all = manager.get_snapshot();
     REQUIRE(all);
-    REQUIRE(all->thumb.values[0][0] == 1);
-    REQUIRE(all->pinky.values[0][0] == 1);
+    REQUIRE(test_support::require_value(all).thumb.values[0][0] == 1);
+    REQUIRE(test_support::require_value(all).pinky.values[0][0] == 1);
     REQUIRE(manager.get_finger("thumb").get_blocking(100ms).values[0][0] == 99);
 }
 

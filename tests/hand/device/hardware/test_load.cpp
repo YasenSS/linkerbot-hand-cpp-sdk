@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include "hand_device_hardware_fixture.hpp"
 #include <algorithm>
 #include <ctime>
@@ -69,7 +70,7 @@ TEST_CASE("HandDevice hardware sustained angle read load", "[hardware][device][l
     const auto output = env("HAND_DEVICE_LOAD_CSV");
     REQUIRE(output.has_value());
     // Explicit UTF-8 paths support Chinese/space directories on Windows.
-    std::ofstream csv(std::filesystem::u8path(*output), std::ios::out | std::ios::trunc);
+    std::ofstream csv(std::filesystem::u8path(test_support::require_value(output)), std::ios::out | std::ios::trunc);
     REQUIRE(csv.is_open());
     std::cout << "frozen load seconds=" << seconds << " hz=" << hz << " timeout_ms=" << timeout.count()
               << " min_completion_percent=" << min_completion << " max_p99_ms=" << max_p99

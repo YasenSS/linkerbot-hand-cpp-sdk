@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include "hand_device_hardware_fixture.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <future>
@@ -13,8 +14,9 @@ namespace {
         REQUIRE(next.connection_generation == before.connection_generation);
         REQUIRE(next.snapshot_sequence > before.snapshot_sequence);
         REQUIRE(next.angles.has_value());
-        require_meta(next.angles->meta, next.connection_generation);
-        REQUIRE(*next.angles->meta.collected_at > *before.angles->meta.collected_at);
+        require_meta(test_support::require_value(next.angles).meta, next.connection_generation);
+        REQUIRE(test_support::require_value(next.angles->meta.collected_at) >
+                test_support::require_value(before.angles->meta.collected_at));
         return next;
     }
 }
@@ -38,6 +40,8 @@ TEST_CASE("HandDevice hardware polling overloads and plans", "[hardware][device]
     REQUIRE_THROWS_AS(hand.start_polling({{TelemetrySemantic::kAngles, -1ms}}), PollingPlanError);
     REQUIRE_THROWS_AS(hand.start_polling({{TelemetrySemantic::kAngles, 50ms}, {TelemetrySemantic::kAngles, 100ms}}),
                       PollingPlanError);
+    // Fixed-underlying-type enum values are valid C++17, including unknown values and bit masks.
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
     REQUIRE_THROWS_AS(hand.start_polling({{static_cast<TelemetrySemantic>(255), 100ms}}), UnsupportedOperationError);
     REQUIRE_FALSE(hand.get_health().polling_active);
     REQUIRE_NOTHROW(hand.start_polling(PollingPlan{})); // Empty plan selects the default channel.
@@ -88,9 +92,9 @@ TEST_CASE("HandDevice hardware stream payload and bounded queue", "[hardware][de
     REQUIRE(status == std::future_status::ready);
     const auto event = consumer.get();
     REQUIRE(event.has_value());
-    REQUIRE(event->semantic == TelemetrySemantic::kAngles);
-    REQUIRE(std::holds_alternative<AngleSample>(event->sample));
-    const auto &angles = std::get<AngleSample>(event->sample);
+    REQUIRE(test_support::require_value(event).semantic == TelemetrySemantic::kAngles);
+    REQUIRE(std::holds_alternative<AngleSample>(test_support::require_value(event).sample));
+    const auto angles = std::get<AngleSample>(test_support::require_value(event).sample);
     require_meta(angles.meta, hand.get_health().connection_generation);
     REQUIRE(angles.raw.size() == hand.get_capabilities().joints.size());
     const auto drops = queue->drop_count();

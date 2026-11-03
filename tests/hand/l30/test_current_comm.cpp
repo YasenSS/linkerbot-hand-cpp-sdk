@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <linkerbot/hand/errors.hpp>
@@ -73,7 +74,7 @@ TEST_CASE("comm: current get_blocking sends empty query", "[comm][l30][current]"
     REQUIRE(frames.front().is_fd);
     REQUIRE(data.currents == sample_currents());
     REQUIRE(hand.current.get_snapshot().has_value());
-    REQUIRE(hand.current.get_snapshot()->currents == sample_currents());
+    REQUIRE(test_support::require_value(hand.current.get_snapshot()).currents == sample_currents());
 }
 
 // 负计数按二进制补码解回：-100→FF9C，-32768→8000。
@@ -127,7 +128,7 @@ TEST_CASE("comm: current periodic report updates snapshot", "[comm][l30][current
     raw->inject(frame);
 
     REQUIRE(wait_until([&hand] { return hand.current.get_snapshot().has_value(); }));
-    REQUIRE(hand.current.get_snapshot()->currents == sample_currents());
+    REQUIRE(test_support::require_value(hand.current.get_snapshot()).currents == sample_currents());
     REQUIRE(l30_comm::frames_for(raw, kQueryId).empty());
 }
 

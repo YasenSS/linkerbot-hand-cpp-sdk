@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 
 #include "../../../src/hand/unified/detail/force.hpp"
@@ -123,9 +124,9 @@ TEST_CASE("L20Lite scalar fields preserve undefined direction and independent ag
     }
     fingers[1].direction_raw = 127;
     source.tip_force = l20lite::TipForceData{l20lite::TipForce::from_array(fingers), now};
-    auto force = *unified_detail::unified_snapshot(source, Model::kL20Lite, HandSide::kLeft,
-                                                   declared_capabilities(Model::kL20Lite))
-                      .force;
+    auto force = test_support::require_value(unified_detail::unified_snapshot(source, Model::kL20Lite, HandSide::kLeft,
+                                                                              declared_capabilities(Model::kL20Lite))
+                                                 .force);
     REQUIRE(force.fields.size() == 5);
     REQUIRE(force.tactile.size() == 5);
     REQUIRE(force.raw.size() == 360);
@@ -138,7 +139,8 @@ TEST_CASE("L20Lite scalar fields preserve undefined direction and independent ag
     REQUIRE(force.status("ft") == "unsupported");
     unified_detail::complete_force_meta(force, 7, declared_capabilities(Model::kL20Lite));
     REQUIRE(force.field("fn")->meta.connection_generation == 7);
-    REQUIRE(*force.field("fn")->meta.age > *force.field("fns")->meta.age);
+    REQUIRE(test_support::require_value(force.field("fn")->meta.age) >
+            test_support::require_value(force.field("fns")->meta.age));
     REQUIRE(unified_detail::normal_force_resultant(force).raw == std::vector<double>(5, 0));
 }
 
