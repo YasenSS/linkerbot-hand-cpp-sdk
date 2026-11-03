@@ -69,6 +69,8 @@ TEST_CASE("protocol progress retains and releases type-erased payload ownership"
     auto owner = std::make_shared<int>(42);
     const std::weak_ptr<int> observed = owner;
     {
+        // This test verifies the std::any ownership that Clang 18 cannot model.
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         auto progress = protocol::Progress::complete(std::vector<std::shared_ptr<int>>{owner});
         owner.reset();
         REQUIRE_FALSE(observed.expired());
