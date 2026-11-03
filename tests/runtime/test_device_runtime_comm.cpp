@@ -1677,3 +1677,54 @@ TEST_CASE("comm: failed recovery rejects work and a retry installs a fresh gener
     REQUIRE(next.valid);
     REQUIRE(next.physical_generation != previous.physical_generation);
 }
+
+TEST_CASE("comm: receipt preparation failure occurs before physical admission", "[comm][runtime][regression]") {
+    Rig rig;
+    using Access = linkerbot::hand::unified_detail::RuntimeAccess;
+    REQUIRE_THROWS_AS(Access::execute_command(
+        *rig.runtime, Clock::now() + 1s, true, {}, {}, {},
+        [&] { rig.runtime->execute(plan(), Clock::now() + 1s); },
+        [] { throw std::bad_alloc(); }), std::bad_alloc);
+    REQUIRE(rig.fake->sent().empty());
+    REQUIRE(rig.runtime->runtime_health().in_flight == 0);
+    REQUIRE(rig.runtime->runtime_health().state == linkerbot::hand::runtime::DeviceState::ready);
+    rig.fake->echo_cmd(0x28, 1, 6, 42);
+    REQUIRE(rig.runtime->execute(plan(), Clock::now() + 1s).valid);
+}
+
+TEST_CASE("comm: a throwing receipt observer cannot replay send accounting", "[comm][runtime][regression]") {
+    Rig rig;
+    std::atomic<unsigned> calls{0};
+    std::string observer_error;
+    using Access = linkerbot::hand::unified_detail::RuntimeAccess;
+    try {
+        Access::execute_command(*rig.runtime, Clock::now() + 1s, true,
+            [&](const linkerbot::transport::SendResult &, bool) {
+                ++calls;
+                throw std::bad_alloc();
+            }, [](const auto &) { return true; }, {}, [&] {
+                auto request = rig.runtime->submit(plan(), Clock::now() + 1s);
+                (void)request.wait_sent_until(Clock::now() + 1s);
+            });
+    } catch (const std::exception &error) {
+        observer_error = error.what();
+    }
+    rig.runtime->close();
+    const auto first = rig.runtime->runtime_health();
+    const auto second = rig.runtime->runtime_health();
+    INFO(observer_error);
+    REQUIRE(calls == 1);
+    REQUIRE(first.sent_frames == 1);
+    REQUIRE(second.sent_frames == first.sent_frames);
+}
+
+TEST_CASE("comm: terminal receipt publishes completed session accounting", "[comm][runtime][regression]") {
+    Rig rig;
+    const auto before = rig.session->health();
+    auto request = rig.runtime->submit(plan(), Clock::now() + 1s);
+    const auto receipt = request.wait_sent_until(Clock::now() + 1s);
+    const auto after = rig.session->health();
+    REQUIRE(receipt.outcome == linkerbot::transport::SendOutcome::dispatched);
+    REQUIRE(after.tx_frames == before.tx_frames + receipt.sent_frames);
+    request.cancel();
+}

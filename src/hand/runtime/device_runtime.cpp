@@ -515,6 +515,7 @@ namespace linkerbot::hand::runtime {
             CancellationToken cancellation;
             unified_detail::RuntimeAccess::SendObserver observer;
             unified_detail::RuntimeAccess::FinalSend final_send;
+            std::function<void()> prepare_send;
         };
         std::map<std::thread::id, CommandExecution> command_executions;
         struct SendAudit {
@@ -537,10 +538,13 @@ namespace linkerbot::hand::runtime {
                 if (!result.error && result.completed_at) {
                     last_successful_send = *result.completed_at;
                 }
-                if (it->observer) {
-                    it->observer(result, it->final_send);
-                }
+                auto observer = std::move(it->observer);
+                const bool final_send = it->final_send;
                 it = send_audit.erase(it);
+                // Retire accounting before invoking an observer which may throw.
+                if (observer) {
+                    observer(result, final_send);
+                }
             }
         }
         std::vector<std::unique_ptr<Poller>> pollers;
@@ -1306,6 +1310,10 @@ namespace linkerbot::hand::runtime {
                     break;
                 }
                 p.cv.wait_until(lock, std::min(deadline, Clock::now() + std::chrono::milliseconds(1)));
+            }
+            if (const auto execution = p.command_executions.find(state->owner);
+                execution != p.command_executions.end() && execution->second.prepare_send) {
+                execution->second.prepare_send();
             }
             std::weak_ptr<DeviceRuntime> weak = shared_from_this();
             std::weak_ptr<Request::State> weak_state = state;
@@ -2440,7 +2448,8 @@ void linkerbot::hand::unified_detail::RuntimeAccess::execute_command(runtime::De
                                                                      runtime::Deadline deadline, bool send_only,
                                                                      SendObserver observer, FinalSend final_send,
                                                                      runtime::CancellationToken cancellation,
-                                                                     const std::function<void()> &execute) {
+                                                                     const std::function<void()> &execute,
+                                                                     std::function<void()> prepare_send) {
     const auto owner = std::this_thread::get_id();
     auto &p = *runtime.impl_;
     std::optional<runtime::DeviceRuntime::Impl::CommandExecution> previous;
@@ -2451,7 +2460,8 @@ void linkerbot::hand::unified_detail::RuntimeAccess::execute_command(runtime::De
         }
         p.command_executions.insert_or_assign(
             owner, runtime::DeviceRuntime::Impl::CommandExecution{send_only, deadline, cancellation,
-                                                                  std::move(observer), std::move(final_send)});
+                                                                  std::move(observer), std::move(final_send),
+                                                                  std::move(prepare_send)});
     }
     const auto restore = [&] {
         const std::lock_guard<std::mutex> lock(p.mutex);

@@ -40,7 +40,7 @@ Use paired `0.3.x` versions; the transport version must be at least the hand SDK
 ```bash
 mkdir sdk-build && cd sdk-build
 git clone https://github.com/linker-bot/linkerbot-transport-cpp.git
-git -C linkerbot-transport-cpp checkout --detach 37c2e6f05ec93045e13459194b6bee7d1a2f091d
+git -C linkerbot-transport-cpp checkout --detach a46177e86e403bbd18834aedb6e81ef3233c6c22
 git clone https://github.com/linker-bot/linkerbot-hand-cpp.git
 cd linkerbot-hand-cpp
 

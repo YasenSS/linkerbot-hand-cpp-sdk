@@ -46,6 +46,14 @@ class ReleaseTriggerTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'pin one full'):
                 ci_transport_sha(root)
 
+    def test_github_only_repository_resolves_dependency_pin(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / '.github/workflows/ci.yml'
+            path.parent.mkdir(parents=True)
+            path.write_text('env:\n  COMM_REF: ' + 'a' * 40 + '\n')
+            self.assertEqual(ci_transport_sha(root), 'a' * 40)
+
     def test_annotated_tag_is_peeled_to_the_actual_hand_commit(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

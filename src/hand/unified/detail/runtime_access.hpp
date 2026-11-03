@@ -14,8 +14,11 @@ namespace linkerbot::hand::unified_detail {
         // Scope only this caller's native transactions. Its absolute budget is
         // inherited by nested operations; receipt callbacks run under the
         // runtime lock and must never call back into runtime/facade state.
+        // prepare_send runs before request accounting and physical admission;
+        // failures reject that batch without I/O. Reserve observer storage here.
         static void execute_command(runtime::DeviceRuntime &runtime, runtime::Deadline deadline, bool send_only,
                                     SendObserver observer, FinalSend final_send,
-                                    runtime::CancellationToken cancellation, const std::function<void()> &execute);
+                                    runtime::CancellationToken cancellation, const std::function<void()> &execute,
+                                    std::function<void()> prepare_send = {});
     };
 }
