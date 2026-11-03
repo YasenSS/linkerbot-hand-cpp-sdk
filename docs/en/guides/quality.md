@@ -17,7 +17,7 @@ Dependencies and generated/build files are excluded. The historical standalone
 and is not part of the maintained CMake build. No diagnostic-based source exclusions
 are used. `.clang-format` remains the formatting authority.
 
-The first integration establishes a complete baseline. CI fails on missing tools,
+CI requires a complete report and zero error-severity diagnostics. It fails on missing tools,
 missing compile entries, analyzer errors or incomplete coverage. Existing findings
 are retained in the JSON/Markdown report; a successful job does not mean zero findings
 or A+. The numeric score does not measure test coverage or hardware compatibility.
@@ -37,7 +37,7 @@ checkout. Follow the workflow's configure/build/install/consumer steps, then:
 python3 validation/prepare_report_db.py --output build/report-compile-commands.json \
   build/report/compile_commands.json build/report-consumer/compile_commands.json \
   build/report-l6/compile_commands.json
-cppreportcard-cli --config .cppreportcard.json --mode full --fail-on none --threshold 0 \
+cppreportcard-cli --config .cppreportcard.json --mode full --fail-on errors --threshold 0 \
   --output-dir .github/cppreportcard
 python3 validation/check_report_complete.py .github/cppreportcard/report.json
 ```

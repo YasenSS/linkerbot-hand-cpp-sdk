@@ -5,8 +5,8 @@
 
 #include <any>
 #include <memory>
-#include <vector>
 #include <new>
+#include <vector>
 
 using namespace linkerbot::hand;
 using namespace linkerbot::hand::unified_detail;
@@ -56,7 +56,6 @@ TEST_CASE("execution gate removes timed out cancelled and invalid waiters", "[co
     next.reset();
     REQUIRE(lifetime.expired());
 }
-
 
 TEST_CASE("checked optional test values own temporaries and reject missing data", "[comm][test-support]") {
     REQUIRE_THROWS_AS(test_support::require_value(std::optional<int>{}), std::logic_error);

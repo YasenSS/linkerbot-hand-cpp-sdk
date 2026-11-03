@@ -66,9 +66,9 @@ jobs:
           compile_commands: build/report-compile-commands.json
           output_dir: .github/cppreportcard
           install_tools: 'false'
-          # Establish an honest full baseline. Findings are published, not hidden.
-          # Missing tools, compilation coverage or timeouts still fail the job.
-          fail_on: none
+          # Preserve warnings while rejecting analyzer errors and incomplete coverage.
+          # The reviewed baseline does not exempt future errors from this gate.
+          fail_on: errors
           threshold: '0'
           commit: 'false'
       - name: Require complete analysis
