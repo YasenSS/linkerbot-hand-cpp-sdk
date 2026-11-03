@@ -331,7 +331,8 @@ TEST_CASE("comm: L30 exclusive Client operation excludes competing commands and 
     REQUIRE_FALSE(competing_error.empty());
     REQUIRE(transaction_error.empty());
     REQUIRE(l30_comm::sent_ids(raw) == std::vector<uint32_t>{0x02210100, 0x0220E100, 0x02210100});
-    // Each ACK arrives inside 50ms individually, but the sequence exceeds 50ms.
+    // Two 30ms ACK delays exceed the shared 50ms budget. Scheduling may
+    // exhaust that budget during the first ACK, so either prefix is valid.
     raw->clear_sent();
     for (auto id : {0x02210100u, 0x0220E100u}) {
         raw->on_request(id, [](const Message &req) {
@@ -340,7 +341,12 @@ TEST_CASE("comm: L30 exclusive Client operation excludes competing commands and 
         });
     }
     REQUIRE_THROWS(sequence(50ms));
-    REQUIRE(raw->sent().size() == 2);
+    const auto sent = l30_comm::sent_ids(raw);
+    REQUIRE_FALSE(sent.empty());
+    REQUIRE(sent.size() <= 2);
+    auto expected = std::vector<uint32_t>{0x02210100, 0x0220E100};
+    expected.resize(sent.size());
+    REQUIRE(sent == expected);
 }
 
 TEST_CASE("comm: L30 five finger reads consume one budget", "[comm][l30][rfix]") {
