@@ -281,3 +281,29 @@ TEST_CASE("M2 background failures wake every waiter and leave executor usable", 
     REQUIRE(totals(scheduler.metrics()).failed == 1);
     REQUIRE(totals(scheduler.metrics()).dispatched == 1);
 }
+
+TEST_CASE("comm: command receipts survive logical failure and preserve uncertainty", "[comm][command][regression]") {
+    CommandHandle handle(1001, CommandFamily::kAngleTarget, AckSupport::kUnsupported);
+    REQUIRE(handle.send_results().empty());
+    command_detail::CommandHandleAccess::mark_failed(
+        handle, std::make_exception_ptr(TimeoutError("deadline")), 0);
+    linkerbot::transport::SendResult receipt;
+    receipt.outcome = linkerbot::transport::SendOutcome::failed;
+    receipt.total_frames = 3;
+    receipt.sent_frames = 1;
+    receipt.current_frame_uncertain = true;
+    receipt.generation = 7;
+    receipt.error = std::make_exception_ptr(TransportError("partial write"));
+    command_detail::CommandHandleAccess::record_send_result(handle, receipt);
+    auto results = handle.send_results();
+    REQUIRE(results.size() == 1);
+    REQUIRE(results[0].sent_frames == 1);
+    REQUIRE(results[0].total_frames == 3);
+    REQUIRE(results[0].current_frame_uncertain);
+    REQUIRE(results[0].generation == 7);
+    REQUIRE(results[0].error);
+    REQUIRE(handle.stage() == CommandStage::kFailed);
+    REQUIRE(handle.sent_frames() == 0);
+    results.clear();
+    REQUIRE(handle.send_results().size() == 1);
+}

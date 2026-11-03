@@ -42,6 +42,9 @@ namespace {
     LINKERBOT_ASSERT_SETTER(set_stall_hold_currents);
 #undef LINKERBOT_ASSERT_SETTER
 
+    static_assert(std::is_same_v<decltype(std::declval<const CommandHandle &>().send_results()),
+                                 std::vector<linkerbot::transport::SendResult>>);
+
     void verify_unified_contract() {
         validation::FakeHand device;
         const auto handle = device.block();
