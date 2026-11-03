@@ -247,6 +247,8 @@ TEST_CASE("comm: finger name and subcommand cover five fingers", "[comm][l30][fo
     REQUIRE(finger_subcommand(Finger::kRing) == protocol::kSubTactileRing);
     REQUIRE(finger_subcommand(Finger::kPinky) == protocol::kSubTactilePinky);
 
+    // Fixed-underlying-type enum values are valid C++17, including unknown values and bit masks.
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
     const auto bogus = static_cast<Finger>(9);
     REQUIRE_THROWS_AS(finger_name(bogus), linkerbot::hand::ValidationError);
     REQUIRE_THROWS_AS(finger_subcommand(bogus), linkerbot::hand::ValidationError);

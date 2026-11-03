@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include "hop_fixture.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <future>
@@ -40,9 +41,9 @@ TEST_CASE("L6 HOP unified open reads u16 values and preserves identity version",
     HandDevice device(cfg, [firmware] { return firmware->transport(0x123); });
     REQUIRE(device.get_capabilities().transport.kind == TransportKind::kCanFd);
     device.open();
-    REQUIRE(device.get_identity()->model == Model::kL6);
-    REQUIRE(device.get_identity()->protocol_version == "1.0.0");
-    REQUIRE(device.get_identity()->serial_number == "632");
+    REQUIRE(test_support::require_value(device.get_identity()).model == Model::kL6);
+    REQUIRE(test_support::require_value(device.get_identity()).protocol_version == "1.0.0");
+    REQUIRE(test_support::require_value(device.get_identity()).serial_number == "632");
     REQUIRE(device.get_capabilities().joints[0].raw_angle_range.maximum == 65535);
     REQUIRE(device.get_angles().raw == std::vector<double>{256, 32768, 65535, 0, 1, 513});
     REQUIRE(device.get_angles().percent[2] == 100.0);
@@ -62,7 +63,7 @@ TEST_CASE("L6 HOP unified open reads u16 values and preserves identity version",
     REQUIRE(set.wait_for(1s));
     REQUIRE(set.stage() == CommandStage::kAcknowledged);
     REQUIRE(set.sent_frames() == 2);
-    REQUIRE(device.get_snapshot().angles->meta.sequence > before_sequence);
+    REQUIRE(test_support::require_value(device.get_snapshot().angles).meta.sequence > before_sequence);
     REQUIRE(device.get_angles().raw == std::vector<double>{65535, 256, 513, 32768, 1, 0});
     auto percent = device.set_percent_angles({0, 100, 50, 25, 75, 0});
     REQUIRE(percent.wait_for(1s));
@@ -96,17 +97,17 @@ TEST_CASE("L6 HOP angle command waits for both mounted replies", "[comm][l6-hop]
     auto handle = device.set_angles({5, 6, 7, 8, 9, 10});
     REQUIRE_FALSE(handle.wait_for(20ms));
     REQUIRE(handle.stage() == CommandStage::kDispatched);
-    REQUIRE(device.get_snapshot().angles->raw == before->raw);
+    REQUIRE(test_support::require_value(device.get_snapshot().angles).raw == test_support::require_value(before).raw);
     std::optional<linkerbot::can::Message> held;
     {
         std::lock_guard<std::mutex> lock(firmware->mutex);
         held = firmware->held;
     }
     REQUIRE(held);
-    fake->inject(*held);
+    fake->inject(test_support::require_value(held));
     REQUIRE(handle.wait_for(1s));
     REQUIRE(handle.stage() == CommandStage::kAcknowledged);
-    REQUIRE(device.get_snapshot().angles->raw == std::vector<double>{5, 6, 7, 8, 9, 10});
+    REQUIRE(test_support::require_value(device.get_snapshot().angles).raw == std::vector<double>{5, 6, 7, 8, 9, 10});
     device.close();
     session->close();
 }
@@ -114,7 +115,7 @@ TEST_CASE("L6 HOP failed partial response preserves last complete sample", "[com
     auto firmware = std::make_shared<Firmware>();
     HandDevice device(config(), [firmware] { return firmware->transport(); });
     device.open();
-    const auto before = device.get_snapshot().angles->raw;
+    const auto before = test_support::require_value(device.get_snapshot().angles).raw;
     {
         std::lock_guard<std::mutex> lock(firmware->mutex);
         firmware->short_tail = true;
@@ -123,7 +124,7 @@ TEST_CASE("L6 HOP failed partial response preserves last complete sample", "[com
     REQUIRE(handle.wait_for(1s));
     REQUIRE(handle.stage() == CommandStage::kFailed);
     REQUIRE(handle.error());
-    REQUIRE(device.get_snapshot().angles->raw == before);
+    REQUIRE(test_support::require_value(device.get_snapshot().angles).raw == before);
     device.close();
 }
 TEST_CASE("L6 HOP identity rejects wrong model side and protocol", "[comm][l6-hop]") {
@@ -155,25 +156,25 @@ TEST_CASE("L6 HOP descriptor touch supports aliases reserved data and all banks"
     REQUIRE(sample.sensors[0].rows == 2);
     REQUIRE(sample.sensors[0].columns == 2);
     REQUIRE_FALSE(sample.sensors[2].available);
-    REQUIRE(sample.field("fns")->raw[0]->at(0) == 42);
-    REQUIRE(sample.field("fns")->raw[1]->at(0) == 9);
-    REQUIRE(sample.field("fts")->raw[1]->at(0) == -2);
-    REQUIRE(sample.field("fds")->raw[1]->at(0) == 45);
+    REQUIRE(test_support::require_value(sample.field("fns")->raw[0]).at(0) == 42);
+    REQUIRE(test_support::require_value(sample.field("fns")->raw[1]).at(0) == 9);
+    REQUIRE(test_support::require_value(sample.field("fts")->raw[1]).at(0) == -2);
+    REQUIRE(test_support::require_value(sample.field("fds")->raw[1]).at(0) == 45);
     REQUIRE(sample.field("fn")->raw[0] == std::vector<double>{1, 2, 3, 4});
-    REQUIRE(sample.field("fn")->raw[4]->size() == 260);
+    REQUIRE(test_support::require_value(sample.field("fn")->raw[4]).size() == 260);
     REQUIRE(sample.sensors[3].fields[0].values == std::vector<double>{1, 2, 3});
     const auto sent = fake->sent();
     REQUIRE(std::any_of(sent.begin(), sent.end(), [](const auto &req) { return req.data[0] == 0x34; }));
     for (const auto &req : sent) {
         REQUIRE(req.data[2] <= 61);
     }
-    const auto old = hand.force_sensor.get_snapshot()->raw;
+    const auto old = test_support::require_value(hand.force_sensor.get_snapshot()).raw;
     {
         std::lock_guard<std::mutex> lock(firmware->mutex);
         firmware->bad_length = true;
     }
     REQUIRE_THROWS(hand.force_sensor.get_blocking(200ms));
-    REQUIRE(hand.force_sensor.get_snapshot()->raw == old);
+    REQUIRE(test_support::require_value(hand.force_sensor.get_snapshot()).raw == old);
     hand.stop();
 }
 TEST_CASE("L6 HOP unified dynamic force capabilities and polling stream", "[comm][l6-hop]") {
@@ -189,7 +190,7 @@ TEST_CASE("L6 HOP unified dynamic force capabilities and polling stream", "[comm
     device.start_polling({{TelemetrySemantic::kAngles, 10ms}, {TelemetrySemantic::kConfiguredSpeeds, 20ms}});
     const auto previous = device.get_snapshot();
     const auto next = device.wait_for_snapshot(previous, 500ms);
-    REQUIRE(next.angles->meta.valid);
+    REQUIRE(test_support::require_value(next.angles).meta.valid);
     device.stop_polling();
     device.stop_stream();
     device.close();
@@ -222,7 +223,7 @@ TEST_CASE("L6 HOP recover verifies identity and never replays targets", "[comm][
     device.start_polling({{TelemetrySemantic::kAngles, 20ms}});
     device.recover();
     REQUIRE(device.is_open());
-    REQUIRE(device.get_identity()->device_uid.has_value());
+    REQUIRE(test_support::require_value(device.get_identity()).device_uid.has_value());
     REQUIRE(device.get_capabilities().joints[0].raw_angle_range.maximum == 65535);
     REQUIRE(device.get_angles().raw == std::vector<double>{7, 8, 9, 10, 11, 12});
     {
@@ -262,7 +263,7 @@ TEST_CASE("L6 HOP timed out replies cannot complete a later request", "[comm][l6
     auto session = linkerbot::transport::Session::own(std::move(transport));
     HandDevice device(cfg, session);
     device.open();
-    const auto previous = device.get_snapshot().angles->raw;
+    const auto previous = test_support::require_value(device.get_snapshot().angles).raw;
     {
         std::lock_guard<std::mutex> lock(firmware->mutex);
         firmware->hold_tail = true;
@@ -277,9 +278,9 @@ TEST_CASE("L6 HOP timed out replies cannot complete a later request", "[comm][l6
         late = firmware->held;
     }
     REQUIRE(late);
-    fake->inject(*late);
+    fake->inject(test_support::require_value(late));
     REQUIRE_THROWS(device.get_angles(50ms));
-    REQUIRE(device.get_snapshot().angles->raw == previous);
+    REQUIRE(test_support::require_value(device.get_snapshot().angles).raw == previous);
     device.close();
     session->close();
 }

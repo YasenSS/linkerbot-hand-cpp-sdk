@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
@@ -81,7 +82,8 @@ TEST_CASE("comm: tip force get_blocking reads 0x20-0x23", "[comm][l20lite][tip_f
     REQUIRE(data.tip_force.middle.direction_raw == 64);
     REQUIRE(data.tip_force.ring.proximity == 0x23);
     REQUIRE(data.tip_force.thumb.direction_deg().has_value());
-    REQUIRE(*data.tip_force.thumb.direction_deg() == Catch::Approx(64.0f * 359.0f / 127.0f));
+    REQUIRE(test_support::require_value(data.tip_force.thumb.direction_deg()) ==
+            Catch::Approx(64.0f * 359.0f / 127.0f));
 
     std::vector<uint8_t> cmds;
     for (const auto &msg : raw->sent()) {

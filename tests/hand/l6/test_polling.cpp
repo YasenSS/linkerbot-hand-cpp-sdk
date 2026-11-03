@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstddef>
@@ -112,9 +113,7 @@ TEST_CASE("Polling: get_snapshot reflects polled data", "[l6][polling]") {
     REQUIRE(snap.torque.has_value());
 
     // Verify angle data is in valid range
-    auto arr = snap.angle
-                   ->angle // NOLINT(bugprone-unchecked-optional-access)
-                   .to_array();
+    auto arr = test_support::require_value(snap.angle).angle.to_array();
     for (size_t i = 0; i < Angle::kJointCount; ++i) {
         REQUIRE(arr[i] >= 0.0f);
         REQUIRE(arr[i] <= 100.0f);

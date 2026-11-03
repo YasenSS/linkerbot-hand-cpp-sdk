@@ -76,6 +76,8 @@ TEST_CASE("hand error code names are stable", "[errors]") {
     REQUIRE(error_code_name(ErrorCode::kClosed) == "closed");
     REQUIRE(error_code_name(ErrorCode::kLifecycle) == "lifecycle");
     REQUIRE(error_code_name(ErrorCode::kInternal) == "internal");
+    // Fixed-underlying-type enum values are valid C++17, including unknown values and bit masks.
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
     REQUIRE(error_code_name(static_cast<ErrorCode>(0)) == "unknown");
 }
 

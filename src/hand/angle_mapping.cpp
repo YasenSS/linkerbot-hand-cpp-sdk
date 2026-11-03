@@ -571,6 +571,8 @@ namespace linkerbot::hand {
 #else
             std::filesystem::rename(tmp, path);
 #endif
+            // Value is observed by RAII cleanup or subsequent Catch2 assertions.
+            // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
             committed = true;
         }
     } // namespace

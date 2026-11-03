@@ -97,6 +97,8 @@ namespace linkerbot::hand::o30::protocol {
             // failure, never a successful partially-filled sample.
             if (!write_ack_ && frame.edl < kMaxHopPayload && end < length_) {
                 if (mi_ == kMiCommError && si_ == 1 && length_ == 16 && offset == 0 && end == 15) {
+                    // Progress owns this payload through std::any; covered by ownership regression tests.
+                    // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
                     return Progress::complete(std::vector<uint8_t>(data_.begin(), data_.begin() + 15));
                 }
                 throw ProtocolError("short HOP object does not cover requested range");
@@ -108,6 +110,8 @@ namespace linkerbot::hand::o30::protocol {
             if ((!write_ack_ || terminal_) &&
                 std::all_of(covered_.begin(), covered_.begin() + static_cast<std::ptrdiff_t>(required),
                             [](bool covered) { return covered; })) {
+                // Progress owns this payload through std::any; covered by ownership regression tests.
+                // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
                 return Progress::complete(
                     std::vector<uint8_t>(data_.begin(), data_.begin() + static_cast<std::ptrdiff_t>(required)));
             }

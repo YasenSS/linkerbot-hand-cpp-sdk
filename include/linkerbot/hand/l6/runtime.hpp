@@ -25,6 +25,8 @@ namespace linkerbot::hand::l6 {
         std::chrono::microseconds request_timeout{5000};
     };
 
+    // Public aggregate layout and positional initialization are compatibility contracts.
+    // NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
     struct L6PollingPlan {
         bool angle_enabled = false;
         std::chrono::microseconds angle_period{100000};

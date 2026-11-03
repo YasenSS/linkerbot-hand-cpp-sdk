@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <linkerbot/hand/errors.hpp>
@@ -125,7 +126,7 @@ TEST_CASE("comm: current limit snapshot holds commanded value", "[comm][l30][cur
     hand.current_limit.set_current_limits(sample_current_limits());
 
     REQUIRE(hand.current_limit.get_snapshot().has_value());
-    REQUIRE(hand.current_limit.get_snapshot()->current_limits == sample_current_limits());
+    REQUIRE(test_support::require_value(hand.current_limit.get_snapshot()).current_limits == sample_current_limits());
     REQUIRE(l30_comm::count_id(raw, kWriteId) == 1);
     REQUIRE(raw->sent().size() == 1);
 }

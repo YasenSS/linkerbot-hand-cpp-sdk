@@ -1221,6 +1221,8 @@ namespace linkerbot::hand::runtime {
         // handles the subsequent dispatcher subscription cleanup externally.
         try {
             close_impl();
+            // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+            // NOLINTNEXTLINE(bugprone-empty-catch)
         } catch (...) {
         }
     }
@@ -1396,7 +1398,8 @@ namespace linkerbot::hand::runtime {
                 ++it;
             }
         }
-        auto sample = submit(std::move(plan), deadline, cancellation).wait_until(deadline);
+        auto request = submit(std::move(plan), deadline, cancellation);
+        auto sample = request.wait_until(deadline);
         if (sample.origin != protocol::Origin::unknown) {
             last_response[this] = {weak_from_this(), sample};
         }
@@ -2458,10 +2461,9 @@ void linkerbot::hand::unified_detail::RuntimeAccess::execute_command(runtime::De
         if (const auto it = p.command_executions.find(owner); it != p.command_executions.end()) {
             previous = it->second;
         }
-        p.command_executions.insert_or_assign(
-            owner, runtime::DeviceRuntime::Impl::CommandExecution{send_only, deadline, cancellation,
-                                                                  std::move(observer), std::move(final_send),
-                                                                  std::move(prepare_send)});
+        p.command_executions.insert_or_assign(owner, runtime::DeviceRuntime::Impl::CommandExecution{
+                                                         send_only, deadline, cancellation, std::move(observer),
+                                                         std::move(final_send), std::move(prepare_send)});
     }
     const auto restore = [&] {
         const std::lock_guard<std::mutex> lock(p.mutex);

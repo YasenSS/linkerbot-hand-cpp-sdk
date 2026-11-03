@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <linkerbot/hand/errors.hpp>
 
@@ -39,7 +40,7 @@ TEST_CASE("Current limit: snapshot holds commanded value", "[l30][control][curre
 
     const auto snapshot = hand.current_limit.get_snapshot();
     REQUIRE(snapshot.has_value());
-    for (const auto counts : snapshot->current_limits) {
+    for (const auto counts : test_support::require_value(snapshot).current_limits) {
         REQUIRE(counts == 300);
     }
     REQUIRE(hand.get_snapshot().current_limit.has_value());

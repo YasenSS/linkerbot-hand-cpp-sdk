@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
@@ -269,7 +270,7 @@ namespace {
         std::vector<int32_t> values;
         values.reserve(capabilities.joints.size());
         for (const auto &joint : capabilities.joints) {
-            const auto &mapping = joint.percent_mapping.value();
+            const auto &mapping = test_support::require_value(joint.percent_mapping);
             const auto raw = mapping.raw_at_zero +
                              static_cast<double>(percent) / 100.0 * (mapping.raw_at_hundred - mapping.raw_at_zero);
             switch (mapping.quantization) {
@@ -492,39 +493,41 @@ TEST_CASE("HandDevice selects every backend and has idempotent lifecycle", "[com
             const auto capabilities = device.get_capabilities();
             REQUIRE(initialized.model == model);
             REQUIRE(verified.has_value());
-            REQUIRE(capabilities.model == verified->model);
-            REQUIRE(capabilities.side == verified->side);
+            REQUIRE(capabilities.model == test_support::require_value(verified).model);
+            REQUIRE(capabilities.side == test_support::require_value(verified).side);
             if (model == Model::kL30 || model == Model::kO30) {
                 REQUIRE(declared.side == HandSide::kUnknown);
                 REQUIRE(capabilities.side == HandSide::kLeft);
             }
-            REQUIRE(initialized.side == verified->side);
+            REQUIRE(initialized.side == test_support::require_value(verified).side);
             REQUIRE(initialized.device_info.has_value());
-            REQUIRE(initialized.device_info->model == model);
+            REQUIRE(test_support::require_value(initialized.device_info).model == model);
             REQUIRE(initialized.connection_generation > 0);
             REQUIRE(initialized.snapshot_sequence > 0);
             REQUIRE(initialized.angles.has_value());
             REQUIRE(initialized.faults.has_value());
-            REQUIRE(initialized.angles->meta.valid);
+            REQUIRE(test_support::require_value(initialized.angles).meta.valid);
             // Earlier baseline channels can age while later multi-frame reads
             // complete. Freshness is tested separately; open() promises validity.
-            REQUIRE(initialized.angles->meta.collected_at.has_value());
-            REQUIRE(initialized.angles->meta.age.has_value());
-            REQUIRE(initialized.angles->meta.connection_generation == initialized.connection_generation);
-            REQUIRE(initialized.faults->meta.valid);
-            REQUIRE(initialized.faults->meta.collected_at.has_value());
-            REQUIRE(initialized.faults->meta.age.has_value());
-            REQUIRE(initialized.faults->meta.connection_generation == initialized.connection_generation);
+            REQUIRE(test_support::require_value(initialized.angles).meta.collected_at.has_value());
+            REQUIRE(test_support::require_value(initialized.angles).meta.age.has_value());
+            REQUIRE(test_support::require_value(initialized.angles).meta.connection_generation ==
+                    initialized.connection_generation);
+            REQUIRE(test_support::require_value(initialized.faults).meta.valid);
+            REQUIRE(test_support::require_value(initialized.faults).meta.collected_at.has_value());
+            REQUIRE(test_support::require_value(initialized.faults).meta.age.has_value());
+            REQUIRE(test_support::require_value(initialized.faults).meta.connection_generation ==
+                    initialized.connection_generation);
             switch (model) {
             case Model::kL6:
                 REQUIRE(initialized.current_limits.has_value());
-                REQUIRE(initialized.current_limits->meta.valid);
+                REQUIRE(test_support::require_value(initialized.current_limits).meta.valid);
                 break;
             case Model::kO6:
             case Model::kL20Lite:
             case Model::kL20:
                 REQUIRE(initialized.currents.has_value());
-                REQUIRE(initialized.currents->meta.valid);
+                REQUIRE(test_support::require_value(initialized.currents).meta.valid);
                 break;
             case Model::kL30:
                 break;
@@ -532,9 +535,9 @@ TEST_CASE("HandDevice selects every backend and has idempotent lifecycle", "[com
                 REQUIRE(initialized.stall_detection_times.has_value());
                 REQUIRE(initialized.stall_thresholds.has_value());
                 REQUIRE(initialized.stall_hold_currents.has_value());
-                REQUIRE(initialized.stall_detection_times->meta.valid);
-                REQUIRE(initialized.stall_thresholds->meta.valid);
-                REQUIRE(initialized.stall_hold_currents->meta.valid);
+                REQUIRE(test_support::require_value(initialized.stall_detection_times).meta.valid);
+                REQUIRE(test_support::require_value(initialized.stall_thresholds).meta.valid);
+                REQUIRE(test_support::require_value(initialized.stall_hold_currents).meta.valid);
                 break;
             case Model::kUnknown:
                 FAIL("unknown model in HandDevice lifecycle test");
@@ -806,8 +809,8 @@ TEST_CASE("O30 hardware setpoint reader shares the adapter through open and reco
     auto *reader = fixture.setpoint_reader();
     const auto targets = hardware_test::o30_setpoint_pose(fixture.config(), reader);
     REQUIRE(targets.has_value());
-    REQUIRE(targets->size() == 20);
-    REQUIRE((*targets)[0] == 42);
+    REQUIRE(test_support::require_value(targets).size() == 20);
+    REQUIRE((test_support::require_value(targets))[0] == 42);
     auto &device = fixture.device();
     device.open();
     REQUIRE(device.get_angles().raw.size() == 20);
@@ -973,8 +976,8 @@ TEST_CASE("HandDevice L30 configured speed reads only dispatched command cache",
     REQUIRE(device.get_speeds(std::chrono::milliseconds{500}).raw == std::vector<double>(17, 7));
     REQUIRE(device.get_configured_speeds().raw == targets);
     const auto snapshot = device.get_snapshot();
-    REQUIRE(snapshot.configured_speeds->raw == targets);
-    REQUIRE(snapshot.measured_speeds->raw == std::vector<double>(17, 7));
+    REQUIRE(test_support::require_value(snapshot.configured_speeds).raw == targets);
+    REQUIRE(test_support::require_value(snapshot.measured_speeds).raw == std::vector<double>(17, 7));
     REQUIRE(snapshot.joints.front().configured_speed_raw == 1);
     REQUIRE(snapshot.joints.back().configured_speed_raw == 250);
     auto invalid = targets;
@@ -1023,7 +1026,7 @@ TEST_CASE("HandDevice L30 and O30 percent endpoints match Python on every axis",
                 for (const auto actual : sample.percent) {
                     REQUIRE(actual == Catch::Approx(percent).margin(0.2));
                 }
-                REQUIRE(device.get_snapshot().angles->raw == sample.raw);
+                REQUIRE(test_support::require_value(device.get_snapshot().angles).raw == sample.raw);
             }
             device.close();
         }
@@ -1111,7 +1114,7 @@ TEST_CASE("HandDevice marks samples stale using declared freshness", "[comm][dev
 
     device.open();
     static_cast<void>(device.get_angles(std::chrono::milliseconds{500}));
-    REQUIRE_FALSE(device.get_snapshot().angles->meta.stale);
+    REQUIRE_FALSE(test_support::require_value(device.get_snapshot().angles).meta.stale);
     const auto angle_health = [](const HandHealth &health) {
         const auto channel = std::find_if(health.channels.begin(), health.channels.end(),
                                           [](const auto &metrics) { return metrics.channel == "angles"; });
@@ -1122,14 +1125,14 @@ TEST_CASE("HandDevice marks samples stale using declared freshness", "[comm][dev
     const auto sent_before = transport->sent().size();
     std::this_thread::sleep_for(std::chrono::milliseconds{125});
     const auto stale = device.get_snapshot();
-    REQUIRE(stale.angles->meta.stale);
-    REQUIRE(stale.angles->meta.age.has_value());
+    REQUIRE(test_support::require_value(stale.angles).meta.stale);
+    REQUIRE(test_support::require_value(stale.angles).meta.age.has_value());
     const auto health = device.get_health();
     const auto channel = angle_health(health);
-    REQUIRE(channel.data_age.valid == stale.angles->meta.valid);
-    REQUIRE(channel.data_age.stale == stale.angles->meta.stale);
-    REQUIRE(channel.data_age.age >= stale.angles->meta.age);
-    REQUIRE(channel.data_age.generation == stale.angles->meta.connection_generation);
+    REQUIRE(channel.data_age.valid == test_support::require_value(stale.angles).meta.valid);
+    REQUIRE(channel.data_age.stale == test_support::require_value(stale.angles).meta.stale);
+    REQUIRE(channel.data_age.age >= test_support::require_value(stale.angles).meta.age);
+    REQUIRE(channel.data_age.generation == test_support::require_value(stale.angles).meta.connection_generation);
     REQUIRE(transport->sent().size() == sent_before);
     device.close();
 }
@@ -1150,13 +1153,13 @@ TEST_CASE("HandDevice health applies angle and configuration freshness consisten
         REQUIRE(channel != health.channels.end());
         return *channel;
     };
-    REQUIRE_FALSE(device.get_snapshot().configured_speeds->meta.stale);
+    REQUIRE_FALSE(test_support::require_value(device.get_snapshot().configured_speeds).meta.stale);
     REQUIRE_FALSE(speed_health(device.get_health()).data_age.stale);
     const auto sent = transport->sent().size();
     std::this_thread::sleep_for(std::chrono::milliseconds{1100});
     const auto snapshot = device.get_snapshot();
-    REQUIRE(snapshot.configured_speeds->meta.stale);
-    REQUIRE(snapshot.angles->meta.stale);
+    REQUIRE(test_support::require_value(snapshot.configured_speeds).meta.stale);
+    REQUIRE(test_support::require_value(snapshot.angles).meta.stale);
     REQUIRE(speed_health(device.get_health()).data_age.stale);
     REQUIRE(transport->sent().size() == sent);
 }
@@ -1188,7 +1191,8 @@ TEST_CASE("HandDevice L20Lite stall reads use complete acknowledged write cache"
     REQUIRE(device.get_stall_detection_times().raw == std::vector<double>(10, 50));
     REQUIRE(device.get_stall_thresholds().raw == std::vector<double>(10, 128));
     REQUIRE(device.get_stall_hold_currents().raw == std::vector<double>(10, 255));
-    REQUIRE(device.get_stall_detection_times().meta.collected_at == snapshot.stall_detection_times->meta.collected_at);
+    REQUIRE(device.get_stall_detection_times().meta.collected_at ==
+            test_support::require_value(snapshot.stall_detection_times).meta.collected_at);
     REQUIRE(device.get_stall_thresholds().meta.delivery == TelemetryDelivery::kCommandResponse);
     REQUIRE(transport->sent().size() == sent);
     transport->on_request(0x28, [](const Message &) { return std::vector<Message>{}; });
@@ -1196,7 +1200,8 @@ TEST_CASE("HandDevice L20Lite stall reads use complete acknowledged write cache"
     REQUIRE_THROWS_AS(completed(device.set_stall_detection_times(std::vector<double>(10, 80))), TimeoutError);
     REQUIRE(std::chrono::steady_clock::now() - begin < std::chrono::milliseconds{300});
     REQUIRE(device.get_stall_detection_times().raw == std::vector<double>(10, 50));
-    REQUIRE(device.get_stall_detection_times().meta.collected_at == snapshot.stall_detection_times->meta.collected_at);
+    REQUIRE(device.get_stall_detection_times().meta.collected_at ==
+            test_support::require_value(snapshot.stall_detection_times).meta.collected_at);
 }
 
 TEST_CASE("HandDevice polling populates snapshots and shuts down safely", "[comm][device]") {
@@ -1226,12 +1231,13 @@ TEST_CASE("HandDevice polling populates snapshots and shuts down safely", "[comm
                 const auto health = device.get_health();
                 REQUIRE(snapshot.model == model);
                 REQUIRE(snapshot.angles.has_value());
-                REQUIRE(snapshot.angles->percent.size() == device.get_capabilities().joints.size());
-                REQUIRE(snapshot.angles->meta.collected_at.has_value());
-                REQUIRE(snapshot.angles->meta.collected_at.value() <= snapshot.captured_at);
-                for (const auto value : snapshot.angles->percent) {
+                REQUIRE(test_support::require_value(snapshot.angles).percent.size() ==
+                        device.get_capabilities().joints.size());
+                REQUIRE(test_support::require_value(snapshot.angles).meta.collected_at.has_value());
+                REQUIRE(test_support::require_value(snapshot.angles->meta.collected_at) <= snapshot.captured_at);
+                for (const auto value : test_support::require_value(snapshot.angles).percent) {
                     REQUIRE(value.has_value());
-                    REQUIRE(std::isfinite(value.value()));
+                    REQUIRE(std::isfinite(test_support::require_value(value)));
                 }
                 REQUIRE(health.polling_active);
                 const auto angles = std::find_if(health.channels.begin(), health.channels.end(),
@@ -1308,15 +1314,15 @@ TEST_CASE("HandDevice verifies and caches identity for every model", "[comm][dev
             const auto health = device.get_health();
             const auto snapshot = device.get_snapshot();
             REQUIRE(cached.has_value());
-            REQUIRE(cached->model == model);
+            REQUIRE(test_support::require_value(cached).model == model);
             REQUIRE(capabilities.has_value());
-            REQUIRE(capabilities->model == model);
-            REQUIRE(capabilities->side == HandSide::kLeft);
-            REQUIRE(public_capabilities.model == capabilities->model);
-            REQUIRE(public_capabilities.side == capabilities->side);
+            REQUIRE(test_support::require_value(capabilities).model == model);
+            REQUIRE(test_support::require_value(capabilities).side == HandSide::kLeft);
+            REQUIRE(public_capabilities.model == test_support::require_value(capabilities).model);
+            REQUIRE(public_capabilities.side == test_support::require_value(capabilities).side);
             REQUIRE(health.identity_verified);
             REQUIRE(snapshot.device_info.has_value());
-            REQUIRE(snapshot.device_info->model == model);
+            REQUIRE(test_support::require_value(snapshot.device_info).model == model);
             REQUIRE(transport->sent().size() == sent_after_verification);
 
             device.close();
@@ -1419,7 +1425,7 @@ TEST_CASE("HandDevice keeps its physical identity constraint across close and fa
     });
 
     device.open();
-    REQUIRE(device.get_identity()->serial_number == std::optional<std::string>{"123"});
+    REQUIRE(test_support::require_value(device.get_identity()).serial_number == std::optional<std::string>{"123"});
     device.close();
 
     REQUIRE_THROWS_AS(device.open(), IdentityMismatchError);
@@ -1428,7 +1434,7 @@ TEST_CASE("HandDevice keeps its physical identity constraint across close and fa
 
     REQUIRE_NOTHROW(device.open());
     REQUIRE(factory_calls == 3);
-    REQUIRE(device.get_identity()->serial_number == std::optional<std::string>{"123"});
+    REQUIRE(test_support::require_value(device.get_identity()).serial_number == std::optional<std::string>{"123"});
     device.close();
 }
 
@@ -1585,17 +1591,18 @@ TEST_CASE("HandDevice polls common telemetry independently for every model", "[c
             }));
             const auto snapshot = device.get_snapshot();
             const auto joint_count = device.get_capabilities().joints.size();
-            REQUIRE(snapshot.angles->percent.size() == joint_count);
-            REQUIRE(snapshot.currents->raw.size() == joint_count);
-            REQUIRE(snapshot.temperatures->raw.size() == joint_count);
-            REQUIRE(snapshot.faults->raw.size() == joint_count);
-            REQUIRE(snapshot.currents->meta.origin == TelemetryValueOrigin::kDeviceMeasured);
-            REQUIRE(snapshot.angles->meta.collected_at.value() <= snapshot.captured_at);
-            REQUIRE(snapshot.currents->meta.collected_at.value() <= snapshot.captured_at);
-            REQUIRE(snapshot.temperatures->meta.collected_at.value() <= snapshot.captured_at);
-            REQUIRE(snapshot.faults->meta.collected_at.value() <= snapshot.captured_at);
+            REQUIRE(test_support::require_value(snapshot.angles).percent.size() == joint_count);
+            REQUIRE(test_support::require_value(snapshot.currents).raw.size() == joint_count);
+            REQUIRE(test_support::require_value(snapshot.temperatures).raw.size() == joint_count);
+            REQUIRE(test_support::require_value(snapshot.faults).raw.size() == joint_count);
+            REQUIRE(test_support::require_value(snapshot.currents).meta.origin ==
+                    TelemetryValueOrigin::kDeviceMeasured);
+            REQUIRE(test_support::require_value(snapshot.angles->meta.collected_at) <= snapshot.captured_at);
+            REQUIRE(test_support::require_value(snapshot.currents->meta.collected_at) <= snapshot.captured_at);
+            REQUIRE(test_support::require_value(snapshot.temperatures->meta.collected_at) <= snapshot.captured_at);
+            REQUIRE(test_support::require_value(snapshot.faults->meta.collected_at) <= snapshot.captured_at);
 
-            const auto before_replace = snapshot.angles->meta.collected_at.value();
+            const auto before_replace = test_support::require_value(snapshot.angles->meta.collected_at);
             device.start_polling({
                 {TelemetrySemantic::kAngles, std::chrono::milliseconds{7}},
             });
@@ -1666,7 +1673,7 @@ TEST_CASE("HandDevice preserves current and torque telemetry semantics", "[comm]
         REQUIRE(torque.meta.origin == TelemetryValueOrigin::kDeviceConfigured);
         REQUIRE(torque.meta.delivery == TelemetryDelivery::kQueryResponse);
         REQUIRE(torque.raw.size() == 6);
-        REQUIRE(device.get_snapshot().torques->raw == torque.raw);
+        REQUIRE(test_support::require_value(device.get_snapshot().torques).raw == torque.raw);
         const auto sent = transport->sent();
         REQUIRE(sent.size() == 1);
         REQUIRE(sent[0].dlc == 1);
@@ -1680,10 +1687,11 @@ TEST_CASE("HandDevice preserves current and torque telemetry semantics", "[comm]
             return snapshot.current_limits && snapshot.torques;
         }));
         const auto snapshot = device.get_snapshot();
-        REQUIRE(snapshot.current_limits->meta.origin == TelemetryValueOrigin::kDeviceConfigured);
-        REQUIRE(snapshot.torques->meta.origin == TelemetryValueOrigin::kDeviceConfigured);
-        REQUIRE(snapshot.current_limits->raw.size() == 6);
-        REQUIRE(snapshot.torques->raw.size() == 6);
+        REQUIRE(test_support::require_value(snapshot.current_limits).meta.origin ==
+                TelemetryValueOrigin::kDeviceConfigured);
+        REQUIRE(test_support::require_value(snapshot.torques).meta.origin == TelemetryValueOrigin::kDeviceConfigured);
+        REQUIRE(test_support::require_value(snapshot.current_limits).raw.size() == 6);
+        REQUIRE(test_support::require_value(snapshot.torques).raw.size() == 6);
         device.stop_polling();
     }
 
@@ -1706,10 +1714,11 @@ TEST_CASE("HandDevice preserves current and torque telemetry semantics", "[comm]
             return snapshot.current_limits && snapshot.torques;
         }));
         const auto snapshot = device.get_snapshot();
-        REQUIRE(snapshot.current_limits->meta.origin == TelemetryValueOrigin::kDeviceConfigured);
-        REQUIRE(snapshot.torques->meta.origin == TelemetryValueOrigin::kDeviceMeasured);
-        REQUIRE(snapshot.current_limits->raw.size() == 20);
-        REQUIRE(snapshot.torques->raw.size() == 20);
+        REQUIRE(test_support::require_value(snapshot.current_limits).meta.origin ==
+                TelemetryValueOrigin::kDeviceConfigured);
+        REQUIRE(test_support::require_value(snapshot.torques).meta.origin == TelemetryValueOrigin::kDeviceMeasured);
+        REQUIRE(test_support::require_value(snapshot.current_limits).raw.size() == 20);
+        REQUIRE(test_support::require_value(snapshot.torques).raw.size() == 20);
         device.stop_polling();
     }
 }
@@ -1730,7 +1739,7 @@ TEST_CASE("HandDevice polling isolates a failing telemetry channel", "[comm][dev
     });
 
     REQUIRE(wait_until([&device] { return device.get_snapshot().angles.has_value(); }));
-    const auto first = device.get_snapshot().angles->meta.collected_at.value();
+    const auto first = test_support::require_value(device.get_snapshot().angles->meta.collected_at);
     REQUIRE(wait_until([&device, first] {
         const auto snapshot = device.get_snapshot();
         return snapshot.angles && snapshot.angles->meta.collected_at.value() > first;
@@ -1767,7 +1776,8 @@ TEST_CASE("HandDevice common event stream publishes cached telemetry", "[comm][d
     const auto stream = device.stream_handle(8);
     const auto event = stream->pop();
     REQUIRE(event.has_value());
-    REQUIRE((event->semantic == TelemetrySemantic::kAngles || event->semantic == TelemetrySemantic::kCurrents));
+    REQUIRE((test_support::require_value(event).semantic == TelemetrySemantic::kAngles ||
+             event->semantic == TelemetrySemantic::kCurrents));
     const auto snapshot = device.get_snapshot();
     std::visit(
         [&](const auto &sample) {
@@ -1777,7 +1787,7 @@ TEST_CASE("HandDevice common event stream publishes cached telemetry", "[comm][d
             REQUIRE(sample.meta.valid);
             REQUIRE_FALSE(sample.meta.stale);
         },
-        event->sample);
+        test_support::require_value(event).sample);
     REQUIRE(transport->sent().size() == sent_before_stream);
     device.stop_stream();
     REQUIRE(stream->closed());
@@ -1855,13 +1865,14 @@ TEST_CASE("HandDevice recovery retries and restores polling only", "[comm][devic
     const auto health = device.get_health();
     REQUIRE(after.connection_generation > before.connection_generation);
     REQUIRE(after.angles.has_value());
-    REQUIRE(after.angles->meta.valid);
-    REQUIRE(after.angles->meta.connection_generation == after.connection_generation);
+    REQUIRE(test_support::require_value(after.angles).meta.valid);
+    REQUIRE(test_support::require_value(after.angles).meta.connection_generation == after.connection_generation);
     REQUIRE(after.faults.has_value());
     REQUIRE(after.current_limits.has_value());
     REQUIRE(before_identity.has_value());
     REQUIRE(after_identity.has_value());
-    REQUIRE(after_identity->product_code == before_identity->product_code);
+    REQUIRE(test_support::require_value(after_identity).product_code ==
+            test_support::require_value(before_identity).product_code);
     REQUIRE(health.connection_generation == after.connection_generation);
     REQUIRE(health.identity_verified);
     REQUIRE(health.polling_active);
@@ -2013,8 +2024,7 @@ TEST_CASE("HandDevice serializes concurrent recovery stop and close", "[comm][de
     REQUIRE_NOTHROW(device.close());
 }
 
-TEST_CASE("L6 configured speed preserves write replies without issuing a query",
-          "[comm][device][l6-controls]") {
+TEST_CASE("L6 configured speed preserves write replies without issuing a query", "[comm][device][l6-controls]") {
     for (const auto side : {HandSide::kLeft, HandSide::kRight}) {
         DYNAMIC_SECTION("side " << static_cast<int>(side)) {
             auto config = config_for(Model::kL6);
@@ -2055,7 +2065,7 @@ TEST_CASE("L6 configured speed preserves write replies without issuing a query",
             REQUIRE(speed.raw == std::vector<double>(6, 128));
             REQUIRE(speed.meta.delivery == TelemetryDelivery::kCommandResponse);
             REQUIRE(speed.meta.origin == TelemetryValueOrigin::kCommandCache);
-            REQUIRE(device.get_snapshot().configured_speeds->raw == speed.raw);
+            REQUIRE(test_support::require_value(device.get_snapshot().configured_speeds).raw == speed.raw);
             REQUIRE(device.get_snapshot().joints[0].configured_speed_raw == 128);
             REQUIRE(transport->sent().size() == before_speed_read);
             REQUIRE_THROWS_AS(device.get_speeds(), UnsupportedOperationError);
@@ -2112,7 +2122,7 @@ TEST_CASE("L20Lite field getters deduplicate native scalar transactions", "[comm
     REQUIRE(force.field("fds")->valid_values[0] == std::vector<bool>{false});
     REQUIRE(force.field("px")->meta.connection_generation == device.get_snapshot().connection_generation);
     REQUIRE(force.field("px")->meta.sequence > 0);
-    REQUIRE(device.get_snapshot().force->field("fts") != nullptr);
+    REQUIRE(test_support::require_value(device.get_snapshot().force).field("fts") != nullptr);
     REQUIRE(device.get_normal_force_resultant().raw == std::vector<double>(5, 0));
     REQUIRE_THROWS_AS(device.get_force({"fd"}), UnsupportedOperationError);
     transport->on_request(0x28, [](const Message &request) {
@@ -2131,13 +2141,13 @@ TEST_CASE("L20Lite field getters deduplicate native scalar transactions", "[comm
         return field && field->raw[0] == std::vector<double>{42};
     }));
     device.stop_polling();
-    const auto previous = device.get_snapshot().force->field("fns")->meta.collected_at;
+    const auto previous = test_support::require_value(device.get_snapshot().force).field("fns")->meta.collected_at;
     transport->on_request(0x28, [](const Message &) { return std::vector<Message>{}; });
     REQUIRE_THROWS_AS(device.get_force({"fns"}, std::chrono::milliseconds{30}), TimeoutError);
     const auto after = device.get_snapshot();
     REQUIRE(after.force.has_value());
-    REQUIRE(after.force->field("fns") != nullptr);
-    REQUIRE(after.force->field("fns")->meta.collected_at == previous);
+    REQUIRE(test_support::require_value(after.force).field("fns") != nullptr);
+    REQUIRE(test_support::require_value(after.force).field("fns")->meta.collected_at == previous);
 }
 
 TEST_CASE("O30 unified force reads five descriptors once for shared selectors", "[comm][force-fields]") {
@@ -2177,7 +2187,7 @@ TEST_CASE("O30 unified force reads five descriptors once for shared selectors", 
         REQUIRE(hop->writes[i].si == 0x6E);
         REQUIRE(hop->writes[i].payload == std::vector<uint8_t>{static_cast<uint8_t>(i + 1)});
     }
-    REQUIRE(device.get_snapshot().force->sensors.size() == 5);
+    REQUIRE(test_support::require_value(device.get_snapshot().force).sensors.size() == 5);
     REQUIRE(device.get_capabilities().force_field("fn").supported == true);
     REQUIRE(device.get_capabilities().force_field("ft").supported == false);
     const auto resultant = device.get_normal_force_resultant();
@@ -2186,7 +2196,7 @@ TEST_CASE("O30 unified force reads five descriptors once for shared selectors", 
     const auto sent_before_unsupported = transport->sent().size();
     REQUIRE_THROWS_AS(device.get_force({"ft"}), UnsupportedOperationError);
     REQUIRE(transport->sent().size() == sent_before_unsupported);
-    const auto previous = device.get_snapshot().force->meta.collected_at;
+    const auto previous = test_support::require_value(device.get_snapshot().force).meta.collected_at;
     transport->on_request(hop->request_id, [hop](const Message &request) {
         const auto &metadata = hop->objects.at({0x31, false});
         if (request.data[0] == 0x32 && metadata[0x6E] == 3) {
@@ -2195,8 +2205,8 @@ TEST_CASE("O30 unified force reads five descriptors once for shared selectors", 
         return hop->handler()(request);
     });
     REQUIRE_THROWS_AS(device.get_force({"fn"}, std::chrono::milliseconds{50}), TimeoutError);
-    REQUIRE(device.get_snapshot().force->meta.collected_at == previous);
-    REQUIRE(device.get_snapshot().force->sensors.size() == 5);
+    REQUIRE(test_support::require_value(device.get_snapshot().force).meta.collected_at == previous);
+    REQUIRE(test_support::require_value(device.get_snapshot().force).sensors.size() == 5);
 }
 
 TEST_CASE("unified configuration ACKs require complete matching write responses", "[comm][device][parity][ack]") {
@@ -2448,7 +2458,8 @@ TEST_CASE("HandDevice caches and command admission stay available while an ACK i
     });
     const auto available = cached.wait_for(std::chrono::milliseconds{300}) == std::future_status::ready;
     const auto cache_ok = available ? cached.get() : false;
-    auto stall = std::async(std::launch::async, [&] { return device.set_stall_thresholds(std::vector<double>(6, 40)); });
+    auto stall =
+        std::async(std::launch::async, [&] { return device.set_stall_thresholds(std::vector<double>(6, 40)); });
     const auto independent = stall.wait_for(std::chrono::milliseconds{300}) == std::future_status::ready;
     Message reply{};
     reply.id = 0x28;
@@ -2546,7 +2557,7 @@ TEST_CASE("HandDevice recovery cancels old execution before resetting its caches
     REQUIRE(rejected);
     REQUIRE(after.connection_generation > before.connection_generation);
     REQUIRE_FALSE(after.configured_speeds.has_value());
-    REQUIRE(after.angles->meta.connection_generation == after.connection_generation);
+    REQUIRE(test_support::require_value(after.angles).meta.connection_generation == after.connection_generation);
 }
 
 TEST_CASE("HandDevice state views remain available while close drains a claimed send",
@@ -2963,6 +2974,8 @@ TEST_CASE("ACK timeout retains sent count and last successful cache", "[comm][de
     });
     device.open();
     (void)completed(device.set_speeds(std::vector<double>(6, 50)));
+    // This snapshot is compared after the failure by Catch2 assertions below.
+    // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
     const auto previous = device.get_configured_speeds();
     transport->on_request(0x28, [](const Message &) { return std::vector<Message>{}; });
     auto failed = device.set_speeds(std::vector<double>(6, 100));
@@ -3070,7 +3083,8 @@ TEST_CASE("Multi-frame ACK needs every bank and publishes returned values", "[co
             transport->inject(bank0);
             transport->inject(bank0);
             REQUIRE_FALSE(handle.wait_for(std::chrono::milliseconds{15}));
-            REQUIRE(device.get_snapshot().stall_detection_times->meta.collected_at == previous.meta.collected_at);
+            REQUIRE(test_support::require_value(device.get_snapshot().stall_detection_times).meta.collected_at ==
+                    previous.meta.collected_at);
             if (!missing) {
                 transport->inject(bank1);
             }
@@ -3136,6 +3150,8 @@ TEST_CASE("Claimed driver send after deadline cannot complete or publish a comma
     });
     device.open();
     (void)completed(device.set_speeds(std::vector<double>(6, 40)));
+    // This snapshot is compared after the failure by Catch2 assertions below.
+    // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
     const auto previous = device.get_configured_speeds();
     transport->arm_tx_gate();
     auto handle = device.set_speeds(std::vector<double>(6, 100));
@@ -3209,8 +3225,10 @@ TEST_CASE("Sequential HOP writes share one acceptance deadline and final dispatc
                                                       std::vector<uint8_t>(third.data[2], 70)));
                 REQUIRE(completed(handle).stage() == CommandStage::kAcknowledged);
                 REQUIRE(handle.history().size() == 3);
-                REQUIRE(device.get_snapshot().configured_speeds->raw == std::vector<double>(20, 70));
-                REQUIRE(device.get_snapshot().configured_speeds->meta.delivery == TelemetryDelivery::kCommandResponse);
+                REQUIRE(test_support::require_value(device.get_snapshot().configured_speeds).raw ==
+                        std::vector<double>(20, 70));
+                REQUIRE(test_support::require_value(device.get_snapshot().configured_speeds).meta.delivery ==
+                        TelemetryDelivery::kCommandResponse);
             }
         }
     }
@@ -3239,7 +3257,8 @@ TEST_CASE("An early ACK cannot publish when the claimed transport write fails", 
     std::fill_n(early.data.begin() + 1, 6, 100);
     transport->inject(early);
     const auto pending = !handle.wait_for(std::chrono::milliseconds{20});
-    const auto unchanged = device.get_snapshot().configured_speeds->meta.collected_at == previous->meta.collected_at;
+    const auto unchanged = test_support::require_value(device.get_snapshot().configured_speeds).meta.collected_at ==
+                           test_support::require_value(previous).meta.collected_at;
     transport->fail_writes("claimed write failed after incoming ACK");
     transport->release_tx_gate();
     REQUIRE(entered);
@@ -3256,7 +3275,8 @@ TEST_CASE("An early ACK cannot publish when the claimed transport write fails", 
     REQUIRE(receipts.front().claimed_at.has_value());
     REQUIRE(receipts.front().sent_frames == 0);
     REQUIRE_THROWS_AS(std::rethrow_exception(handle.error()), TransportError);
-    REQUIRE(device.get_snapshot().configured_speeds->meta.collected_at == previous->meta.collected_at);
+    REQUIRE(test_support::require_value(device.get_snapshot().configured_speeds).meta.collected_at ==
+            test_support::require_value(previous).meta.collected_at);
 }
 
 TEST_CASE("HOP negative ACK preserves protocol code and leaves the executor usable",
@@ -3346,8 +3366,10 @@ TEST_CASE("O30 configuration caches use complete returned mounted ranges", "[com
             o30_comm::hop_reply(hop->response_id(), o30::protocol::kMiSpeed, false, request.data[1], {90})};
     });
     REQUIRE(completed(device.set_speeds(std::vector<double>(20, 90))).stage() == CommandStage::kAcknowledged);
-    REQUIRE(device.get_snapshot().configured_speeds->raw == previous->raw);
-    REQUIRE(device.get_snapshot().configured_speeds->meta.collected_at == previous->meta.collected_at);
+    REQUIRE(test_support::require_value(device.get_snapshot().configured_speeds).raw ==
+            test_support::require_value(previous).raw);
+    REQUIRE(test_support::require_value(device.get_snapshot().configured_speeds).meta.collected_at ==
+            test_support::require_value(previous).meta.collected_at);
 }
 
 namespace {
@@ -3901,8 +3923,8 @@ TEST_CASE("L20Lite measured speed never populates or overwrites configured speed
     REQUIRE(device.get_configured_speeds().raw == configured.raw);
     REQUIRE(transport->sent().size() == sent);
     const auto snapshot = device.get_snapshot();
-    REQUIRE(snapshot.measured_speeds->raw == std::vector<double>(10, 0));
-    REQUIRE(snapshot.configured_speeds->raw == std::vector<double>(10, 20));
+    REQUIRE(test_support::require_value(snapshot.measured_speeds).raw == std::vector<double>(10, 0));
+    REQUIRE(test_support::require_value(snapshot.configured_speeds).raw == std::vector<double>(10, 20));
     REQUIRE(snapshot.joints[0].measured_speed_raw == 0);
     REQUIRE(snapshot.joints[0].configured_speed_raw == 20);
     device.recover();

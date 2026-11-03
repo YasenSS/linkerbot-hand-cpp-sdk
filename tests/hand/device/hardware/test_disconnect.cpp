@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include "hand_device_transport_probe.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <filesystem>
@@ -19,9 +20,9 @@ namespace {
         const auto value = env("HAND_DEVICE_DISCONNECT_WAIT_MS");
         const auto parsed = value ? parse_u32(value) : std::optional<uint32_t>{300000};
         REQUIRE(parsed.has_value());
-        REQUIRE(*parsed >= 1000);
-        REQUIRE(*parsed <= 1800000);
-        return std::chrono::milliseconds{*parsed};
+        REQUIRE(test_support::require_value(parsed) >= 1000);
+        REQUIRE(test_support::require_value(parsed) <= 1800000);
+        return std::chrono::milliseconds{test_support::require_value(parsed)};
     }
     void wait_marker(const std::string &path, const std::string &expected, std::chrono::milliseconds timeout) {
         const auto deadline = std::chrono::steady_clock::now() + timeout;
@@ -42,33 +43,34 @@ TEST_CASE("HandDevice hardware physical disconnect and reconnect", "[hardware][d
         SKIP("set HAND_DEVICE_DISCONNECT_SIGNAL to an operator marker file outside the repository");
     }
     const auto wait = operator_wait_timeout();
-    REQUIRE(marker(*signal) != "disconnected");
-    REQUIRE(marker(*signal) != "reconnected");
+    REQUIRE(marker(test_support::require_value(signal)) != "disconnected");
+    REQUIRE(marker(test_support::require_value(signal)) != "reconnected");
     ProbedFixture fixture;
     auto &hand = *fixture.hand;
     hand.open();
-    const auto identity = *hand.get_identity();
+    const auto identity = test_support::require_value(hand.get_identity());
     hand.start_polling({{TelemetrySemantic::kAngles, 100ms}});
     const auto before = hand.get_snapshot();
-    std::cout << "Disconnect the hand link/power, then write disconnected to " << *signal << " (" << wait.count() / 1000
-              << " second deadline). No motion commands are issued.\n"
+    std::cout << "Disconnect the hand link/power, then write disconnected to " << test_support::require_value(signal)
+              << " (" << wait.count() / 1000 << " second deadline). No motion commands are issued.\n"
               << std::flush;
-    wait_marker(*signal, "disconnected", wait);
+    wait_marker(test_support::require_value(signal), "disconnected", wait);
     REQUIRE_THROWS_AS(hand.get_angles(500ms), HandError);
-    std::cout << "Reconnect the same hand and restore the CAN interface, then write reconnected to " << *signal << " ("
-              << wait.count() / 1000 << " second deadline).\n"
+    std::cout << "Reconnect the same hand and restore the CAN interface, then write reconnected to "
+              << test_support::require_value(signal) << " (" << wait.count() / 1000 << " second deadline).\n"
               << std::flush;
-    wait_marker(*signal, "reconnected", wait);
+    wait_marker(test_support::require_value(signal), "reconnected", wait);
     hand.recover();
     REQUIRE(hand.is_open());
     REQUIRE(hand.get_health().connected());
-    require_identity_equal(*hand.get_identity(), identity);
+    require_identity_equal(test_support::require_value(hand.get_identity()), identity);
     REQUIRE(hand.get_health().polling_active);
     const auto after = hand.get_snapshot();
     REQUIRE(after.connection_generation > before.connection_generation);
     REQUIRE(after.angles.has_value());
-    require_meta(after.angles->meta, after.connection_generation);
-    REQUIRE(*after.angles->meta.collected_at > *before.angles->meta.collected_at);
+    require_meta(test_support::require_value(after.angles).meta, after.connection_generation);
+    REQUIRE(test_support::require_value(after.angles->meta.collected_at) >
+            test_support::require_value(before.angles->meta.collected_at));
     const auto next = hand.wait_for_snapshot(after, 2s);
     REQUIRE(next.snapshot_sequence > after.snapshot_sequence);
     hand.stop_polling();

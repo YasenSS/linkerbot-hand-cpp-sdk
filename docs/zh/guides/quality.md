@@ -14,7 +14,7 @@ full 模式运行 clang-format、Cppcheck、clang-tidy（`clang-analyzer-*`、`b
 历史独立程序 `tests/hand/o30/hardware/verify_fixes.cc` 针对旧版 API，未纳入现行 CMake
 构建，因此明确排除；不按诊断结果排除源码。格式以 `.clang-format` 为准。
 
-首次接入建立完整基线。缺少工具、缺失编译单元、分析错误或覆盖不完整会使 CI 失败；
+CI 要求完整报告且 error 级别诊断为零。缺少工具、缺失编译单元、分析错误或覆盖不完整会使 CI 失败；
 已有诊断保留在 JSON/Markdown 报告中。工作流通过不代表零问题或 A+，分数也不代表
 测试覆盖或硬件兼容。后续收紧质量门禁应先审查基线，不通过排除代码或关闭规则美化分数。
 
@@ -31,7 +31,7 @@ full 模式运行 clang-format、Cppcheck、clang-tidy（`clang-analyzer-*`、`b
 python3 validation/prepare_report_db.py --output build/report-compile-commands.json \
   build/report/compile_commands.json build/report-consumer/compile_commands.json \
   build/report-l6/compile_commands.json
-cppreportcard-cli --config .cppreportcard.json --mode full --fail-on none --threshold 0 \
+cppreportcard-cli --config .cppreportcard.json --mode full --fail-on errors --threshold 0 \
   --output-dir .github/cppreportcard
 python3 validation/check_report_complete.py .github/cppreportcard/report.json
 ```
@@ -54,3 +54,5 @@ Cppcheck 包装器对 Catch2 宏建模、显式选择 Linux 目标，并保留 C
 
 示例使用 C++17，明确所有权、单位与超时/ACK 含义，命令必须构建所需目标。
 历史结果应始终标注对应版本。
+
+[诊断复核与基线台账](quality-review.md)。

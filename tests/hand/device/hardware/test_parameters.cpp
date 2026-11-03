@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include "hand_device_api_catalog.hpp"
 #include "hand_device_transport_probe.hpp"
 #include <algorithm>
@@ -22,7 +23,7 @@ namespace {
             SKIP(std::string("provide known restoration baseline via ") + api.baseline_env +
                  " (comma-separated raw values); no device readback is available");
         }
-        auto text = *input;
+        auto text = test_support::require_value(input);
         std::replace(text.begin(), text.end(), ',', ' ');
         std::istringstream stream(text);
         std::vector<double> result;
@@ -245,7 +246,8 @@ TEST_CASE("HandDevice hardware configuration caches invalidate on recover",
             }
             require_done((hand.*api.set)(original));
             const auto restored = require_values(hand, api, *command, *channel, original);
-            REQUIRE(*restored.meta.collected_at > *populated.meta.collected_at);
+            REQUIRE(test_support::require_value(restored.meta.collected_at) >
+                    test_support::require_value(populated.meta.collected_at));
             restore.active = false;
         }
     }

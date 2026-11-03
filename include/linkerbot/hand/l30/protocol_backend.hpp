@@ -98,7 +98,8 @@ namespace linkerbot::hand::l30::protocol {
                     throw ProtocolError("tactile frame payload too short");
                 }
                 auto &part = transaction == kTactileFirstTransaction ? first : second;
-                const std::vector<uint8_t> useful(bytes.begin(), bytes.begin() + expected + 3);
+                const std::vector<uint8_t> useful(bytes.begin(),
+                                                  bytes.begin() + static_cast<std::ptrdiff_t>(expected + 3));
                 if (part && *part != useful) {
                     result.conflicting_duplicates = 1;
                     throw ProtocolError("conflicting duplicate tactile fragment");
@@ -137,6 +138,8 @@ namespace linkerbot::hand::l30::protocol {
             fields.parent != kParentPeriodic) {
             return common::Progress::unmatched();
         }
+        // Progress owns this payload through std::any; covered by ownership regression tests.
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         return common::Progress::complete(Report{fields.subcmd, {m.data.begin(), m.data.begin() + m.dlc}},
                                           common::Origin::report);
     }

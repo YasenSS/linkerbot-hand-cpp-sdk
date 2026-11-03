@@ -100,6 +100,8 @@ namespace linkerbot::hand::l6 {
     StallManager::~StallManager() {
         try {
             stop();
+            // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+            // NOLINTNEXTLINE(bugprone-empty-catch)
         } catch (...) {
         }
         time_.drain_calls();

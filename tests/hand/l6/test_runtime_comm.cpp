@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <linkerbot/hand/errors.hpp>
 
@@ -355,9 +356,9 @@ TEST_CASE("comm: L6 does not stitch historical fingers into a new sample", "[com
     REQUIRE_THROWS_AS(hand.force_sensor.get_blocking(kTimeout), std::runtime_error);
     const auto snap = hand.force_sensor.get_snapshot();
     REQUIRE(snap.has_value());
-    REQUIRE(snap->sequence == first.sequence);
-    REQUIRE(snap->generation == first.generation);
-    REQUIRE(snap->thumb.values[0][0] == first.thumb.values[0][0]);
+    REQUIRE(test_support::require_value(snap).sequence == first.sequence);
+    REQUIRE(test_support::require_value(snap).generation == first.generation);
+    REQUIRE(test_support::require_value(snap).thumb.values[0][0] == first.thumb.values[0][0]);
 }
 
 // sequence 与 generation 单调且归属正确。

@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <linkerbot/hand/errors.hpp>
@@ -76,7 +77,7 @@ TEST_CASE("comm: temperature get_blocking sends empty query", "[comm][l30][tempe
     REQUIRE(frames.front().is_fd);
     REQUIRE(data.temperatures == sample_temperatures());
     REQUIRE(hand.temperature.get_snapshot().has_value());
-    REQUIRE(hand.temperature.get_snapshot()->temperatures == sample_temperatures());
+    REQUIRE(test_support::require_value(hand.temperature.get_snapshot()).temperatures == sample_temperatures());
 }
 
 // 17 个值逐个对位解出，且应答声明的长度是 17（u8 向量），不是 34。
@@ -119,7 +120,7 @@ TEST_CASE("comm: temperature periodic report updates snapshot", "[comm][l30][tem
     raw->inject(frame);
 
     REQUIRE(wait_until([&hand] { return hand.temperature.get_snapshot().has_value(); }));
-    REQUIRE(hand.temperature.get_snapshot()->temperatures == sample_temperatures());
+    REQUIRE(test_support::require_value(hand.temperature.get_snapshot()).temperatures == sample_temperatures());
     REQUIRE(l30_comm::frames_for(raw, kQueryId).empty());
 }
 

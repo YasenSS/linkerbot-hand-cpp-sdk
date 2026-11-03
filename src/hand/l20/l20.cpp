@@ -98,6 +98,8 @@ namespace linkerbot::hand::l20 {
             try {
                 stop_stream();
                 runtime_->quiesce_for_destruction();
+                // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+                // NOLINTNEXTLINE(bugprone-empty-catch)
             } catch (...) {
             }
         }

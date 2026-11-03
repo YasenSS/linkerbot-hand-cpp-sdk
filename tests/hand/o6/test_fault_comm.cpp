@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
@@ -86,5 +87,5 @@ TEST_CASE("comm: fault snapshot populates after get", "[comm][o6][fault]") {
     REQUIRE_FALSE(hand.fault.get_snapshot().has_value());
     (void)hand.fault.get_blocking(kTimeout);
     REQUIRE(hand.fault.get_snapshot().has_value());
-    REQUIRE_FALSE(hand.fault.get_snapshot()->fault.has_any_fault());
+    REQUIRE_FALSE(test_support::require_value(hand.fault.get_snapshot()).fault.has_any_fault());
 }

@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
@@ -27,17 +28,18 @@ TEST_CASE("L30 configured speed snapshots preserve command origin and freshness"
     source.speed = measured;
     const auto snapshot =
         unified_detail::unified_snapshot(source, Model::kL30, HandSide::kUnknown, declared_capabilities(Model::kL30));
-    REQUIRE(snapshot.configured_speeds->raw == std::vector<double>(17, 123));
-    REQUIRE(snapshot.configured_speeds->meta.valid);
-    REQUIRE(snapshot.configured_speeds->meta.stale);
-    REQUIRE(snapshot.configured_speeds->meta.origin == TelemetryValueOrigin::kCommandCache);
-    REQUIRE(snapshot.configured_speeds->meta.delivery == TelemetryDelivery::kCommandCache);
-    REQUIRE(snapshot.measured_speeds->raw == std::vector<double>(17, 7));
+    REQUIRE(test_support::require_value(snapshot.configured_speeds).raw == std::vector<double>(17, 123));
+    REQUIRE(test_support::require_value(snapshot.configured_speeds).meta.valid);
+    REQUIRE(test_support::require_value(snapshot.configured_speeds).meta.stale);
+    REQUIRE(test_support::require_value(snapshot.configured_speeds).meta.origin == TelemetryValueOrigin::kCommandCache);
+    REQUIRE(test_support::require_value(snapshot.configured_speeds).meta.delivery == TelemetryDelivery::kCommandCache);
+    REQUIRE(test_support::require_value(snapshot.measured_speeds).raw == std::vector<double>(17, 7));
     REQUIRE(snapshot.joints.front().configured_speed_raw == 123);
     source.configured_speeds->timestamp = now;
-    REQUIRE_FALSE(
-        unified_detail::unified_snapshot(source, Model::kL30, HandSide::kUnknown, declared_capabilities(Model::kL30))
-            .configured_speeds->meta.stale);
+    REQUIRE_FALSE(test_support::require_value(unified_detail::unified_snapshot(source, Model::kL30, HandSide::kUnknown,
+                                                                               declared_capabilities(Model::kL30))
+                                                  .configured_speeds)
+                      .meta.stale);
 }
 
 TEST_CASE("L6 configured speed snapshots retain raw evidence sequence and cache freshness",
@@ -53,11 +55,12 @@ TEST_CASE("L6 configured speed snapshots retain raw evidence sequence and cache 
     source.configured_speeds = control;
     const auto snapshot = unified_detail::unified_snapshot(source, Model::kL6, HandSide::kLeft,
                                                            declared_capabilities(Model::kL6, HandSide::kLeft));
-    REQUIRE(snapshot.configured_speeds->raw == std::vector<double>(6, 255));
-    REQUIRE(snapshot.configured_speeds->meta.sequence == 17);
-    REQUIRE(snapshot.configured_speeds->meta.valid);
-    REQUIRE(snapshot.configured_speeds->meta.stale);
-    REQUIRE(snapshot.configured_speeds->meta.delivery == TelemetryDelivery::kCommandResponse);
+    REQUIRE(test_support::require_value(snapshot.configured_speeds).raw == std::vector<double>(6, 255));
+    REQUIRE(test_support::require_value(snapshot.configured_speeds).meta.sequence == 17);
+    REQUIRE(test_support::require_value(snapshot.configured_speeds).meta.valid);
+    REQUIRE(test_support::require_value(snapshot.configured_speeds).meta.stale);
+    REQUIRE(test_support::require_value(snapshot.configured_speeds).meta.delivery ==
+            TelemetryDelivery::kCommandResponse);
     REQUIRE(snapshot.joints[0].configured_speed_raw == 255);
 }
 
@@ -85,10 +88,10 @@ TEST_CASE("unified snapshot projects classic motion and stall caches", "[comm][d
     const auto snapshot = unified_detail::unified_snapshot(source, Model::kO6, HandSide::kLeft,
                                                            declared_capabilities(Model::kO6, HandSide::kLeft));
 
-    REQUIRE(snapshot.configured_speeds->raw.front() == 127.0);
-    REQUIRE(snapshot.configured_accelerations->raw.front() == 0.0);
-    REQUIRE(snapshot.stall_detection_times->raw.front() == 10.0);
-    REQUIRE(snapshot.stall_thresholds->raw.front() == 255.0);
+    REQUIRE(test_support::require_value(snapshot.configured_speeds).raw.front() == 127.0);
+    REQUIRE(test_support::require_value(snapshot.configured_accelerations).raw.front() == 0.0);
+    REQUIRE(test_support::require_value(snapshot.stall_detection_times).raw.front() == 10.0);
+    REQUIRE(test_support::require_value(snapshot.stall_thresholds).raw.front() == 255.0);
     REQUIRE(snapshot.joints.front().configured_speed_raw == 127.0);
     REQUIRE(snapshot.joints.front().configured_acceleration_raw == 0.0);
     REQUIRE(snapshot.joints.front().stall_detection_time_raw == 10.0);
@@ -108,8 +111,9 @@ TEST_CASE("unified snapshot exposes normal force resultants", "[comm][device][sn
                                                            declared_capabilities(Model::kL20Lite, HandSide::kLeft));
 
     REQUIRE(snapshot.normal_force_resultant.has_value());
-    REQUIRE(snapshot.normal_force_resultant->raw == std::vector<double>{1.0, 2.0, 3.0, 4.0, 5.0});
-    const HandEventPayload payload = *snapshot.normal_force_resultant;
+    REQUIRE(test_support::require_value(snapshot.normal_force_resultant).raw ==
+            std::vector<double>{1.0, 2.0, 3.0, 4.0, 5.0});
+    const HandEventPayload payload = test_support::require_value(snapshot.normal_force_resultant);
     REQUIRE(std::holds_alternative<NormalForceResultantSample>(payload));
 }
 
@@ -151,12 +155,12 @@ TEST_CASE("unified snapshot projects O30 voltage motion and stall channels", "[c
     const auto snapshot =
         unified_detail::unified_snapshot(source, Model::kO30, HandSide::kUnknown, declared_capabilities(Model::kO30));
 
-    REQUIRE(snapshot.measured_speeds->raw.front() == 11.0);
-    REQUIRE(snapshot.configured_accelerations->raw.front() == 12.0);
-    REQUIRE(snapshot.voltages->raw.front() == 13.0);
-    REQUIRE(snapshot.stall_detection_times->raw.front() == 15.0);
-    REQUIRE(snapshot.stall_thresholds->raw.front() == 16.0);
-    REQUIRE(snapshot.stall_hold_currents->raw.front() == 17.0);
+    REQUIRE(test_support::require_value(snapshot.measured_speeds).raw.front() == 11.0);
+    REQUIRE(test_support::require_value(snapshot.configured_accelerations).raw.front() == 12.0);
+    REQUIRE(test_support::require_value(snapshot.voltages).raw.front() == 13.0);
+    REQUIRE(test_support::require_value(snapshot.stall_detection_times).raw.front() == 15.0);
+    REQUIRE(test_support::require_value(snapshot.stall_thresholds).raw.front() == 16.0);
+    REQUIRE(test_support::require_value(snapshot.stall_hold_currents).raw.front() == 17.0);
     REQUIRE(snapshot.joints.front().voltage_raw == 13.0);
     REQUIRE(snapshot.joints.front().stall_hold_current_raw == 17.0);
 
@@ -164,7 +168,7 @@ TEST_CASE("unified snapshot projects O30 voltage motion and stall channels", "[c
     const auto configured =
         unified_detail::unified_snapshot(source, Model::kO30, HandSide::kUnknown, declared_capabilities(Model::kO30));
     REQUIRE_FALSE(configured.measured_speeds.has_value());
-    REQUIRE(configured.configured_speeds->raw.front() == 11.0);
+    REQUIRE(test_support::require_value(configured.configured_speeds).raw.front() == 11.0);
 }
 
 TEST_CASE("O30 tactile snapshot projects scalar normal force resultants", "[comm][device][snapshot][o30-force]") {
@@ -188,5 +192,5 @@ TEST_CASE("O30 tactile snapshot projects scalar normal force resultants", "[comm
                                                            declared_capabilities(Model::kO30, HandSide::kRight));
     REQUIRE(snapshot.force.has_value());
     REQUIRE(snapshot.normal_force_resultant.has_value());
-    REQUIRE(snapshot.normal_force_resultant->raw == std::vector<double>{1, 2, 3, 4, 5});
+    REQUIRE(test_support::require_value(snapshot.normal_force_resultant).raw == std::vector<double>{1, 2, 3, 4, 5});
 }

@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include "hand_device_api_catalog.hpp"
 #include <catch2/catch_test_macros.hpp>
 
@@ -69,15 +70,15 @@ TEST_CASE("HandDevice hardware faults and snapshot projection", "[hardware][devi
     }
     const auto snapshot = hand.get_snapshot();
     REQUIRE(snapshot.model == caps.model);
-    REQUIRE(snapshot.side == hand.get_identity()->side);
+    REQUIRE(snapshot.side == test_support::require_value(hand.get_identity()).side);
     REQUIRE(snapshot.connection_generation == generation);
     REQUIRE(snapshot.device_info.has_value());
     REQUIRE(snapshot.angles.has_value());
     REQUIRE(snapshot.faults.has_value());
     REQUIRE(snapshot.joints.size() == caps.joints.size());
-    REQUIRE(snapshot.angles->raw == angles.raw);
-    REQUIRE(snapshot.faults->raw == faults.raw);
-    require_meta(snapshot.angles->meta, generation);
+    REQUIRE(test_support::require_value(snapshot.angles).raw == angles.raw);
+    REQUIRE(test_support::require_value(snapshot.faults).raw == faults.raw);
+    require_meta(test_support::require_value(snapshot.angles).meta, generation);
     for (size_t i = 0; i < snapshot.joints.size(); ++i) {
         CAPTURE(i);
         REQUIRE(snapshot.joints[i].index == caps.joints[i].index);

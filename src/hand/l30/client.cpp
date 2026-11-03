@@ -63,6 +63,8 @@ namespace linkerbot::hand::l30 {
                 core_->quiesce_for_destruction();
                 calls_.drain();
             }
+            // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+            // NOLINTNEXTLINE(bugprone-empty-catch)
         } catch (...) {
         }
     }

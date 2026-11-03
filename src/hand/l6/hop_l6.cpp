@@ -112,6 +112,8 @@ namespace linkerbot::hand::l6 {
             try {
                 runtime_->quiesce_for_destruction();
                 calls_.drain();
+                // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+                // NOLINTNEXTLINE(bugprone-empty-catch)
             } catch (...) {
             }
         }

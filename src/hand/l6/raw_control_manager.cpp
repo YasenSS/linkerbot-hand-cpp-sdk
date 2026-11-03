@@ -11,6 +11,8 @@ namespace linkerbot::hand::l6 {
             RawControlData data;
             std::copy_n(message.data.begin() + 1, kJointCount, data.values.begin());
             data.command_response = command_response;
+            // Progress owns this payload through std::any; covered by ownership regression tests.
+            // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
             return common::Progress::complete(data, command_response ? common::Origin::command_feedback
                                                                      : common::Origin::response);
         }

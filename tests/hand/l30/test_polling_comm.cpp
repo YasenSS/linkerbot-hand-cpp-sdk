@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <linkerbot/hand/errors.hpp>
 
@@ -255,7 +256,7 @@ TEST_CASE("comm: polling keeps refreshing the snapshot", "[comm][l30][polling]")
 
     const auto first = hand->get_snapshot();
     REQUIRE(first.angle.has_value());
-    const auto stamp = first.angle->timestamp;
+    const auto stamp = test_support::require_value(first.angle).timestamp;
 
     const auto refreshed = wait_until([&hand, stamp] {
         const auto snapshot = hand->get_snapshot();

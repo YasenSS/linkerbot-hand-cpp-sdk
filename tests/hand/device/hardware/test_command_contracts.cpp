@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include "hand_device_api_catalog.hpp"
 #include "hand_device_transport_probe.hpp"
 #include <catch2/catch_test_macros.hpp>
@@ -24,7 +25,7 @@ namespace {
         std::vector<float> result;
         for (size_t i = 0; i < raw.size(); ++i) {
             REQUIRE(caps.joints[i].percent_mapping.has_value());
-            const auto &map = *caps.joints[i].percent_mapping;
+            const auto &map = test_support::require_value(caps.joints[i].percent_mapping);
             const auto value = 100.0 * (raw[i] - map.raw_at_zero) / (map.raw_at_hundred - map.raw_at_zero);
             REQUIRE(value >= 0);
             REQUIRE(value <= 100);
@@ -361,7 +362,7 @@ TEST_CASE("HandDevice hardware close and recover cancel pending targets without 
             ProbedFixture fixture;
             auto &hand = *fixture.hand;
             hand.open();
-            const auto identity = *hand.get_identity();
+            const auto identity = test_support::require_value(hand.get_identity());
             const auto before = hand.get_snapshot();
             std::vector<int32_t> target;
             for (const auto &joint : hand.get_capabilities().joints) {
@@ -400,19 +401,20 @@ TEST_CASE("HandDevice hardware close and recover cancel pending targets without 
             if (!recover) {
                 hand.open();
             }
-            require_identity_equal(*hand.get_identity(), identity);
+            require_identity_equal(test_support::require_value(hand.get_identity()), identity);
             const auto after = hand.get_snapshot();
             if (recover) {
                 REQUIRE(after.connection_generation > before.connection_generation);
             }
-            REQUIRE(*after.angles->meta.collected_at > *before.angles->meta.collected_at);
-            require_meta(after.angles->meta, after.connection_generation);
+            REQUIRE(test_support::require_value(after.angles->meta.collected_at) >
+                    test_support::require_value(before.angles->meta.collected_at));
+            require_meta(test_support::require_value(after.angles).meta, after.connection_generation);
             REQUIRE(hand.get_health().pending_commands() == 0);
             const auto attempts = fixture.probe->attempts.load();
             std::this_thread::sleep_for(50ms);
             REQUIRE(fixture.probe->attempts.load() == attempts);
             const auto writes = fixture.probe->successful_writes();
-            const auto blocked = *fixture.probe->blocked;
+            const auto blocked = test_support::require_value(fixture.probe->blocked);
             for (const auto &message : writes) {
                 REQUIRE_FALSE((message.id == blocked.id && message.dlc == blocked.dlc && message.data == blocked.data));
             }

@@ -90,7 +90,7 @@ TEST_CASE("ForceSensor: idle readings are plausible", "[l30][sensor][force]") {
         const auto sum = matrix_sum(data);
         std::cout << finger_label(finger) << "基线总和: " << sum << "\n";
         INFO(finger_label(finger));
-        REQUIRE(sum < 72U * 255U);
+        REQUIRE(sum < uint64_t{72} * 255);
     }
 }
 

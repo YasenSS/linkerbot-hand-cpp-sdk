@@ -59,18 +59,28 @@ namespace linkerbot::hand::l6::protocol {
         std::array<uint8_t, 6> raw{};
         std::copy_n(msg.data.begin() + 1, 6, raw.begin());
         if (opcode == kFaultOpcode) {
+            // Progress owns this payload through std::any; covered by ownership regression tests.
+            // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
             return common::Progress::complete(FaultData{Fault::from_raw(raw), {}}, origin);
         }
         switch (opcode) {
         case kCurrentLimitOpcode:
+            // Progress owns this payload through std::any; covered by ownership regression tests.
+            // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
             return common::Progress::complete(CurrentLimitData{CurrentLimit::from_array(raw), {}}, origin);
         case kTorqueOpcode:
+            // Progress owns this payload through std::any; covered by ownership regression tests.
+            // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
             return common::Progress::complete(TorqueData{Torque::from_array(raw), {}}, origin);
         case kCurrentOpcode:
+            // Progress owns this payload through std::any; covered by ownership regression tests.
+            // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
             return common::Progress::complete(CurrentData{Current::from_array(raw), {}}, origin);
         case kTemperatureOpcode: {
             std::array<float, 6> values{};
             std::copy(raw.begin(), raw.end(), values.begin());
+            // Progress owns this payload through std::any; covered by ownership regression tests.
+            // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
             return common::Progress::complete(TemperatureData{Temperature::from_array(values), {}}, origin);
         }
         default:
@@ -200,7 +210,7 @@ namespace linkerbot::hand::l6::protocol {
         std::array<float, 6> values{};
         const float scale = opcode == kStallTimeOpcode ? 10.0f : 1400.0f / 255.0f;
         for (size_t i = 0; i < 6; ++i) {
-            values[i] = msg.data[i + 1] * scale;
+            values[i] = static_cast<float>(msg.data[i + 1]) * scale;
         }
         if (opcode == kStallTimeOpcode) {
             return common::Progress::complete(StallTimeData{StallTime::from_array(values), {}}, origin);

@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <linkerbot/hand/errors.hpp>
@@ -243,7 +244,7 @@ TEST_CASE("comm: reads and reports engage the matching snapshots", "[comm][l30][
     const auto snapshot = hand->get_snapshot();
     REQUIRE(snapshot.angle.has_value());
     REQUIRE(snapshot.temperature.has_value());
-    REQUIRE(snapshot.temperature->temperatures[0] == 37);
+    REQUIRE(test_support::require_value(snapshot.temperature).temperatures[0] == 37);
     REQUIRE_FALSE(snapshot.speed.has_value());
     REQUIRE_FALSE(snapshot.fault.has_value());
 
