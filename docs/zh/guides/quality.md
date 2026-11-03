@@ -20,7 +20,7 @@ full 模式运行 clang-format、Cppcheck、clang-tidy（`clang-analyzer-*`、`b
 
 每次上传 `cppreportcard-ubuntu-24.04-arm` 附件，包含 `report.json`、`report.md`、
 `badge.svg` 和合并编译数据库。报告不自动提交到仓库。
-[报告索引](../../../.github/cppreportcard/README.md)链接到工作流。
+[报告索引](https://github.com/soulteary/linkerbot-hand-cpp-sdk/blob/main/.github/cppreportcard/README.md)链接到工作流。
 
 ## 本地复现
 
@@ -37,7 +37,8 @@ python3 validation/check_report_complete.py .github/cppreportcard/report.json
 ```
 
 CLI 应与 `.github/workflows/cppreportcard.yml` 固定的 Action 提交一致。
-Cppcheck 包装器对 Catch2 宏建模，普通编译与 clang-tidy 仍使用真实头文件。
+Cppcheck 包装器对 Catch2 宏建模、显式选择 Linux 目标，并保留 CMake 字符串宏转义；
+普通编译与 clang-tidy 仍使用真实头文件和原始参数数组。
 诊断应逐项审查，不能直接认定每个警告都是缺陷，也不能整批屏蔽。
 
 ## 文档约定

@@ -113,7 +113,7 @@ export HAND_DEVICE_ADDRESS=1 HAND_DEVICE_HOST_ADDRESS=0
 构造、恢复和传输故障注入用例使用所选真实适配器，覆盖 `TransportFactory` 与共享
 Session。O30 为只读原目标查询复用同一 Session，避免再开独占通道；其他型号使用
 延迟打开的 factory。O30 fixture 构造即建立 Session，不能将它当作零 I/O 构造验证。
-原 Linux 各场次结果保持原记录，新增 Windows 入口尚需实际执行。
+原 Linux 各场次结果保持原记录。Windows 各型号与适配器的验收状态以历史报告为准；提供测试入口不代表新增实测通过。
 其余用例分别开启对应环境变量，避免一次筛选自动执行保存：
 
 | 环境变量设为 1 | 用途 / 筛选 |

@@ -2,10 +2,11 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-代码命名空间仍为 `linkerbot::hand::o30`，设备协议名为 O30i。本轮只修改 O30。
+代码命名空间仍为 `linkerbot::hand::o30`，设备协议名为 O30i。本文说明 O30 的协议行为与验证边界。
 
 ## 依据与方向
 
+以下协议资料未随仓库发布，仅说明历史依据；现行行为以公开代码、测试向量和记录的硬件证据为准。
 方向以本地 `docs/protocol/灵巧手全系列关节方向映射_实测总结.md` 第 8 节为准，
 随后参考 `docs/protocol/o30i.md`、`docs/protocol/LinkerHandO30i-技术协议-CAN.md`。
 后两份主要描述 HOP 0.0.3；HOP 0.0.4 的兼容行为沿用已有真机抓包证据。
@@ -74,7 +75,7 @@ ctest --test-dir build --output-on-failure
 ```
 
 `[comm]` 使用 FakeTransport，不操作 CAN 设备。默认 CTest 运行离线回归。
-本轮 O30 离线验证通过 135 个用例、5,178 条断言（事件数量可能随线程调度变化）。
+历史 O30 离线验证记录为 135 个用例、5,178 条断言（事件数量可能随线程调度变化），不是当前测试总数。
 同步 master 后的仓库默认 CTest 7/7 通过。
 真机测试代码参与编译，未执行硬件测试，离线通过不等于真机验收通过。
 

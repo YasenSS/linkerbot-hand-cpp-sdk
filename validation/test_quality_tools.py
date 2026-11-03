@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from check_report_complete import validate
 from prepare_report_db import prepare
+from cppcheck_report import command_database
 
 
 class QualityToolsTests(unittest.TestCase):
@@ -25,6 +26,17 @@ class QualityToolsTests(unittest.TestCase):
         report["checks"][0]["status"] = "error"
         with self.assertRaises(ValueError):
             validate(report)
+
+    def test_cppcheck_preserves_cmake_string_macro_escaping(self):
+        command = r'c++ -DTEST_DIR=\"/tmp/test-config\" -c main.cpp'
+        entry = {"directory": "/tmp", "file": "main.cpp", "command": command,
+                 "arguments": ["c++", '-DTEST_DIR="/tmp/test-config"', "-c", "main.cpp"]}
+        result = command_database([entry])
+        self.assertEqual(result[0]["command"], command)
+        self.assertNotIn("arguments", result[0])
+        self.assertIn("arguments", entry)
+        with self.assertRaises(ValueError):
+            command_database([{ "directory": "/tmp", "file": "main.cpp", "arguments": ["c++"] }])
 
     def test_database_keeps_sdk_units_and_excludes_dependencies(self):
         with tempfile.TemporaryDirectory() as tmp:
