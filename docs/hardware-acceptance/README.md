@@ -1,5 +1,7 @@
 # 实机验收
 
+[English summary](README.en.md) | [中文原始记录](README.md)
+
 用于记录开源发布前的硬件验证。每个型号只维护一份 Markdown 报告，包含环境、
 源码版本、运行命令、结果和剩余项；后续功能验收更新同一份报告。
 原始日志、JUnit、源码副本等调试证据保存在仓库外，不随开源文档提交。
@@ -77,7 +79,7 @@ env -u HAND_DEVICE_ANGLE_JOINT \
   ./build/tests/tests "[hardware][device][angles]" --order decl
 ```
 
-运行参数与用例说明见 [硬件测试说明](../../tests/hand/device/hardware/README.md)。
+运行参数与用例说明见 [硬件测试说明](../../tests/hand/device/hardware/README.zh-CN.md)。
 本次 L30 的初始修正上限为 25%，代码默认值为 20%。
 
 ## 报告与发布要求

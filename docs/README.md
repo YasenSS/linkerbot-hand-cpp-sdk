@@ -1,22 +1,23 @@
-# C++ SDK 文档
+# C++ SDK Documentation
 
-[简体中文](README.md) | [English](README.en.md)
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-- [中文文档](zh/README.md)：接口准备、设备连接、型号教程、通用指南与参考说明。
-- [实机验收与报告](hardware-acceptance/README.md)：共用的历史验收记录。
+- [English documentation](en/README.md): interface setup, connections, model tutorials, general guides, and references.
+- [Hardware acceptance index](hardware-acceptance/README.en.md): English summaries linked to original historical evidence.
 
-## 文档收纳约定
+## Organization
 
-`zh` 与 `en` 使用相同的目录层级和文件名，仅语言目录不同。
+`zh` and `en` use the same directory structure and filenames; only the language directory differs.
 
-| 目录 | 内容 |
+| Directory | Contents |
 | --- | --- |
-| `connections/` | 接口准备、自动/手动连接、适配器操作与排错 |
-| `tutorials/` | 各型号的分步功能示例与支持状态 |
-| `guides/` | 构建安装、通用 API、异步命令、轮询与生命周期 |
-| `reference/` | 能力表、数值与固件限制、发现机制、兼容性 |
-| `hardware-acceptance/` | 按型号集中保存的历史实机报告，两种语言共用 |
+| `connections/` | Interface preparation, automatic/manual connections, adapters, and troubleshooting |
+| `tutorials/` | Step-by-step model examples and support status |
+| `guides/` | Build/install, general APIs, asynchronous commands, polling, and lifecycle |
+| `reference/` | Capability tables, numeric/firmware limits, discovery, and compatibility |
+| `hardware-acceptance/` | Historical hardware reports organized by model and shared by both languages |
 
-新增教程按型号放入 `tutorials`，通用操作放入 `guides`，连接步骤放入 `connections`。
-数值范围和固件边界集中维护在 `reference`，其他页面通过链接引用；验收结论以对应日期、版本和硬件报告为准。
-更新文档时同步维护中英文对应页面、语言导航及受影响的链接。
+Add model tutorials to `tutorials`, common usage to `guides`, and connection steps to `connections`.
+Maintain numeric ranges and firmware limits in `reference` and link to them from other pages.
+Acceptance claims apply only to the date, revision, and hardware in each report.
+Keep corresponding language pages, language indexes, and affected links in sync.

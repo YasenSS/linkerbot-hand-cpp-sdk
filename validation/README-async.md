@@ -1,5 +1,7 @@
 # Asynchronous command acceptance checks
 
+[English](README-async.md) | [简体中文](README-async.zh-CN.md)
+
 The JSON in `tests/data/async_command_behavior_vectors.json` drives the C++ and
 Python probes with identical scenario parameters. Each probe calls the unified
 HandDevice using the production L6 codec and a scripted CAN transport. The runner
@@ -15,7 +17,7 @@ cmake -S . -B build \
   -DLINKERBOT_BUILD_TESTS=ON \
   -DPython3_EXECUTABLE=/path/to/python-with-sdk-dependencies \
   -DLINKERBOT_PYTHON_SDK_DIR=/path/to/linkerbot-hand
-cmake --build build --target tests protocol-tests example
+cmake --build build --target tests protocol-tests
 ctest --test-dir build --output-on-failure
 ```
 

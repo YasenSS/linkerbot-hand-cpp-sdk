@@ -1,6 +1,6 @@
 # LinkerBot Dexterous Hand C++ SDK
 
-[English](README.en.md) | [简体中文](README.md)
+[English](README.md) | [简体中文](README.zh-CN.md)
 
 A C++17 SDK for connecting to LinkerBot dexterous hands, controlling joints, reading sensors,
 and collecting telemetry in the background. CAN/CAN FD communication is provided by
@@ -160,10 +160,11 @@ ctest --test-dir build-tests --output-on-failure
 ```
 
 Hardware test configuration and execution are documented in the
-[hardware test guide](tests/hand/device/hardware/README.md).
+[hardware test guide](tests/hand/device/hardware/README.zh-CN.md).
 
 ## Documentation
 
+- [C++ quality and documentation checks](docs/en/guides/quality.md)
 - [Build and validation guide](docs/en/guides/validation.md)
 - [Windows guide](docs/en/guides/windows.md): environment, build, installation, and application integration.
 - [Windows adapters](docs/en/connections/windows-adapters.md): PCAN, MiniCANFD, and SLCAN configuration and troubleshooting.

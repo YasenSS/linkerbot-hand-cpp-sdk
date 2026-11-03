@@ -34,6 +34,9 @@ class ReleasePackageTests(unittest.TestCase):
             doc = 'docs/zh/windows-build.md' if key == 'comm' else 'docs/zh/guides/windows.md'
             self.write(f'share/{package}/{doc}', 'build instructions')
             if key == 'hand':
+                for name in ['README.zh-CN.md', 'CHANGELOG.zh-CN.md', 'CONTRIBUTING.zh-CN.md']:
+                    (source / name).write_text('Chinese counterpart: ' + name)
+                    self.write(f'share/{package}/{name}', 'Chinese counterpart: ' + name)
                 (source / 'README.en.md').write_text('English quick start')
                 self.write(f'share/{package}/README.en.md', 'English quick start')
                 self.write(f'share/{package}/docs/zh/guides/usage.md', 'API usage instructions')
@@ -51,6 +54,11 @@ class ReleasePackageTests(unittest.TestCase):
         path = self.prefix / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(contents)
+
+    def test_missing_chinese_counterpart_is_rejected(self):
+        (self.prefix / 'share/linkerbot-hand-cpp/README.zh-CN.md').unlink()
+        with self.assertRaisesRegex(RuntimeError, 'Installed document differs'):
+            audit_package(self.prefix, Path('sdk.tar.gz'), 'hand', self.sources, 'Release', 'linux')
 
     def archive(self, format):
         archive = self.root / ('sdk.zip' if format == 'ZIP' else 'sdk.tar.gz')

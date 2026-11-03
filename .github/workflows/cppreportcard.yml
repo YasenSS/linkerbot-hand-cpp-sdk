@@ -1,0 +1,87 @@
+name: C++ Report Card
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cppreportcard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  report:
+    name: Full SDK report (ubuntu-24.04-arm)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Resolve the tested transport baseline
+        id: dependency
+        run: |
+          echo "sha=$(python3 -c 'from pathlib import Path; from validation.resolve_release import ci_transport_sha; print(ci_transport_sha(Path(".")))')" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ vars.LINKERBOT_COMM_REPOSITORY || format('{0}/linkerbot-transport-cpp', github.repository_owner) }}
+          ref: ${{ steps.dependency.outputs.sha }}
+          path: external/linkerbot-transport-cpp
+          token: ${{ secrets.LINKERBOT_COMM_TOKEN || github.token }}
+      - name: Install build and analysis tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build clang-18 clang-format-18 clang-tidy-18 cppcheck python3
+      - name: Configure analysis inputs
+        id: inputs
+        run: |
+          cmake -S . -B build/report -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=clang++-18 \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DLINKERBOT_COMM_SOURCE_DIR="$PWD/external/linkerbot-transport-cpp" \
+            -DLINKERBOT_BUILD_TESTS=ON -DLINKERBOT_BUILD_EXAMPLES=ON -DLINKERBOT_BUILD_TOOLS=ON \
+            -DLINKERBOT_COMM_BUILD_TESTS=OFF -DLINKERBOT_COMM_BUILD_EXAMPLES=OFF
+          cmake --build build/report --parallel 4 --target linkerbot-cpp-sdk windows_readonly l6_hop_readonly
+          cmake --install build/report --prefix "$PWD/build/report-install"
+          cmake -S validation/installed-consumer -B build/report-consumer -G Ninja \
+            -DCMAKE_CXX_COMPILER=clang++-18 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DCMAKE_PREFIX_PATH="$PWD/build/report-install"
+          cmake -S validation/l6 -B build/report-l6 -G Ninja \
+            -DCMAKE_CXX_COMPILER=clang++-18 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DLINKERBOT_CATCH2_SOURCE_DIR="$PWD/build/report/_deps/catch2-src" \
+            -DLINKERBOT_COMM_INCLUDE="$PWD/external/linkerbot-transport-cpp/include"
+          python3 validation/prepare_report_db.py --output build/report-compile-commands.json \
+            build/report/compile_commands.json build/report-consumer/compile_commands.json \
+            build/report-l6/compile_commands.json
+          python3 -m unittest discover -s validation -p 'test_quality_tools.py'
+      - name: Generate complete quality report
+        if: ${{ !cancelled() && steps.inputs.outcome == 'success' }}
+        uses: soulteary/cppreportcard-action@9458d052f286c576d557c34d8ad43096cedbf561 # v1.0.2
+        with:
+          mode: full
+          config: .cppreportcard.json
+          compile_commands: build/report-compile-commands.json
+          output_dir: .github/cppreportcard
+          install_tools: 'false'
+          # Establish an honest full baseline. Findings are published, not hidden.
+          # Missing tools, compilation coverage or timeouts still fail the job.
+          fail_on: none
+          threshold: '0'
+          commit: 'false'
+      - name: Require complete analysis
+        run: python3 validation/check_report_complete.py .github/cppreportcard/report.json
+      - name: Upload report and compilation scope
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cppreportcard-ubuntu-24.04-arm
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .github/cppreportcard/report.json
+            .github/cppreportcard/report.md
+            .github/cppreportcard/badge.svg
+            build/report-compile-commands.json

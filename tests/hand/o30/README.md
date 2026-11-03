@@ -1,122 +1,110 @@
-# O30i SDK 与测试对照
+# O30i protocol and test coverage
 
-代码命名空间仍为 `linkerbot::hand::o30`，设备协议名为 O30i。本轮只修改 O30。
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-## 依据与方向
+The C++ namespace remains `linkerbot::hand::o30`; the device protocol is also named O30i.
+This guide documents O30 behavior, not capabilities of other models.
 
-方向以本地 `docs/protocol/灵巧手全系列关节方向映射_实测总结.md` 第 8 节为准，
-随后参考 `docs/protocol/o30i.md`、`docs/protocol/LinkerHandO30i-技术协议-CAN.md`。
-后两份主要描述 HOP 0.0.3；HOP 0.0.4 的兼容行为沿用已有真机抓包证据。
+## Mapping and direction
 
-公开百分比与 Python 统一接口对齐：屈伸轴 `0% = FF`、`100% = 00`，
-其余轴 `0% = 00`、`100% = FF`，左右手相同。百分比不是角度单位。
-下表描述的是协议原始值的物理方向，并非百分比递增方向。
+The original mapping work referenced private/local protocol documents that are not
+part of this repository. The maintained public behavior is represented by
+`kJointSemantics`, protocol code, test vectors and recorded hardware observations.
+HOP 0.0.3 and 0.0.4 differ; do not infer 0.0.4 behavior from the older protocol alone.
 
-| SDK 索引 | SI | 物理轴 | 00 → FF |
-|---|---|---|---|
-| 0 | 00 | thumb_rotation，协议 roll_0 | 远离食指 → 靠近食指 |
-| 1 | 05 | thumb_roll，协议 yaw_0 | 平行掌心 → 垂直掌心 |
-| 2–5 | 06–09 | 食指、中指、无名指、小指侧摆 | 靠近拇指 → 远离拇指 |
-| 6–10 | 0A–0E | 五指 Root1 | 伸直 → 弯曲 |
-| 11–14 | 10–13 | 四指 Root2 | 伸直 → 弯曲 |
-| 15–19 | 14–18 | 五指 TIP | 伸直 → 弯曲 |
+Public percentages follow the Python unified interface: flexion axes use `0% = FF`
+and `100% = 00`; other axes use `0% = 00` and `100% = FF`, for both hands. Percentages
+are not angular units. The table describes increasing raw values, not increasing percentages.
 
-36 个槽位只装配 20 个关节。全量设置只写 `00/1`、`05/10`、`10/9` 三段，跳过未装配槽位。
-`kJointSemantics` 记录协议名与物理端点；raw 接口不反向转换。
+| SDK indices | SI | Physical axis | Raw 00 → FF |
+| --- | --- | --- | --- |
+| 0 | 00 | `thumb_rotation`, protocol `roll_0` | Away from → toward index finger |
+| 1 | 05 | `thumb_roll`, protocol `yaw_0` | Parallel → perpendicular to palm |
+| 2–5 | 06–09 | Index, middle, ring, little lateral axes | Toward → away from thumb |
+| 6–10 | 0A–0E | Five Root1 axes | Straight → bent |
+| 11–14 | 10–13 | Four Root2 axes | Straight → bent |
+| 15–19 | 14–18 | Five TIP axes | Straight → bent |
 
-兼容性变化：前两个关节名改为 `thumb_rotation`、`thumb_roll`，索引顺序保持不变。
-`kThumbRotationSi = 0x00`，`kThumbRollSi` 改为 `0x05`。
-此前使用递增 raw 映射的屈伸轴，若要保持已保存的原始目标，应把 `p` 改为 `100 - p`。
-“张开”只将屈伸轴设为 100%，保留旋转、横滚和侧摆；全部轴置零不是通用张开姿态。
+Only 20 of 36 slots are mounted. Full writes use ranges `00/1`, `05/10`, `10/9`,
+skipping unmounted slots. Raw interfaces do not reverse values. The first two names
+are `thumb_rotation` and `thumb_roll`; their indices remain unchanged, with
+`kThumbRotationSi = 0x00` and `kThumbRollSi = 0x05`. To preserve raw targets saved
+with the old increasing flexion mapping, convert `p` to `100 - p`.
+Opening sets only flexion to 100%, preserving rotation, roll and lateral axes;
+zeroing every axis is not a generic open pose.
 
-## 协议差异与覆盖
+## Protocol coverage
 
-| 功能 | SDK 行为与离线验证 |
-|---|---|
-| 角度 MI01 | 20 轴、两种百分比 setter、5 个目标值、实际值/设定值、非目标与保留槽位不变 |
-| 稀疏 MI30 | 0.0.3 使用 finger-major ID；0.0.4 用 MI01 单槽写规避实机串关节问题；两种 sparse API 覆盖全部 20 轴 |
-| 运行时 MI02–07、09–0B | 速度、加速度、电流、电压、温度、3 类堵转参数的读写、快照和异常长度；MI06 仅保留实际扭矩读取 |
-| 电流写入 | 0.0.3 CTRL04；0.0.4 CTRL84；未知版本拒绝依赖版本的操作 |
-| 故障 | 0.0.3 MI0D，0.0.4 MI0C，避免把有效关节状态当故障；旧版保留原始字节，不套用新版故障位含义 |
-| 半字角度 MI20 / PID MI21–26 | 小端、跨帧读取、20/36 槽位投影、全部 6 个 PID 项、无效枚举 |
-| 触觉 MI31–34 | 分版本解析元数据；0.0.4 覆盖 10×7、72B 描述符与 255/256/256B 分银行；0.0.3 覆盖 255/256B 边界；NO_SENSOR 不读数据 |
-| 配置 MI35 | 字段边界、CAN ID 范围；标准 ID 写入接受旧/新地址 ACK，成功自动切换客户端地址并失效版本缓存；失败不切换 |
-| 预设 MI36–3A | 5 种预设读取、原始写入和非触发字段（raw 写入包含触发字节） |
-| 产品 MI41 | 225/249B 布局、版本、构建时间、左右手；单字段读取拒绝短回包 |
-| 工程服务 MI42 | 14 个状态字段的 SI、长度、小端及 setter；短回包不再静默补零 |
-| 单位 MI4E | 单位文本 16B 与小数位字节分离；36 个范围项的合法边界；目标选择与查询串行 |
-| 通信错误 MI4F | 15/16B 历史兼容；主动读取 MI4F 不当成错误响应；保留真实返回长度 |
-| 传输与生命周期 | CAN FD 标准帧、SI/EDL 边界、乱序/缺片/重复片冲突、无关帧过滤、超时、关闭、所测 9 个轮询源的事件和快照 |
+| Area | Contract covered offline |
+| --- | --- |
+| MI01 angles | Twenty axes, percentage setters, actual/target values and unchanged reserved/non-target slots |
+| MI30 sparse writes | 0.0.3 finger-major IDs; 0.0.4 uses MI01 single-slot writes to avoid observed cross-joint behavior |
+| MI02–07, 09–0B | Speed, acceleration, current, voltage, temperature, stall settings, snapshots and malformed lengths; MI06 retains actual torque reads only |
+| Current writes | CTRL04 for 0.0.3, CTRL84 for 0.0.4; reject version-dependent operations when version is unknown |
+| Faults | MI0D for 0.0.3, MI0C for 0.0.4; preserve old raw bytes instead of applying newer bit definitions |
+| MI20, MI21–26 | Little-endian halfword angles/PID, multipart reads, 20/36-slot projection and invalid enums |
+| MI31–34 tactile | Versioned metadata; 0.0.4 10×7/72-byte descriptors and 255/256/256-byte banks; 0.0.3 boundary handling; no data reads for NO_SENSOR |
+| MI35 configuration | Field/ID validation; accept old/new-address ACK and switch client address only after success, invalidating version cache |
+| MI36–3A presets | Five preset reads, raw writes and non-trigger fields; raw writes include trigger bytes |
+| MI41 identity | 225/249-byte layouts, version, build time, side and short-response rejection |
+| MI42 services | Fourteen status fields, SI, lengths, little-endian values and setters; reject short replies |
+| MI4E units | Separate 16-byte unit text/decimal byte; 36 range entries and serialized select/query |
+| MI4F errors | Preserve actual 15/16-byte history length; explicit reads are not treated as error replies |
+| Transport/lifecycle | Standard FD frames, SI/EDL bounds, ordering, missing/conflicting fragments, unrelated frames, timeout, close, polling events and snapshots |
 
-离线期望报文使用独立的字节常量与应答构造器，不通过 SDK 编码器生成期望结果。
-主要新增覆盖见 `test_measured_alignment_comm.cpp`、`test_runtime_contract_comm.cpp`、
-`test_metadata_contract_comm.cpp`、`test_wire_contract_comm.cpp`、`test_lifecycle_contract_comm.cpp`。
+Expected wire data uses independent byte constants/builders, not the SDK encoder.
+Relevant suites include `test_measured_alignment_comm.cpp`, `test_runtime_contract_comm.cpp`,
+`test_metadata_contract_comm.cpp`, `test_wire_contract_comm.cpp` and `test_lifecycle_contract_comm.cpp`.
 
-以下是能力限制，不能把离线通过解释为真机已支持：
+Enable masks did not work on tested 0.0.3 firmware; global enable is unverified on 0.0.4.
+Enable and fault-clear operations reject unsupported behavior instead of inventing frames.
+For 0.0.3, fault detection retains nonzero raw status without guessing its cause; motion
+checks reject nonzero raw fault bytes. Some mapping operations receive no response or
+protocol errors. Version 0.0.3 tactile data over 256 bytes has no verified bank layout
+and is rejected. Offline encoding/PID/configuration/service/preset coverage is not
+confirmation that firmware accepts or executes every write.
+If an ID-change ACK is lost, the client keeps the old address but the device may have
+changed; inspect its address before continuing.
 
-- 0.0.3 有效关节/使能掩码实测不生效；0.0.4 未验证全局使能命令。使能接口明确抛错，不发送猜测报文。
-- 故障写回没有证据证明是清故障命令，清除接口仍不支持。0.0.3 `has_any_fault` 按原始非零判断；`has_fault` 不推断具体原因。0.0.4 按已定义位解码，动作测试对任何非零原始故障字节均阻止动作。
-- 关节映射对象部分操作在实测固件中无响应或返回协议错误，SDK 如实报告。
-- 0.0.3 触觉超过 256B 时无已验证跨银行布局，明确报错，不静默截断。
-- 部分半字/PID 访问及配置、服务、预设写入仅验证报文构造和错误传播；固件可能拒绝，不代表设备执行已确认。
-- 改 ID 时 ACK 丢失，客户端保持旧地址，但设备可能已切换。应检查设备地址后再继续通信。
-
-## 运行
-
-仓库根目录执行：
+## Run tests
 
 ```bash
-cmake --build build --target tests -j 4
+cmake --build build --target tests protocol-tests --parallel 4
 ./build/tests/tests '[comm][o30]' --reporter compact
 ctest --test-dir build --output-on-failure
 ```
 
-`[comm]` 使用 FakeTransport，不操作 CAN 设备。默认 CTest 运行离线回归。
-本轮 O30 离线验证通过 135 个用例、5,178 条断言（事件数量可能随线程调度变化）。
-同步 master 后的仓库默认 CTest 7/7 通过。
-真机测试代码参与编译，未执行硬件测试，离线通过不等于真机验收通过。
+`[comm]` uses FakeTransport and does not access CAN hardware. Historical counts in
+[the original notes](README.zh-CN.md) refer to their recorded revision; use the current
+runner output for current totals.
 
-真机使用已启动的 CAN FD 接口，默认 `CAN_INTERFACE=can0`、`O30_REQUEST_ID=0x001`。
-先查看并运行仅查询/本地参数校验的测试：
+For a configured real FD interface, default `CAN_INTERFACE=can0` and `O30_REQUEST_ID=0x001`:
 
 ```bash
 ./build/tests/tests '[o30]~[comm]~[motion]~[configuration]~[interactive]' --list-tests
 CAN_INTERFACE=can0 O30_REQUEST_ID=0x001 ./build/tests/tests '[o30]~[comm]~[motion]~[configuration]~[interactive]'
 ```
 
-角度动作测试全部使用中文逐步交互，推荐先测开合或侧摆：
+Interactive angle tests deliberately use Chinese operator prompts. Review those prompts
+before running motion. Start with opening/closing or lateral motion:
 
 ```bash
-# 五指开合往返
 ./build/tests/tests '[o30][angle][open_close]~[comm]'
-# 四指逐个侧摆
 ./build/tests/tests '[o30][angle][yaw]~[comm]'
-# 全部角度交互测试：开合、逐指张开、四指握拇指张、拇指姿态与侧摆
 ./build/tests/tests '[o30][angle][interactive]~[comm]'
 ```
 
-每一步显示中文关节名、动作和观察标准。先按回车执行，再输入 `y` 通过、`n` 失败、
-`s` 未完成或 `q` 退出。无效输入重新询问；跳过、退出或输入结束均不会判为通过。
-`n/s/q` 或自动检查失败后，停止本轮后续角度动作，用新命令重新开始。
-退出时，如果已经执行过动作，会提示并尝试恢复本组初始姿态；故障时停止写入并报告恢复受阻。
-动作前先只读检查设备状态。发现故障时列出协议版本、MI、全部异常关节和原始故障字节；
-本轮只报告一次失败，其余角度动作跳过，不发送姿态指令。
-2026-09-17 前置诊断复测：HOP 0.0.4 的中指侧摆 SI07 返回 02，结果为 1 失败、6 跳过，未执行动作；该结果不代表硬件通过。
+Enter starts a step; `y` passes, `n` fails, `s` leaves it incomplete, and `q` exits.
+Invalid input is retried. Skip/exit/EOF never count as passes. Failure or exit stops
+subsequent motion; restoration is attempted after motion unless a fault prevents writes.
+Preflight is read-only. Reports record joints, directions and coupling in
+`tests/reports/o30_angle_*.json`. The historical 2026-09-17 preflight failure is preserved
+in the original notes and does not establish hardware acceptance.
 
-角度交互按手指确认，不再逐关节、也不再跑整手/单关节两套指令：
-五指开合（100%→30%→100%）、握拳后逐指张开、四指握紧拇指伸直、
-以及拇指旋转/横滚与四指侧摆各一次。人工确认关节是否正确、方向是否正确、是否串动。
-报告写入 `tests/reports/o30_angle_*.json`。
-
-所有角度动作都有 `[interactive]` 标签；添加 `~[interactive]` 只运行角度查询。
-速度动作测试同时保存/恢复速度、加速度和姿态，分三类：
-`actual counts rise while joints move` 走一次开合，要求运动窗口内至少一个关节当前转速
-大于 0，失败时打印各关节峰值；`higher setting shortens travel time` 把加速度拉满后，
-对同一段 100%→30% 行程分别用速度 20 和 200 计时，要求高速档至少快 30%，
-任一档 20 秒内没到位就判失败，不拿超时耗时比快慢——这是速度设定生效的自动证据；
-交互用例逐步引导（按回车才动作，失败即停），每步打印实测耗时和转速峰值供人工对照。
-交互失败或退出后，本进程内其余速度动作显示跳过，不再驱动硬件。
-
-`[configuration]` 会写入参数；`[interactive]` 需要人工操作。
-触觉交互测试解析已确认描述符的 FnS uint16 小端力值，要求按压后增大；
-没有传感器或没有已验证解码器时显示跳过，不当成通过。
+Speed tests save/restore speed, acceleration and pose. One requires nonzero measured
+speed during motion; another compares the same 100%→30% travel at settings 20 and 200,
+requiring the higher setting to be at least 30% faster. A 20-second arrival timeout
+fails instead of being used as a valid timing measurement. Interactive failures stop
+remaining motion in the process. `[configuration]` writes settings; `[interactive]`
+requires operator input. Tactile interaction uses a verified little-endian uint16 FnS
+decoder and expects increased force on pressing; missing sensors/decoders are skipped.

@@ -1,0 +1,61 @@
+# 版本变更
+
+[English](CHANGELOG.md) | [简体中文](CHANGELOG.zh-CN.md)
+
+## 0.3.0（未发布）
+
+- 默认文档改为英文，保留完整中文对应页、双向导航及旧英文入口兼容副本。
+- 补充 C++17 贡献约定、构建/质量指南和历史实机证据英文摘要；不改写原始实测结果。
+- 接入 full 模式 C++ Report Card，以分析完整性为门禁并保留诊断，增加文档和打包回归检查。
+
+- 为跨型号角度编码覆盖测试设置独立发送预算，避免 Windows 调度延迟误判；生产超时不变。
+- 修正中英文离线测试构建目标、Windows transport 基线和仓库地址，补充构建与验证指南。
+- 移除受版本控制的 `.vscode` 配置并忽略整个目录；临时发布测试不再依赖个人 Git 签名配置。
+
+- 更新 transport 固定基线至 `a46177e`，纳入发送诊断与统计先于终态回执发布的修复。
+- 回执存储在物理发送接纳前预留；观察器异常不再重复处理已完成的发送统计。
+  保持现有公开 API、命令终态及晚到回执查询语义。
+- 发布基线解析支持仅含 GitHub 工作流的仓库，存在 Gitea 配置时仍校验两者一致。
+
+- 新增兼容的 `CommandHandle::send_results()` 查询，保留物理批次回执、部分发送与不确定结果；
+  超时、关闭或恢复后的晚到回执不修改原有命令终态。补充恢复失败重试和旧代际证据回归。
+
+- L6 位置 Kp、位置 Kd、扭矩 Kd 仅保留专有 Manager 的读写能力，删除统一读写方法、
+  样本、快照字段、事件及能力描述；原有调用须迁移到型号 Manager 并重新编译。
+  其余公开枚举编号保持不变。
+
+- 删除 O30 运动时间、扭矩上限的统一接口和型号接口，以及相关能力、类型、事件、快照与轮询支持。
+  原有调用须移除并重新编译；保留实际扭矩读取及电流上限读写，其余公开枚举编号保持不变。
+
+- 增加 Gitea/GitHub 开发包工作流，支持版本 tag 和手动触发，生成并验收 Linux TGZ、Windows ZIP、SHA256 和来源清单。
+  TGZ/ZIP 共用版本、许可证、包内容和解压接入检查；不自动创建标签或发布 Release。
+- 统一 `HandDevice` 全部 8 个 `set_*` 改为本地接纳后返回，由后台发送和处理 ACK。
+  接纳前异常同步抛出，接纳后异常保存在 `CommandHandle::error()`。
+- 增加有界 FIFO、待发目标替换及默认 250 Hz 批次启动上限；执行预算从接纳时
+  开始，覆盖排队、发送和 ACK。等待超时不取消或重发。
+- handle 记录真实发送与 ACK 阶段、已确认帧数和稳定终态。关闭／恢复隔离旧代次，
+  使用总 shutdown 预算并安全保留未退出驱动／回调所需资源。
+- 修正共同型号缓存新鲜度与 ACK 完成规则，拒绝 L6 堵转时间 raw 0 写入，保留读回 0。
+- 配套 comm 升级为 0.3.0，源码及安装包要求同 minor 且 comm 不低于 hand 版本。
+- 通信仓库现名为 `linkerbot-transport-cpp`；CMake 包名 `linkerbot-comm`、
+  `linkerbot::comm` 系列目标和 `LINKERBOT_COMM_SOURCE_DIR` 保留兼容名称。
+  当前 CI 与 README 的依赖提交以 README 的源码基线为准；各历史验收场次保留实际使用的 SHA。
+- 更新 README 的错误处理示例；安装包附带兼容性策略和
+  [0.3 迁移说明](docs/zh/guides/usage.md#命令完成与错误处理)。调用方必须重新编译。
+- 增加可执行的跨语言异步行为向量，覆盖接纳、发送/ACK、替换、FIFO、超时、生命周期
+  和 polling 进展；明确等待超时、执行预算、关闭已 claimed 命令及短 ACK 的语言差异。
+  内部调度器支持测试注入时钟，验证 deadline 边界；生产默认仍使用 steady_clock。
+- 安装包 consumer 编译检查全部统一 setter 的返回契约，实际验证统一接口的返回时机、
+  缓存读取、ACK 和两类错误出口；公开指南的完整 C++ 示例纳入编译检查。
+
+- 增加 Windows x64 的 PCAN Classic / FD、MiniCANFD、默认适配器发现、显式 factory
+  和只读连接示例；实现 SLCAN Lawicel Classic、CANable FD 配置及 Linux 原生串口接入。
+- 修复共享总线生命周期和恢复相关的间歇性崩溃，增加并发与故障回归覆盖。
+- 补齐 Windows 构建、运行库、ZIP、安装及迁移接入验证。2026-10-19 的 Release
+  验收 39 步通过，核心 CTest 143/143、安装及解压接入 4/4。
+- 六型号已完成 Linux 常用接口实机验证；Windows Debug 适配实测和未测组合见
+  [实机矩阵](docs/hardware-acceptance/README.md#windows-实测矩阵)。PCAN FD 仍待实机验收，
+  SLCAN 仍为指定固件配置的实验性接入；不把离线测试或 Debug 结果扩展为 Release 实机通过。
+
+原生型号 Manager、主动 getter 和离散操作保持原执行契约；公开平台及硬件边界见
+[支持与兼容性策略](docs/zh/reference/compatibility.md)。

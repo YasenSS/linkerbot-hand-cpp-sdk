@@ -11,6 +11,7 @@ __pycache__/
 /docs/*
 !/docs/README.md
 !/docs/README.en.md
+!/docs/README.zh-CN.md
 !/docs/hardware-acceptance/
 
 !/docs/zh/

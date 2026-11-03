@@ -76,7 +76,7 @@ namespace linkerbot::hand::l30 {
             uint8_t host_id = kDefaultHostId, bool auto_start_periodic = true);
         [[nodiscard]] std::shared_ptr<runtime::DeviceRuntime> runtime() const { return client_->runtime(); }
         [[nodiscard]] HandHealth health() const { return runtime()->health(); }
-        // Compatibility adapter retained throughout 0.2.x; prefer health().
+        // Compatibility adapter for older callers; prefer health().
         [[nodiscard]] runtime::RuntimeHealth runtime_health() const { return runtime()->runtime_health(); }
         ~L30();
 
