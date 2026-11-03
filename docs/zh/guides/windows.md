@@ -18,8 +18,8 @@
 
 ```powershell
 git clone https://github.com/linker-bot/linkerbot-transport-cpp.git
-git -C linkerbot-transport-cpp checkout --detach 37c2e6f05ec93045e13459194b6bee7d1a2f091d
-git clone https://github.com/linker-bot/linkerbot-hand-cpp.git
+git -C linkerbot-transport-cpp checkout --detach a46177e86e403bbd18834aedb6e81ef3233c6c22
+git clone https://github.com/linker-bot/linkerbot-hand-cpp-sdk.git linkerbot-hand-cpp
 Set-Location linkerbot-hand-cpp
 
 cmake -S . -B build-windows -G 'Visual Studio 17 2022' -A x64 `
@@ -150,7 +150,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Consumer build failed' }
 ```powershell
 cmake -S . -B build-windows -DLINKERBOT_BUILD_TESTS=ON
 if ($LASTEXITCODE -ne 0) { throw 'Test configure failed' }
-cmake --build build-windows --config Release --parallel 4
+cmake --build build-windows --config Release --parallel 4 --target tests protocol-tests
 if ($LASTEXITCODE -ne 0) { throw 'Test build failed' }
 ctest --test-dir build-windows -C Release --output-on-failure
 ```

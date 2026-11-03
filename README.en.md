@@ -41,7 +41,7 @@ Use paired `0.3.x` versions; the transport version must be at least the hand SDK
 mkdir sdk-build && cd sdk-build
 git clone https://github.com/linker-bot/linkerbot-transport-cpp.git
 git -C linkerbot-transport-cpp checkout --detach a46177e86e403bbd18834aedb6e81ef3233c6c22
-git clone https://github.com/linker-bot/linkerbot-hand-cpp.git
+git clone https://github.com/linker-bot/linkerbot-hand-cpp-sdk.git linkerbot-hand-cpp
 cd linkerbot-hand-cpp
 
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
@@ -152,8 +152,10 @@ To run offline tests, install Catch2 3 and configure a separate build directory 
 ```bash
 cmake -S . -B build-tests -DCMAKE_BUILD_TYPE=Release \
   -DLINKERBOT_BUILD_TESTS=ON -DLINKERBOT_BUILD_TOOLS=OFF \
+  -DLINKERBOT_COMM_SOURCE_DIR=../linkerbot-transport-cpp \
+  -DLINKERBOT_BUILD_EXAMPLES=OFF \
   -DLINKERBOT_ALLOW_DEPENDENCY_DOWNLOADS=OFF -DLINKERBOT_COMM_BUILD_TESTS=OFF
-cmake --build build-tests --parallel 4
+cmake --build build-tests --parallel 4 --target tests protocol-tests
 ctest --test-dir build-tests --output-on-failure
 ```
 
@@ -162,6 +164,7 @@ Hardware test configuration and execution are documented in the
 
 ## Documentation
 
+- [Build and validation guide](docs/en/guides/validation.md)
 - [Windows guide](docs/en/guides/windows.md): environment, build, installation, and application integration.
 - [Windows adapters](docs/en/connections/windows-adapters.md): PCAN, MiniCANFD, and SLCAN configuration and troubleshooting.
 - [API guide](docs/en/guides/usage.md): reading, control, background polling, and lifecycle.

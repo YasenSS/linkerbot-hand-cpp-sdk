@@ -57,7 +57,8 @@ class ReleaseTriggerTests(unittest.TestCase):
     def test_annotated_tag_is_peeled_to_the_actual_hand_commit(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            command = ['git', '-C', str(root), '-c', 'user.name=Release test',
+            command = ['git', '-C', str(root), '-c', 'commit.gpgsign=false',
+                       '-c', 'tag.gpgsign=false', '-c', 'user.name=Release test',
                        '-c', 'user.email=release-test@example.invalid']
             subprocess.run([*command, 'init', '-q'], check=True)
             subprocess.run([*command, 'commit', '--allow-empty', '-qm', 'Test release input'], check=True)
