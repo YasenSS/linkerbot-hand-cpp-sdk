@@ -130,6 +130,13 @@ install(FILES LICENSE README.md README.en.md README.zh-CN.md NOTICE
 install(FILES docs/README.md docs/README.en.md docs/README.zh-CN.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp/docs
     COMPONENT Documentation)
+install(FILES docs/quality-baseline-2026-11-03.csv
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp/docs
+    COMPONENT Documentation)
+install(FILES .github/cppreportcard/README.md .github/cppreportcard/README.zh-CN.md
+    .github/cppreportcard/badge.svg
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp/.github/cppreportcard
+    COMPONENT Documentation)
 install(DIRECTORY docs/zh docs/en docs/hardware-acceptance
     DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp/docs
     COMPONENT Documentation
