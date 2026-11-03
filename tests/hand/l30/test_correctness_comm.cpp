@@ -12,6 +12,15 @@ using linkerbot::can::CANDispatcher;
 using linkerbot::can::FakeTransport;
 using linkerbot::can::Message;
 namespace {
+    void require_budget_prefix(FakeTransport &transport, std::vector<uint32_t> expected) {
+        const auto actual = l30_comm::sent_ids(&transport);
+        // Each ACK delays at least 30ms; a 50ms shared budget cannot send a
+        // third request. Host scheduling may consume the budget even earlier.
+        REQUIRE(actual.size() <= expected.size());
+        expected.resize(actual.size());
+        REQUIRE(actual == expected);
+    }
+
     struct Gate {
         std::mutex mutex;
         std::condition_variable cv;
@@ -340,13 +349,8 @@ TEST_CASE("comm: L30 exclusive Client operation excludes competing commands and 
             return l30_comm::ack_handler()(req);
         });
     }
-    REQUIRE_THROWS(sequence(50ms));
-    const auto sent = l30_comm::sent_ids(raw);
-    REQUIRE_FALSE(sent.empty());
-    REQUIRE(sent.size() <= 2);
-    auto expected = std::vector<uint32_t>{0x02210100, 0x0220E100};
-    expected.resize(sent.size());
-    REQUIRE(sent == expected);
+    REQUIRE_THROWS_AS(sequence(50ms), linkerbot::hand::TimeoutError);
+    require_budget_prefix(*raw, {0x02210100, 0x0220E100});
 }
 
 TEST_CASE("comm: L30 five finger reads consume one budget", "[comm][l30][rfix]") {
@@ -361,8 +365,11 @@ TEST_CASE("comm: L30 five finger reads consume one budget", "[comm][l30][rfix]")
             });
     }
     L30 hand(std::move(transport), 1, 0, false);
-    REQUIRE_THROWS(hand.force_sensor.get_blocking(50ms));
-    REQUIRE(raw->sent().size() == 2);
+    REQUIRE_THROWS_AS(hand.force_sensor.get_blocking(50ms), linkerbot::hand::TimeoutError);
+    require_budget_prefix(
+        *raw,
+        {l30_comm::request_id(protocol::kParentTactile, finger_subcommand(Finger::kThumb), protocol::kAccessRead),
+         l30_comm::request_id(protocol::kParentTactile, finger_subcommand(Finger::kIndex), protocol::kAccessRead)});
     REQUIRE_FALSE(hand.force_sensor.get_snapshot().has_value());
 }
 
@@ -469,8 +476,10 @@ TEST_CASE("comm: L30 disabling multiple report sources shares its ACK budget", "
                             return l30_comm::ack_handler()(req);
                         });
     }
-    REQUIRE_THROWS(hand.report.disable_all(50ms));
-    REQUIRE(raw->sent().size() == 2);
+    REQUIRE_THROWS_AS(hand.report.disable_all(50ms), linkerbot::hand::TimeoutError);
+    require_budget_prefix(
+        *raw, {l30_comm::request_id(protocol::kParentPeriodic, protocol::kSubPosition, protocol::kAccessWrite),
+               l30_comm::request_id(protocol::kParentPeriodic, protocol::kSubSpeed, protocol::kAccessWrite)});
 }
 
 TEST_CASE("comm: L30 retired stream references survive replacement and stop is terminal", "[comm][l30][rfix]") {
