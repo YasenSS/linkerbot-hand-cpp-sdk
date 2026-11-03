@@ -91,6 +91,7 @@ namespace linkerbot::hand::unified_detail {
                 auto observe = [progress, handle, request, deadline](const transport::SendResult &sent,
                                                                      bool final_send) mutable {
                     const std::lock_guard<std::mutex> lock(progress->mutex);
+                    command_detail::CommandHandleAccess::record_send_result(handle, sent);
                     if (!progress->active || handle.done()) {
                         return;
                     }

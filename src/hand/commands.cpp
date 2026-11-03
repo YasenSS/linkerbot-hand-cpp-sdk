@@ -30,6 +30,7 @@ namespace linkerbot::hand {
         uint64_t sent_frames = 0;
         std::exception_ptr error;
         std::vector<CommandTransition> history;
+        std::vector<transport::SendResult> send_results;
         bool done = false;
     };
 
@@ -85,6 +86,17 @@ namespace linkerbot::hand {
     std::vector<CommandTransition> CommandHandle::history() const {
         const std::lock_guard<std::mutex> lock(state_->mutex);
         return state_->history;
+    }
+
+    std::vector<transport::SendResult> CommandHandle::send_results() const {
+        const std::lock_guard<std::mutex> lock(state_->mutex);
+        return state_->send_results;
+    }
+
+    void command_detail::CommandHandleAccess::record_send_result(
+        CommandHandle &handle, const transport::SendResult &result) {
+        const std::lock_guard<std::mutex> lock(handle.state_->mutex);
+        handle.state_->send_results.push_back(result);
     }
 
     bool CommandHandle::done() const noexcept {

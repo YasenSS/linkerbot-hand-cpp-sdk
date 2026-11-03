@@ -3241,6 +3241,12 @@ TEST_CASE("An early ACK cannot publish when the claimed transport write fails", 
     REQUIRE(handle.stage() == CommandStage::kFailed);
     REQUIRE(handle.sent_frames() == 0);
     REQUIRE(handle.history().size() == 2);
+    const auto receipts = handle.send_results();
+    REQUIRE(receipts.size() == 1);
+    REQUIRE(receipts.front().outcome == linkerbot::transport::SendOutcome::failed);
+    REQUIRE(receipts.front().current_frame_uncertain);
+    REQUIRE(receipts.front().claimed_at.has_value());
+    REQUIRE(receipts.front().sent_frames == 0);
     REQUIRE_THROWS_AS(std::rethrow_exception(handle.error()), TransportError);
     REQUIRE(device.get_snapshot().configured_speeds->meta.collected_at == previous->meta.collected_at);
 }
@@ -3624,6 +3630,10 @@ TEST_CASE("Handles outlive facade destruction while claimed I O resources remain
     REQUIRE(closed_command(queued));
     REQUIRE(active.wait() == CommandStage::kFailed);
     REQUIRE(active.sent_frames() == 0);
+    REQUIRE(wait_until([&] { return !active.send_results().empty(); }));
+    REQUIRE(active.send_results().front().outcome == linkerbot::transport::SendOutcome::dispatched);
+    REQUIRE(active.send_results().front().sent_frames == 1);
+    REQUIRE(queued.send_results().empty());
 }
 
 TEST_CASE("Runtime callback close is rejected before self join and facade destruction is deferred",
