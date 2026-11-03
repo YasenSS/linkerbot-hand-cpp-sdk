@@ -12,7 +12,10 @@ SHA = r'[0-9a-f]{40}'
 def ci_transport_sha(source):
     pins = []
     for relative in ['.gitea/workflows/ci.yml', '.github/workflows/ci.yml']:
-        contents = (source / relative).read_text(encoding='utf-8')
+        path = source / relative
+        if relative.startswith('.gitea/') and not path.exists():
+            continue
+        contents = path.read_text(encoding='utf-8')
         matches = re.findall(r'^  COMM_REF:\s*[\'\"]?(' + SHA + r')[\'\"]?\s*(?:#.*)?$',
                              contents, re.MULTILINE)
         if len(matches) != 1:

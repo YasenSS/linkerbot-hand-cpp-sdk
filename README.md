@@ -37,7 +37,7 @@ L6 默认使用 Classic CAN；支持 CAN FD 的设备可显式选择[可选 HOP 
 ```bash
 mkdir sdk-build && cd sdk-build
 git clone https://github.com/linker-bot/linkerbot-transport-cpp.git
-git -C linkerbot-transport-cpp checkout --detach 37c2e6f05ec93045e13459194b6bee7d1a2f091d
+git -C linkerbot-transport-cpp checkout --detach a46177e86e403bbd18834aedb6e81ef3233c6c22
 git clone https://github.com/linker-bot/linkerbot-hand-cpp.git
 cd linkerbot-hand-cpp
 

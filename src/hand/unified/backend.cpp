@@ -130,7 +130,10 @@ namespace linkerbot::hand::unified_detail {
                     RuntimeAccess::execute_command(*device_->runtime(), deadline,
                                                    request.ack_expectation == AckExpectation::kNone, std::move(observe),
                                                    std::move(final_send), request.cancellation,
-                                                   [&] { outcome = submit_command(*device_, bounded); });
+                                                   [&] { outcome = submit_command(*device_, bounded); },
+                                                   [handle]() mutable {
+                                                       command_detail::CommandHandleAccess::reserve_send_result(handle);
+                                                   });
                 } catch (...) {
                     deactivate();
                     throw;

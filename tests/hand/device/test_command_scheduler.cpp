@@ -294,6 +294,7 @@ TEST_CASE("comm: command receipts survive logical failure and preserve uncertain
     receipt.current_frame_uncertain = true;
     receipt.generation = 7;
     receipt.error = std::make_exception_ptr(TransportError("partial write"));
+    command_detail::CommandHandleAccess::reserve_send_result(handle);
     command_detail::CommandHandleAccess::record_send_result(handle, receipt);
     auto results = handle.send_results();
     REQUIRE(results.size() == 1);
