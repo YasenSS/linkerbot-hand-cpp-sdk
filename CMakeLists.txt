@@ -135,21 +135,5 @@ install(FILES validation/fake_classic_hand.hpp
 include(cmake/ReleasePackage.cmake)
 
 if(LINKERBOT_IS_TOP_LEVEL)
-    set(CPACK_PACKAGE_NAME "linkerbot-hand-cpp")
-    set(CPACK_PACKAGE_VENDOR "LinkerBot")
-    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
-        "LinkerBot dexterous hand C++ SDK")
-    set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
-    set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
-    set(CPACK_PACKAGE_CHECKSUM SHA256)
-    if(WIN32)
-        set(CPACK_GENERATOR ZIP)
-        configure_file(cmake/WindowsCPack.cmake.in WindowsCPack.cmake @ONLY)
-        set(CPACK_PROJECT_CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/WindowsCPack.cmake")
-    else()
-        set(CPACK_GENERATOR "TGZ")
-    endif()
-    set(CPACK_PACKAGE_FILE_NAME
-        "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_SYSTEM_NAME}")
     include(CPack)
 endif()

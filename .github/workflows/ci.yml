@@ -16,7 +16,7 @@ concurrency:
 env:
   COMM_REPOSITORY: ${{ vars.LINKERBOT_COMM_REPOSITORY || format('{0}/linkerbot-transport-cpp', github.repository_owner) }}
   # Keep this paired comm commit in sync with Gitea CI and README.md.
-  COMM_REF: a46177e86e403bbd18834aedb6e81ef3233c6c22
+  COMM_REF: 3cfe1dab33aedf2341b6aba1c60667413867547c
 
 jobs:
   build-and-test:
@@ -46,6 +46,7 @@ jobs:
           python3 validation/check_docs.py
           python3 -m unittest discover -s validation -p 'test_quality_tools.py'
           python3 -m unittest discover -s validation -p 'test_transport_provider.py'
+          python3 -m unittest discover -s validation -p 'test_release*.py'
 
       - name: Check out communication library
         uses: actions/checkout@v4

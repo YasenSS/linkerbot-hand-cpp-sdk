@@ -43,7 +43,7 @@ Use paired `0.3.x` versions; the transport version must be at least the hand SDK
 ```bash
 mkdir sdk-build && cd sdk-build
 git clone https://github.com/linker-bot/linkerbot-transport-cpp.git
-git -C linkerbot-transport-cpp checkout --detach a46177e86e403bbd18834aedb6e81ef3233c6c22
+git -C linkerbot-transport-cpp checkout --detach 3cfe1dab33aedf2341b6aba1c60667413867547c
 git clone https://github.com/linker-bot/linkerbot-hand-cpp-sdk.git linkerbot-hand-cpp
 cd linkerbot-hand-cpp
 
@@ -63,6 +63,8 @@ this repository's root directory.
 To reuse a prebuilt transport v0.3.2 SDK, configure with
 `cmake --preset prebuilt -DLINKERBOT_COMM_PREBUILT_PREFIX=/absolute/path/to/comm-sdk`.
 See the [build guide](docs/en/guides/validation.md) for source/prebuilt modes, archive verification and downstream paths.
+
+Release target types follow transport: eight Ubuntu Release SDKs and four Windows x64/ARM64 Debug/Release SDKs. See [release artifacts](docs/en/guides/releases.md).
 
 ### 2. Connect the CAN bus
 
