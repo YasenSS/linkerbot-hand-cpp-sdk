@@ -104,7 +104,7 @@ jobs:
               apt-get install -y --no-install-recommends build-essential git ca-certificates python3 python3-venv ninja-build
               test "$(uname -m)" = "$EXPECTED_ARCH"
               python3 -m venv /opt/release-tools
-              /opt/release-tools/bin/pip install cmake==3.31.8
+              /opt/release-tools/bin/pip install cmake==3.31.10
               export PATH=/opt/release-tools/bin:$PATH
               git config --global --add safe.directory /src/hand-cpp
               git config --global --add safe.directory /src/linkerbot-transport-cpp
