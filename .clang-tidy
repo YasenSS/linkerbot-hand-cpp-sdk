@@ -58,6 +58,6 @@ CheckOptions:
 
 # Analyze SDK/private headers and shared test/tool implementations.
 # transport-cpp headers also use include/linkerbot/ and remain a separate dependency.
-HeaderFilterRegex: "(^|.*/)(include/linkerbot/(hand/.*|event_queue|relay|overloaded)|src/hand/.*|tests/protocol/l6/completion_vector_cases|tools/restore_state)\\.(hpp|h)$"
+HeaderFilterRegex: "(^|.*/)(include/linkerbot/(hand/.*|event_queue|relay|overloaded)|src/hand/.*|protocol/l6/completion_vector_cases|tools/restore_state)\\.(hpp|h)$"
 
 FormatStyle: file
