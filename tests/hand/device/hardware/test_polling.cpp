@@ -15,8 +15,8 @@ namespace {
         REQUIRE(next.snapshot_sequence > before.snapshot_sequence);
         REQUIRE(next.angles.has_value());
         require_meta(test_support::require_value(next.angles).meta, next.connection_generation);
-        REQUIRE(test_support::require_value(next.angles->meta.collected_at) >
-                test_support::require_value(before.angles->meta.collected_at));
+        REQUIRE(test_support::require_value(test_support::require_value(next.angles).meta.collected_at) >
+                test_support::require_value(test_support::require_value(before.angles).meta.collected_at));
         return next;
     }
 }

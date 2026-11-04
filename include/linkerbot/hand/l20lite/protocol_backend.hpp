@@ -37,7 +37,8 @@ namespace linkerbot::hand::l20lite::protocol {
     inline std::function<common::Progress(const can::Message &)>
     make_dual_frame_decoder(uint32_t id, FramePart part_a, FramePart part_b,
                             std::function<common::Progress(const std::array<uint8_t, kJointCount> &)> finish) {
-        return [id, part_a, part_b, finish, raw = std::array<uint8_t, kJointCount>{},
+        return [id, part_a = std::move(part_a), part_b = std::move(part_b), finish = std::move(finish),
+                raw = std::array<uint8_t, kJointCount>{},
                 have = std::array<bool, 2>{}](const can::Message &input) mutable {
             if (input.id != id || input.is_extended || input.is_fd || input.is_brs) {
                 return common::Progress::unmatched();
@@ -264,25 +265,36 @@ namespace linkerbot::hand::l20lite::protocol {
         return StallTime::from_array(values);
     }
 
+    namespace argument_detail {
+        // Keep on-wire identifiers, selectors and lengths in one named record.
+        struct BuildStallBankFramesArguments {
+            uint32_t id;
+            uint8_t cmd;
+            const std::array<uint8_t, kJointCount> &raw;
+        };
+        inline std::array<can::Message, 2> build_stall_bank_frames(const BuildStallBankFramesArguments &arguments) {
+            can::Message bank1;
+            bank1.id = arguments.id;
+            bank1.dlc = 7;
+            bank1.data[0] = arguments.cmd;
+            bank1.data[1] = 1;
+            for (size_t i = 0; i < 5; ++i) {
+                bank1.data[i + 2] = arguments.raw[i];
+            }
+            can::Message bank2;
+            bank2.id = arguments.id;
+            bank2.dlc = 7;
+            bank2.data[0] = arguments.cmd;
+            bank2.data[1] = 2;
+            for (size_t i = 0; i < 5; ++i) {
+                bank2.data[i + 2] = arguments.raw[i + 5];
+            }
+            return {bank1, bank2};
+        }
+    }
     inline std::array<can::Message, 2> build_stall_bank_frames(uint32_t id, uint8_t cmd,
                                                                const std::array<uint8_t, kJointCount> &raw) {
-        can::Message bank1;
-        bank1.id = id;
-        bank1.dlc = 7;
-        bank1.data[0] = cmd;
-        bank1.data[1] = 1;
-        for (size_t i = 0; i < 5; ++i) {
-            bank1.data[i + 2] = raw[i];
-        }
-        can::Message bank2;
-        bank2.id = id;
-        bank2.dlc = 7;
-        bank2.data[0] = cmd;
-        bank2.data[1] = 2;
-        for (size_t i = 0; i < 5; ++i) {
-            bank2.data[i + 2] = raw[i + 5];
-        }
-        return {bank1, bank2};
+        return argument_detail::build_stall_bank_frames({id, cmd, raw});
     }
 
     inline std::function<common::Progress(const can::Message &)> make_stall_bank_decoder(uint32_t id, uint8_t cmd) {

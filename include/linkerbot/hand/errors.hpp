@@ -128,29 +128,90 @@ namespace linkerbot::hand {
         std::exception_ptr cause_;
     };
 
-#define LINKERBOT_HAND_ERROR_TYPE(Name, Code)                                                                          \
-    class Name : public HandError {                                                                                    \
-    public:                                                                                                            \
-        explicit Name(std::string message, ErrorContext context = {}, std::exception_ptr cause = {})                   \
-            : HandError(Code, std::move(message), std::move(context), std::move(cause)) {}                             \
-    }
+    class ValidationError : public HandError {
+    public:
+        explicit ValidationError(std::string message, ErrorContext context = {}, std::exception_ptr cause = {})
+            : HandError(ErrorCode::kValidation, std::move(message), std::move(context), std::move(cause)) {}
+    };
 
-    LINKERBOT_HAND_ERROR_TYPE(ValidationError, ErrorCode::kValidation);
-    LINKERBOT_HAND_ERROR_TYPE(UnsupportedOperationError, ErrorCode::kUnsupportedOperation);
-    LINKERBOT_HAND_ERROR_TYPE(UnsupportedFirmwareError, ErrorCode::kUnsupportedFirmware);
-    LINKERBOT_HAND_ERROR_TYPE(IdentityMismatchError, ErrorCode::kIdentityMismatch);
-    LINKERBOT_HAND_ERROR_TYPE(DeviceNotReadyError, ErrorCode::kDeviceNotReady);
-    LINKERBOT_HAND_ERROR_TYPE(TransportError, ErrorCode::kTransport);
-    LINKERBOT_HAND_ERROR_TYPE(ProtocolError, ErrorCode::kProtocol);
-    LINKERBOT_HAND_ERROR_TYPE(TimeoutError, ErrorCode::kTimeout);
-    LINKERBOT_HAND_ERROR_TYPE(DeviceFaultError, ErrorCode::kDeviceFault);
-    LINKERBOT_HAND_ERROR_TYPE(QueueFullError, ErrorCode::kQueueFull);
-    LINKERBOT_HAND_ERROR_TYPE(PollingPlanError, ErrorCode::kPollingPlan);
-    LINKERBOT_HAND_ERROR_TYPE(ClosedError, ErrorCode::kClosed);
-    LINKERBOT_HAND_ERROR_TYPE(LifecycleError, ErrorCode::kLifecycle);
-    LINKERBOT_HAND_ERROR_TYPE(InternalError, ErrorCode::kInternal);
+    class UnsupportedOperationError : public HandError {
+    public:
+        explicit UnsupportedOperationError(std::string message, ErrorContext context = {},
+                                           std::exception_ptr cause = {})
+            : HandError(ErrorCode::kUnsupportedOperation, std::move(message), std::move(context), std::move(cause)) {}
+    };
 
-#undef LINKERBOT_HAND_ERROR_TYPE
+    class UnsupportedFirmwareError : public HandError {
+    public:
+        explicit UnsupportedFirmwareError(std::string message, ErrorContext context = {}, std::exception_ptr cause = {})
+            : HandError(ErrorCode::kUnsupportedFirmware, std::move(message), std::move(context), std::move(cause)) {}
+    };
+
+    class IdentityMismatchError : public HandError {
+    public:
+        explicit IdentityMismatchError(std::string message, ErrorContext context = {}, std::exception_ptr cause = {})
+            : HandError(ErrorCode::kIdentityMismatch, std::move(message), std::move(context), std::move(cause)) {}
+    };
+
+    class DeviceNotReadyError : public HandError {
+    public:
+        explicit DeviceNotReadyError(std::string message, ErrorContext context = {}, std::exception_ptr cause = {})
+            : HandError(ErrorCode::kDeviceNotReady, std::move(message), std::move(context), std::move(cause)) {}
+    };
+
+    class TransportError : public HandError {
+    public:
+        explicit TransportError(std::string message, ErrorContext context = {}, std::exception_ptr cause = {})
+            : HandError(ErrorCode::kTransport, std::move(message), std::move(context), std::move(cause)) {}
+    };
+
+    class ProtocolError : public HandError {
+    public:
+        explicit ProtocolError(std::string message, ErrorContext context = {}, std::exception_ptr cause = {})
+            : HandError(ErrorCode::kProtocol, std::move(message), std::move(context), std::move(cause)) {}
+    };
+
+    class TimeoutError : public HandError {
+    public:
+        explicit TimeoutError(std::string message, ErrorContext context = {}, std::exception_ptr cause = {})
+            : HandError(ErrorCode::kTimeout, std::move(message), std::move(context), std::move(cause)) {}
+    };
+
+    class DeviceFaultError : public HandError {
+    public:
+        explicit DeviceFaultError(std::string message, ErrorContext context = {}, std::exception_ptr cause = {})
+            : HandError(ErrorCode::kDeviceFault, std::move(message), std::move(context), std::move(cause)) {}
+    };
+
+    class QueueFullError : public HandError {
+    public:
+        explicit QueueFullError(std::string message, ErrorContext context = {}, std::exception_ptr cause = {})
+            : HandError(ErrorCode::kQueueFull, std::move(message), std::move(context), std::move(cause)) {}
+    };
+
+    class PollingPlanError : public HandError {
+    public:
+        explicit PollingPlanError(std::string message, ErrorContext context = {}, std::exception_ptr cause = {})
+            : HandError(ErrorCode::kPollingPlan, std::move(message), std::move(context), std::move(cause)) {}
+    };
+
+    class ClosedError : public HandError {
+    public:
+        explicit ClosedError(std::string message, ErrorContext context = {}, std::exception_ptr cause = {})
+            : HandError(ErrorCode::kClosed, std::move(message), std::move(context), std::move(cause)) {}
+    };
+
+    class LifecycleError : public HandError {
+    public:
+        explicit LifecycleError(std::string message, ErrorContext context = {}, std::exception_ptr cause = {})
+            : HandError(ErrorCode::kLifecycle, std::move(message), std::move(context), std::move(cause)) {}
+    };
+
+    class InternalError : public HandError {
+    public:
+        explicit InternalError(std::string message, ErrorContext context = {}, std::exception_ptr cause = {})
+            : HandError(ErrorCode::kInternal, std::move(message), std::move(context), std::move(cause)) {}
+    };
 
     class DiscoveryError : public HandError {
     public:

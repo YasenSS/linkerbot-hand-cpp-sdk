@@ -683,26 +683,15 @@ namespace {
                 counters->angle_skipped.fetch_add(skipped);
             }
             const auto sent = Clock::now();
-            if (o.mode == Mode::Polling || o.angle_policy == AnglePolicy::QueryOnly ||
-                (o.mode == Mode::Control && o.angle_policy == AnglePolicy::Adaptive)) {
-                if (raw) {
-                    (void)raw->query_angle(timeout);
-                } else {
-                    (void)sdk->angle.get_blocking(timeout);
-                }
-                if (measured) {
-                    counters->query_angle.fetch_add(1);
-                }
+            if (raw) {
+                (void)raw->query_angle(timeout);
             } else {
-                if (raw) {
-                    (void)raw->query_angle(timeout);
-                } else {
-                    (void)sdk->angle.get_blocking(timeout);
-                }
-                if (measured) {
-                    counters->query_angle.fetch_add(1);
-                }
+                (void)sdk->angle.get_blocking(timeout);
             }
+            if (measured) {
+                counters->query_angle.fetch_add(1);
+            }
+
             record_angle(sent, Clock::now(), measured);
         };
 

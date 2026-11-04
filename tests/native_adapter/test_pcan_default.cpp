@@ -85,6 +85,8 @@ namespace {
             try {
                 can::retry_pcan_cleanup(api);
             } catch (...) {
+                INFO("PCAN fixture cleanup failed after clearing the injected close error");
+                CHECK(false);
             }
         }
         void l6(const std::string &product = "LHL6-1-123-L") {

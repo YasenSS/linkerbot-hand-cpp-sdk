@@ -62,55 +62,71 @@ namespace {
 
     bool is_fake_layer(const std::string &layer) { return layer == "fake" || layer == "fake-socketcan"; }
 
-    double parse_positive_double(const std::string &text, const std::string &name) {
+    struct ParsePositiveDoubleArguments {
+        const std::string &text;
+        const std::string &name;
+    };
+    double parse_positive_double(const ParsePositiveDoubleArguments &arguments) {
         try {
             size_t consumed = 0;
-            const double value = std::stod(text, &consumed);
-            if (consumed != text.size() || !std::isfinite(value) || value <= 0.0) {
-                throw std::invalid_argument(name);
+            const double value = std::stod(arguments.text, &consumed);
+            if (consumed != arguments.text.size() || !std::isfinite(value) || value <= 0.0) {
+                throw std::invalid_argument(arguments.name);
             }
             return value;
         } catch (const std::exception &) {
-            throw std::invalid_argument(name + " must be a positive number without trailing characters");
+            throw std::invalid_argument(arguments.name + " must be a positive number without trailing characters");
         }
     }
 
-    double parse_nonnegative_double(const std::string &text, const std::string &name) {
+    struct ParseNonnegativeDoubleArguments {
+        const std::string &text;
+        const std::string &name;
+    };
+    double parse_nonnegative_double(const ParseNonnegativeDoubleArguments &arguments) {
         try {
             size_t consumed = 0;
-            const double value = std::stod(text, &consumed);
-            if (consumed != text.size() || !std::isfinite(value) || value < 0.0) {
-                throw std::invalid_argument(name);
+            const double value = std::stod(arguments.text, &consumed);
+            if (consumed != arguments.text.size() || !std::isfinite(value) || value < 0.0) {
+                throw std::invalid_argument(arguments.name);
             }
             return value;
         } catch (const std::exception &) {
-            throw std::invalid_argument(name + " must be a non-negative number without trailing characters");
+            throw std::invalid_argument(arguments.name + " must be a non-negative number without trailing characters");
         }
     }
 
-    int parse_positive_int(const std::string &text, const std::string &name) {
+    struct ParsePositiveIntArguments {
+        const std::string &text;
+        const std::string &name;
+    };
+    int parse_positive_int(const ParsePositiveIntArguments &arguments) {
         try {
             size_t consumed = 0;
-            const int value = std::stoi(text, &consumed);
-            if (consumed != text.size() || value <= 0) {
-                throw std::invalid_argument(name);
+            const int value = std::stoi(arguments.text, &consumed);
+            if (consumed != arguments.text.size() || value <= 0) {
+                throw std::invalid_argument(arguments.name);
             }
             return value;
         } catch (const std::exception &) {
-            throw std::invalid_argument(name + " must be a positive integer without trailing characters");
+            throw std::invalid_argument(arguments.name + " must be a positive integer without trailing characters");
         }
     }
 
-    int parse_nonnegative_int(const std::string &text, const std::string &name) {
+    struct ParseNonnegativeIntArguments {
+        const std::string &text;
+        const std::string &name;
+    };
+    int parse_nonnegative_int(const ParseNonnegativeIntArguments &arguments) {
         try {
             size_t consumed = 0;
-            const int value = std::stoi(text, &consumed);
-            if (consumed != text.size() || value < 0) {
-                throw std::invalid_argument(name);
+            const int value = std::stoi(arguments.text, &consumed);
+            if (consumed != arguments.text.size() || value < 0) {
+                throw std::invalid_argument(arguments.name);
             }
             return value;
         } catch (const std::exception &) {
-            throw std::invalid_argument(name + " must be a non-negative integer without trailing characters");
+            throw std::invalid_argument(arguments.name + " must be a non-negative integer without trailing characters");
         }
     }
 
@@ -149,7 +165,8 @@ namespace {
                 }
                 if (text[index] == 'u') {
                     for (unsigned digit = 0; digit < 4; ++digit) {
-                        if (++index >= text.size() || std::isxdigit(static_cast<unsigned char>(text[index])) == 0) {
+                        ++index;
+                        if (index >= text.size() || std::isxdigit(static_cast<unsigned char>(text[index])) == 0) {
                             throw std::runtime_error("invalid JSON unicode escape");
                         }
                     }
@@ -248,36 +265,41 @@ namespace {
         return out;
     }
 
-    std::optional<std::string> find_member(const std::string &object, const std::string &key) {
-        size_t index = skip_ws(object, 0);
-        if (index >= object.size() || object[index] != '{') {
+    struct FindMemberArguments {
+        const std::string &object;
+        const std::string &key;
+    };
+    std::optional<std::string> find_member(const FindMemberArguments &arguments) {
+        size_t index = skip_ws(arguments.object, 0);
+        if (index >= arguments.object.size() || arguments.object[index] != '{') {
             return std::nullopt;
         }
         ++index;
-        while (index < object.size()) {
-            index = skip_ws(object, index);
-            if (index < object.size() && object[index] == '}') {
+        while (index < arguments.object.size()) {
+            index = skip_ws(arguments.object, index);
+            if (index < arguments.object.size() && arguments.object[index] == '}') {
                 return std::nullopt;
             }
-            if (index >= object.size() || object[index] != '"') {
+            if (index >= arguments.object.size() || arguments.object[index] != '"') {
                 throw std::runtime_error("expected JSON object key");
             }
             const size_t key_begin = index;
-            const size_t key_end = skip_json_string(object, index);
-            const std::string seen = decode_json_string_literal(object.substr(key_begin, key_end - key_begin));
-            index = skip_ws(object, key_end);
-            if (index >= object.size() || object[index] != ':') {
+            const size_t key_end = skip_json_string(arguments.object, index);
+            const std::string seen =
+                decode_json_string_literal(arguments.object.substr(key_begin, key_end - key_begin));
+            index = skip_ws(arguments.object, key_end);
+            if (index >= arguments.object.size() || arguments.object[index] != ':') {
                 throw std::runtime_error("expected colon after JSON key");
             }
             ++index;
-            index = skip_ws(object, index);
+            index = skip_ws(arguments.object, index);
             const size_t value_begin = index;
-            index = skip_json_value(object, index);
-            if (seen == key) {
-                return object.substr(value_begin, index - value_begin);
+            index = skip_json_value(arguments.object, index);
+            if (seen == arguments.key) {
+                return arguments.object.substr(value_begin, index - value_begin);
             }
-            index = skip_ws(object, index);
-            if (index < object.size() && object[index] == ',') {
+            index = skip_ws(arguments.object, index);
+            if (index < arguments.object.size() && arguments.object[index] == ',') {
                 ++index;
             }
         }
@@ -285,7 +307,7 @@ namespace {
     }
 
     std::string require_member(const std::string &object, const std::string &key) {
-        const auto value = find_member(object, key);
+        const auto value = find_member({object, key});
         if (!value.has_value()) {
             throw std::runtime_error("missing JSON field '" + key + "'");
         }
@@ -396,16 +418,20 @@ namespace {
                                     "fake-socketcan");
     }
 
-    std::vector<std::string> parse_policies(const std::string &text, const std::string &mode) {
-        if (text == "all") {
-            if (mode != "control") {
+    struct ParsePoliciesArguments {
+        const std::string &text;
+        const std::string &mode;
+    };
+    std::vector<std::string> parse_policies(const ParsePoliciesArguments &arguments) {
+        if (arguments.text == "all") {
+            if (arguments.mode != "control") {
                 throw std::invalid_argument("L6_ANGLE_PERF_POLICY=all is only allowed with "
                                             "L6_ANGLE_PERF_MODE=control");
             }
             return {"query", "command-feedback", "adaptive"};
         }
-        if (text == "query" || text == "command-feedback" || text == "adaptive") {
-            return {text};
+        if (arguments.text == "query" || arguments.text == "command-feedback" || arguments.text == "adaptive") {
+            return {arguments.text};
         }
         throw std::invalid_argument("L6_ANGLE_PERF_POLICY must be query, command-feedback, adaptive, "
                                     "or all");
@@ -424,7 +450,7 @@ namespace {
             throw std::invalid_argument("polling mode requires L6_ANGLE_PERF_POLICY=query; refusing to "
                                         "silently change the configured policy");
         }
-        config.policies = parse_policies(policy_text, config.mode);
+        config.policies = parse_policies({policy_text, config.mode});
         config.phase = env_or("L6_ANGLE_PERF_PHASE", "smoke");
         if (config.phase != "smoke" && config.phase != "search") {
             throw std::invalid_argument("L6_ANGLE_PERF_PHASE must be smoke or search");
@@ -454,19 +480,20 @@ namespace {
         config.timeout_ms = env_or("L6_REQUEST_TIMEOUT_MS", "100");
         config.late_guard_ms = env_or("L6_LATE_GUARD_MS", "5");
 
-        config.angle_hz_value = parse_positive_double(config.angle_hz, "L6_ANGLE_HZ");
-        config.command_hz_value = parse_positive_double(config.command_hz, "L6_COMMAND_HZ");
-        const double duration_s = parse_positive_double(config.duration_s, "L6_DURATION_S");
-        const double warmup_s = parse_nonnegative_double(config.warmup_s, "L6_WARMUP_S");
-        const int rounds = parse_positive_int(config.rounds, "L6_ROUNDS");
-        const double search_min = parse_positive_double(config.search_min_hz, "L6_SEARCH_MIN_HZ");
-        config.search_max_hz_value = parse_positive_double(config.search_max_hz, "L6_SEARCH_MAX_HZ");
-        const double search_step = parse_positive_double(config.search_step_hz, "L6_SEARCH_STEP_HZ");
-        const double search_resolution = parse_positive_double(config.search_resolution_hz, "L6_SEARCH_RESOLUTION_HZ");
-        const double final_duration = parse_positive_double(config.final_duration_s, "L6_FINAL_DURATION_S");
-        const int final_rounds = parse_positive_int(config.final_rounds, "L6_FINAL_ROUNDS");
-        const int timeout_ms = parse_positive_int(config.timeout_ms, "L6_REQUEST_TIMEOUT_MS");
-        const int late_guard_ms = parse_nonnegative_int(config.late_guard_ms, "L6_LATE_GUARD_MS");
+        config.angle_hz_value = parse_positive_double({config.angle_hz, "L6_ANGLE_HZ"});
+        config.command_hz_value = parse_positive_double({config.command_hz, "L6_COMMAND_HZ"});
+        const double duration_s = parse_positive_double({config.duration_s, "L6_DURATION_S"});
+        const double warmup_s = parse_nonnegative_double({config.warmup_s, "L6_WARMUP_S"});
+        const int rounds = parse_positive_int({config.rounds, "L6_ROUNDS"});
+        const double search_min = parse_positive_double({config.search_min_hz, "L6_SEARCH_MIN_HZ"});
+        config.search_max_hz_value = parse_positive_double({config.search_max_hz, "L6_SEARCH_MAX_HZ"});
+        const double search_step = parse_positive_double({config.search_step_hz, "L6_SEARCH_STEP_HZ"});
+        const double search_resolution =
+            parse_positive_double({config.search_resolution_hz, "L6_SEARCH_RESOLUTION_HZ"});
+        const double final_duration = parse_positive_double({config.final_duration_s, "L6_FINAL_DURATION_S"});
+        const int final_rounds = parse_positive_int({config.final_rounds, "L6_FINAL_ROUNDS"});
+        const int timeout_ms = parse_positive_int({config.timeout_ms, "L6_REQUEST_TIMEOUT_MS"});
+        const int late_guard_ms = parse_nonnegative_int({config.late_guard_ms, "L6_LATE_GUARD_MS"});
 
         require_range(config.angle_hz_value, 0.0, 10000.0, "L6_ANGLE_HZ");
         require_range(config.command_hz_value, 0.0, 10000.0, "L6_COMMAND_HZ");
@@ -970,51 +997,56 @@ namespace {
         return out.str();
     }
 
-    std::vector<std::string> build_argv(const std::filesystem::path &binary, const PerfConfig &config,
-                                        const std::string &layer, const std::string &policy,
-                                        const std::filesystem::path &output) {
+    struct BuildArgvArguments {
+        const std::filesystem::path &binary;
+        const PerfConfig &config;
+        const std::string &layer;
+        const std::string &policy;
+        const std::filesystem::path &output;
+    };
+    std::vector<std::string> build_argv(const BuildArgvArguments &arguments) {
         std::vector<std::string> args;
-        args.push_back(binary.string());
-        args.insert(args.end(), {"--layer", layer});
+        args.push_back(arguments.binary.string());
+        args.insert(args.end(), {"--layer", arguments.layer});
         args.insert(args.end(), {"--data", "angle"});
-        args.insert(args.end(), {"--mode", config.mode});
-        args.insert(args.end(), {"--angle-policy", policy});
-        args.insert(args.end(), {"--side", config.side});
-        args.insert(args.end(), {"--timeout-ms", config.timeout_ms});
-        args.insert(args.end(), {"--guard-ms", config.late_guard_ms});
-        args.insert(args.end(), {"--topology", config.topology});
-        args.insert(args.end(), {"--candump-active", config.candump_active});
-        args.insert(args.end(), {"--output", output.string()});
-        args.insert(args.end(), {"--duration", config.duration_s});
-        args.insert(args.end(), {"--warmup", config.warmup_s});
+        args.insert(args.end(), {"--mode", arguments.config.mode});
+        args.insert(args.end(), {"--angle-policy", arguments.policy});
+        args.insert(args.end(), {"--side", arguments.config.side});
+        args.insert(args.end(), {"--timeout-ms", arguments.config.timeout_ms});
+        args.insert(args.end(), {"--guard-ms", arguments.config.late_guard_ms});
+        args.insert(args.end(), {"--topology", arguments.config.topology});
+        args.insert(args.end(), {"--candump-active", arguments.config.candump_active});
+        args.insert(args.end(), {"--output", arguments.output.string()});
+        args.insert(args.end(), {"--duration", arguments.config.duration_s});
+        args.insert(args.end(), {"--warmup", arguments.config.warmup_s});
 
-        if (is_hardware_layer(layer)) {
-            args.insert(args.end(), {"--interface", config.interface_name});
-            args.insert(args.end(), {"--firmware-version", config.firmware_version});
-            args.insert(args.end(), {"--sensor-version", config.sensor_version});
-            args.insert(args.end(), {"--device-serial", config.device_serial_masked});
-            args.insert(args.end(), {"--can-adapter", config.can_adapter});
+        if (is_hardware_layer(arguments.layer)) {
+            args.insert(args.end(), {"--interface", arguments.config.interface_name});
+            args.insert(args.end(), {"--firmware-version", arguments.config.firmware_version});
+            args.insert(args.end(), {"--sensor-version", arguments.config.sensor_version});
+            args.insert(args.end(), {"--device-serial", arguments.config.device_serial_masked});
+            args.insert(args.end(), {"--can-adapter", arguments.config.can_adapter});
         }
 
-        if (config.control) {
+        if (arguments.config.control) {
             args.push_back("--confirm-motion");
             args.insert(args.end(), {"--motion-amplitude", "0"});
-            args.insert(args.end(), {"--initial-reply-state", config.initial_reply_state});
-            args.insert(args.end(), {"--command-hz", config.command_hz});
+            args.insert(args.end(), {"--initial-reply-state", arguments.config.initial_reply_state});
+            args.insert(args.end(), {"--command-hz", arguments.config.command_hz});
         }
 
-        if (config.search) {
+        if (arguments.config.search) {
             args.push_back("--search");
-            args.insert(args.end(), {"--search-min", config.search_min_hz});
-            args.insert(args.end(), {"--search-max", config.search_max_hz});
-            args.insert(args.end(), {"--search-step", config.search_step_hz});
-            args.insert(args.end(), {"--search-resolution", config.search_resolution_hz});
-            args.insert(args.end(), {"--final-duration", config.final_duration_s});
-            args.insert(args.end(), {"--final-rounds", config.final_rounds});
+            args.insert(args.end(), {"--search-min", arguments.config.search_min_hz});
+            args.insert(args.end(), {"--search-max", arguments.config.search_max_hz});
+            args.insert(args.end(), {"--search-step", arguments.config.search_step_hz});
+            args.insert(args.end(), {"--search-resolution", arguments.config.search_resolution_hz});
+            args.insert(args.end(), {"--final-duration", arguments.config.final_duration_s});
+            args.insert(args.end(), {"--final-rounds", arguments.config.final_rounds});
         } else {
             args.push_back("--single");
-            args.insert(args.end(), {"--angle-hz", config.angle_hz});
-            args.insert(args.end(), {"--rounds", config.rounds});
+            args.insert(args.end(), {"--angle-hz", arguments.config.angle_hz});
+            args.insert(args.end(), {"--rounds", arguments.config.rounds});
         }
         return args;
     }
@@ -1030,7 +1062,7 @@ namespace {
         const auto stem = utc_compact_now() + "_L6_" + config.side + "_" + layer + "_" + config.mode + "_" + policy +
                           "_" + config.phase;
         const auto output = allocate_output_path(config.output_dir, stem);
-        const auto args = build_argv(binary, config, layer, policy, output);
+        const auto args = build_argv({binary, config, layer, policy, output});
 
         UNSCOPED_INFO("scenario=" << name);
         UNSCOPED_INFO("result=" << output.string());

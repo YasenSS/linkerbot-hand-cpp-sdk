@@ -212,8 +212,13 @@ namespace {
             REQUIRE(raw_transport->sent().empty());
         };
 
-        verify_side(left, HandSide::kLeft);
-        verify_side(right, HandSide::kRight);
+        struct SidePair {
+            Side left;
+            Side right;
+        };
+        const auto sides = SidePair{left, right};
+        verify_side(sides.left, HandSide::kLeft);
+        verify_side(sides.right, HandSide::kRight);
     }
 }
 

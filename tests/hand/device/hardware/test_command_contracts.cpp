@@ -406,8 +406,8 @@ TEST_CASE("HandDevice hardware close and recover cancel pending targets without 
             if (recover) {
                 REQUIRE(after.connection_generation > before.connection_generation);
             }
-            REQUIRE(test_support::require_value(after.angles->meta.collected_at) >
-                    test_support::require_value(before.angles->meta.collected_at));
+            REQUIRE(test_support::require_value(test_support::require_value(after.angles).meta.collected_at) >
+                    test_support::require_value(test_support::require_value(before.angles).meta.collected_at));
             require_meta(test_support::require_value(after.angles).meta, after.connection_generation);
             REQUIRE(hand.get_health().pending_commands() == 0);
             const auto attempts = fixture.probe->attempts.load();

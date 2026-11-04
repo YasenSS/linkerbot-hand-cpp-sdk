@@ -47,9 +47,30 @@ checks are compiled and analyzed but require real devices to execute.
 Numeric conversions use explicit bounded iterator offsets, widening before integer multiplication,
 and explicit floating conversions for reporting statistics. Existing range checks remain in place.
 
-Remaining findings include private/public parameter-domain clarity, guarded runtime optional
-accesses and non-destructor catch policies. These require individual
-review; changing a public signature or hiding a restoration failure for a better score is
-not acceptable. Future quality gates should be based on the completed report, with errors
-resolved first and warning reduction measured by affected files as well as diagnostic count.
-The rule groups, source scope and scoring formula are unchanged.
+## Follow-up: optional access and parameter roles
+
+The follow-up addresses the 221 warnings in the completed main-branch report:
+202 clang-tidy diagnostics and 19 cppcheck `passedByValue` diagnostics. Runtime
+optional reads now pass through a checked reference helper under their existing
+locks; empty state reports `InternalError`. Command transport request IDs are
+validated before I/O. Test helpers retain both outer and nested optional checks.
+
+Legacy positional constructors and protocol functions keep their signatures.
+Their implementations use named argument records or field arrays to distinguish
+joint positions, CAN identifiers, bit rates, deadlines and callbacks. The 27 joint
+value types retain their member layout and original validation order/messages.
+Regression tests cover asymmetric values, layout traits, legacy function pointer
+types and protocol bytes. An old/new header differential also checks constructors,
+`from_array`, negative values, infinity and NaN.
+
+Exception handling now states its cleanup and error-precedence policy explicitly.
+Runtime metrics still classify dynamic exception types. Benchmark restoration
+always attempts pose and reply-mode restoration, then reports the first failure;
+a failed restoration can no longer silently report a successful benchmark. SDK
+cleanup preserves the original failure where that was the existing contract.
+
+No diagnostic rule is disabled, no new suppression is added, and no source is
+excluded. Header analysis is expanded to include the shared completion-vector
+test body and benchmark restoration helper. Hardware tests remain compiled and
+analyzed; execution requires real devices. The completed PR report is the source
+of truth for the final diagnostic count.

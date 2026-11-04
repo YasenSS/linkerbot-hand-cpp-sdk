@@ -23,9 +23,7 @@ namespace linkerbot::hand::l6 {
 
         StallTime() = default;
         StallTime(float tf, float ta, float i, float m, float r, float p)
-            : thumb_flex(tf), thumb_abd(ta), index(i), middle(m), ring(r), pinky(p) {
-            validate();
-        }
+            : StallTime(from_fields({tf, ta, i, m, r, p})) {}
 
         [[nodiscard]] std::array<float, kJointCount> to_array() const {
             return {thumb_flex, thumb_abd, index, middle, ring, pinky};
@@ -42,7 +40,20 @@ namespace linkerbot::hand::l6 {
         }
 
         [[nodiscard]] static StallTime from_array(const std::array<float, kJointCount> &values) {
-            return {values[0], values[1], values[2], values[3], values[4], values[5]};
+            return from_fields(values);
+        }
+
+    private:
+        static StallTime from_fields(const std::array<float, kJointCount> &values) {
+            StallTime result;
+            result.thumb_flex = values[0];
+            result.thumb_abd = values[1];
+            result.index = values[2];
+            result.middle = values[3];
+            result.ring = values[4];
+            result.pinky = values[5];
+            result.validate();
+            return result;
         }
     };
 
@@ -65,9 +76,7 @@ namespace linkerbot::hand::l6 {
 
         StallLimit() = default;
         StallLimit(float tf, float ta, float i, float m, float r, float p)
-            : thumb_flex(tf), thumb_abd(ta), index(i), middle(m), ring(r), pinky(p) {
-            validate();
-        }
+            : StallLimit(from_fields({tf, ta, i, m, r, p})) {}
 
         [[nodiscard]] std::array<float, kJointCount> to_array() const {
             return {thumb_flex, thumb_abd, index, middle, ring, pinky};
@@ -84,7 +93,20 @@ namespace linkerbot::hand::l6 {
         }
 
         [[nodiscard]] static StallLimit from_array(const std::array<float, kJointCount> &values) {
-            return {values[0], values[1], values[2], values[3], values[4], values[5]};
+            return from_fields(values);
+        }
+
+    private:
+        static StallLimit from_fields(const std::array<float, kJointCount> &values) {
+            StallLimit result;
+            result.thumb_flex = values[0];
+            result.thumb_abd = values[1];
+            result.index = values[2];
+            result.middle = values[3];
+            result.ring = values[4];
+            result.pinky = values[5];
+            result.validate();
+            return result;
         }
     };
 

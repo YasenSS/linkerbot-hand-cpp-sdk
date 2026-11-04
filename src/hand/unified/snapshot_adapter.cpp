@@ -711,11 +711,11 @@ namespace linkerbot::hand::unified_detail {
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kCurrentLimits, current_limits);
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kTorques, torques);
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kTemperatures, temperatures);
+        case TelemetrySemantic::kForceFns:
+        case TelemetrySemantic::kForceFts:
+        case TelemetrySemantic::kForceFds:
+        case TelemetrySemantic::kForcePx:
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kForce, force);
-            LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kForceFns, force);
-            LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kForceFts, force);
-            LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kForceFds, force);
-            LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kForcePx, force);
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kFaults, faults);
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kVoltages, voltages);
             LINKERBOT_RETURN_SNAPSHOT_SAMPLE(kStallDetectionTimes, stall_detection_times);

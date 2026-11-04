@@ -594,9 +594,14 @@ namespace linkerbot::hand::l6 {
     }
 
     void L6::query_scheduled_angle(std::chrono::steady_clock::time_point due, runtime::Deadline deadline) {
-        const auto sample = angle.get_until(deadline);
+        struct ScheduledQuery {
+            std::chrono::steady_clock::time_point due;
+            runtime::Deadline deadline;
+        };
+        const auto timing = ScheduledQuery{due, deadline};
+        const auto sample = angle.get_until(timing.deadline);
         stats_.record_angle_deadline_latency(
-            std::chrono::duration_cast<std::chrono::microseconds>(sample.timestamp - due));
+            std::chrono::duration_cast<std::chrono::microseconds>(sample.timestamp - timing.due));
     }
 
     void L6::before_tactile_finger(size_t index, std::chrono::steady_clock::time_point deadline) {

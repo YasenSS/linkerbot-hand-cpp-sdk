@@ -1,4 +1,6 @@
 #include "detail/command_scheduler.hpp"
+#include "../detail/checked_optional.hpp"
+#include "../detail/failure_kind.hpp"
 #include "detail/command_handle_access.hpp"
 #include <linkerbot/hand/runtime/device_runtime.hpp>
 
@@ -74,9 +76,13 @@ namespace linkerbot::hand::unified_detail {
     }
 
     CommandScheduler::CommandScheduler(double rate_hz, size_t capacity, Now now)
-        : interval_(interval(rate_hz)), capacity_(capacity), manual_clock_(static_cast<bool>(now)),
-          now_(now ? std::move(now) : Now{[] { return Clock::now(); }}) {
-        if (!capacity) {
+        : CommandScheduler(ConstructorTag{}, ConstructorArguments{rate_hz, capacity, std::move(now)}) {}
+
+    CommandScheduler::CommandScheduler(ConstructorTag, ConstructorArguments arguments)
+        : interval_(interval(arguments.rate_hz)), capacity_(arguments.capacity),
+          manual_clock_(static_cast<bool>(arguments.now)),
+          now_(arguments.now ? std::move(arguments.now) : Now{[] { return Clock::now(); }}) {
+        if (!arguments.capacity) {
             throw ValidationError("discrete_queue_capacity must be positive");
         }
         worker_ = std::thread([this] { run(); });
@@ -194,21 +200,15 @@ namespace linkerbot::hand::unified_detail {
         if (job.handle.done()) {
             return;
         }
-        try {
-            std::rethrow_exception(error);
-        } catch (const ClosedError &) {
+        if (detail::failure_kind(error) == detail::FailureKind::closed) {
             error = std::make_exception_ptr(ClosedError("accepted command generation ended", job.context, error));
-        } catch (...) {
         }
         command_detail::CommandHandleAccess::mark_failed(job.handle, error, job.handle.sent_frames(), now_());
         job.cancellation.cancel();
         auto &m = metrics_.at(job.handle.family()).value;
         ++m.failed;
-        try {
-            std::rethrow_exception(error);
-        } catch (const TimeoutError &) {
+        if (detail::failure_kind(error) == detail::FailureKind::timeout) {
             ++m.timed_out;
-        } catch (...) {
         }
     }
 
@@ -306,7 +306,7 @@ namespace linkerbot::hand::unified_detail {
                 }
             }
             active_.emplace(selected != latest_.end() ? std::move(selected->second) : std::move(fifo_.front()));
-            auto &job = *active_;
+            auto &job = ::linkerbot::hand::detail::checked_value(active_, "missing runtime state: active_");
             if (selected != latest_.end()) {
                 latest_.erase(selected);
             } else {

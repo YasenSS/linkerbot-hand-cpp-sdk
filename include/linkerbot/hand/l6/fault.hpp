@@ -43,14 +43,14 @@ namespace linkerbot::hand::l6 {
 
         Fault() = default;
         Fault(FaultCode tf, FaultCode ta, FaultCode i, FaultCode m, FaultCode r, FaultCode p)
-            : thumb_flex(tf), thumb_abd(ta), index(i), middle(m), ring(r), pinky(p) {}
+            : Fault(from_fields({tf, ta, i, m, r, p})) {}
 
         [[nodiscard]] std::array<FaultCode, kJointCount> to_array() const {
             return {thumb_flex, thumb_abd, index, middle, ring, pinky};
         }
 
         [[nodiscard]] static Fault from_array(const std::array<FaultCode, kJointCount> &values) {
-            return {values[0], values[1], values[2], values[3], values[4], values[5]};
+            return from_fields(values);
         }
 
         [[nodiscard]] static Fault from_raw(const std::array<uint8_t, kJointCount> &values) {
@@ -75,6 +75,18 @@ namespace linkerbot::hand::l6 {
         [[nodiscard]] bool has_any_fault() const {
             return has_fault(thumb_flex) || has_fault(thumb_abd) || has_fault(index) || has_fault(middle) ||
                    has_fault(ring) || has_fault(pinky);
+        }
+
+    private:
+        static Fault from_fields(const std::array<FaultCode, kJointCount> &values) {
+            Fault result;
+            result.thumb_flex = values[0];
+            result.thumb_abd = values[1];
+            result.index = values[2];
+            result.middle = values[3];
+            result.ring = values[4];
+            result.pinky = values[5];
+            return result;
         }
     };
 

@@ -47,7 +47,7 @@ namespace {
                                   DiscoveryAddress{"classic_can_id", 0x28U, 0x28U, false},
                                   DiscoveryStatus::kVerified,
                                   std::move(identity),
-                                  transport(name, created),
+                                  transport(std::move(name), created),
                                   declared_capabilities(Model::kL6, HandSide::kLeft)};
     }
 
@@ -63,7 +63,7 @@ namespace {
                                   DiscoveryAddress{"classic_can_id", 0x28U, 0x28U, false},
                                   DiscoveryStatus::kPartial,
                                   std::move(identity),
-                                  transport(name, created),
+                                  transport(std::move(name), created),
                                   {},
                                   {DiscoveryProblem{std::move(problem_code), "device identity is incomplete"}}};
     }

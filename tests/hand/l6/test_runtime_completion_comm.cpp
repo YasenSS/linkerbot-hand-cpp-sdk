@@ -5,6 +5,7 @@
 #include <linkerbot/hand/errors.hpp>
 #include <linkerbot/hand/l6/l6.hpp>
 #include <linkerbot/hand/l6/protocol_backend.hpp>
+#include <stdexcept>
 
 using namespace std::chrono_literals;
 using namespace linkerbot;
@@ -27,12 +28,16 @@ namespace linkerbot::hand::l6 {
     };
 }
 namespace {
-    can::Message reply(uint8_t opcode, uint8_t length = 7) {
+    struct ReplyHeader {
+        uint8_t opcode;
+        uint8_t length = 7;
+    };
+    can::Message reply_frame(const ReplyHeader &header) {
         can::Message m{};
         m.id = 0x28;
-        m.dlc = length;
-        m.data[0] = opcode;
-        for (size_t i = 1; i < length; ++i) {
+        m.dlc = header.length;
+        m.data[0] = header.opcode;
+        for (size_t i = 1; i < header.length; ++i) {
             m.data[i] = 1;
         }
         return m;
@@ -51,7 +56,7 @@ namespace {
 TEST_CASE("comm: L6 stop drains post-response angle and config processing", "[comm][l6][completion]") {
     auto fake = std::make_unique<can::FakeTransport>();
     fake->on_request(0x28, [](const auto &m) {
-        return m.data[0] == 1 ? std::vector<can::Message>{reply(1)} : std::vector<can::Message>{};
+        return m.data[0] == 1 ? std::vector<can::Message>{reply_frame({1})} : std::vector<can::Message>{};
     });
     l6::L6 hand(l6::Side::kLeft, std::move(fake), "fake", test_util::unique_mapping_path());
     Gate gate;
@@ -122,7 +127,7 @@ TEST_CASE("comm: L6 close cancels all domains before waiting for an angle sink",
         if (m.data[0] == l6::kTemperatureOpcode) {
             temperature_sent.set_value();
         }
-        return m.data[0] == 1 ? std::vector<can::Message>{reply(1)} : std::vector<can::Message>{};
+        return m.data[0] == 1 ? std::vector<can::Message>{reply_frame({1})} : std::vector<can::Message>{};
     });
     l6::L6 hand(l6::Side::kLeft, std::move(fake), "fake", test_util::unique_mapping_path());
     auto reading = std::async(std::launch::async, [&] {
@@ -190,7 +195,7 @@ TEST_CASE("comm: L6 version stop cancels child query and queued composite togeth
 TEST_CASE("comm: L6 speed is cancelled before closing another manager callback", "[comm][l6][completion]") {
     auto fake = std::make_unique<can::FakeTransport>();
     fake->on_request(0x28, [](const auto &m) {
-        return m.data[0] == 1 ? std::vector<can::Message>{reply(1)} : std::vector<can::Message>{};
+        return m.data[0] == 1 ? std::vector<can::Message>{reply_frame({1})} : std::vector<can::Message>{};
     });
     l6::L6 hand(l6::Side::kLeft, std::move(fake), "fake", test_util::unique_mapping_path());
     Gate gate;
@@ -199,13 +204,18 @@ TEST_CASE("comm: L6 speed is cancelled before closing another manager callback",
     const bool entered = gate.entered();
     auto stop = std::async(std::launch::async, [&] { hand.stop(); });
     // The temperature token is cancelled in the first phase before angle.stop's barrier.
+    std::exception_ptr unexpected;
     const auto deadline = runtime::Clock::now() + 1s;
     while (hand.runtime()->runtime_health().state == runtime::DeviceState::ready && runtime::Clock::now() < deadline) {
         try {
             (void)hand.temperature.get_blocking(1ms);
         } catch (const linkerbot::hand::LifecycleError &) {
             break;
+        } catch (const linkerbot::hand::TimeoutError &) {
+            continue;
         } catch (...) {
+            unexpected = std::current_exception();
+            break;
         }
     }
     bool rejected = false;
@@ -216,6 +226,9 @@ TEST_CASE("comm: L6 speed is cancelled before closing another manager callback",
     }
     gate.release.set_value();
     stop.get();
+    if (unexpected) {
+        std::rethrow_exception(unexpected);
+    }
     REQUIRE(entered);
     REQUIRE(rejected);
 }
@@ -224,7 +237,7 @@ TEST_CASE("comm: L6 closed hand leaves another L6 on a shared Session usable", "
     auto fake = std::make_unique<can::FakeTransport>();
     auto *raw = fake.get();
     raw->on_request(0x27, [](const auto &request) {
-        auto answer = reply(request.data[0]);
+        auto answer = reply_frame({request.data[0]});
         answer.id = 0x27;
         return std::vector<can::Message>{answer};
     });
@@ -291,6 +304,8 @@ TEST_CASE("comm: L6 scalar timeouts and failed sends release their actual runtim
                 case 7:
                     (void)hand.config.set_receive_id(0x29, 15ms);
                     break;
+                default:
+                    throw std::logic_error("invalid test vector selector");
                 }
             };
             if (fail) {
@@ -309,12 +324,12 @@ TEST_CASE("comm: L6 serial malformed response cannot become a successful identit
         fake->on_request(0x28, [=](const auto &request) {
             const auto op = request.data[0];
             if (op != l6::kSerialOpcode) {
-                auto m = reply(op, op == l6::kPcbVersionOpcode ? 5 : 4);
+                auto m = reply_frame({op, static_cast<uint8_t>(op == l6::kPcbVersionOpcode ? 5 : 4)});
                 return std::vector<can::Message>{m};
             }
             std::vector<can::Message> result;
             for (uint8_t marker : std::vector<uint8_t>{0, 1, uint8_t(mixed ? 12 : 2), 3}) {
-                auto m = reply(op, (!mixed && marker == 0) ? 3 : 8);
+                auto m = reply_frame({op, static_cast<uint8_t>((!mixed && marker == 0) ? 3 : 8)});
                 m.data[1] = marker;
                 result.push_back(m);
             }
@@ -330,7 +345,7 @@ TEST_CASE("comm: L6 serial malformed response cannot become a successful identit
 
 TEST_CASE("comm: L6 event-thread destruction drains other facade callers", "[comm][l6][completion]") {
     auto fake = std::make_unique<can::FakeTransport>();
-    fake->on_request(0x28, [](const auto &m) { return std::vector<can::Message>{reply(m.data[0])}; });
+    fake->on_request(0x28, [](const auto &m) { return std::vector<can::Message>{reply_frame({m.data[0]})}; });
     auto hand = std::make_unique<l6::L6>(l6::Side::kLeft, std::move(fake), "fake", test_util::unique_mapping_path());
     auto core = hand->runtime();
     (void)hand->current.get_blocking(1s);

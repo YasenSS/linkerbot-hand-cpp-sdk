@@ -1123,15 +1123,20 @@ TEST_CASE("comm: runtime close drains a claimed backend write before returning",
     REQUIRE(rig.fake->wait_until_tx_entered(500ms));
     auto closing = std::async(std::launch::async, [&] { rig.runtime->close(); });
     bool cancelled = false;
+    std::exception_ptr unexpected;
     try {
         (void)request.wait_until(Clock::now() + 500ms);
     } catch (const linkerbot::hand::LifecycleError &) {
         cancelled = true;
     } catch (...) {
+        unexpected = std::current_exception();
     }
     const bool waiting_for_backend = closing.wait_for(10ms) == std::future_status::timeout;
     rig.fake->release_tx_gate();
     closing.get();
+    if (unexpected) {
+        std::rethrow_exception(unexpected);
+    }
     REQUIRE(cancelled);
     REQUIRE(waiting_for_backend);
     REQUIRE(rig.runtime->runtime_health().state == linkerbot::hand::runtime::DeviceState::closed);
@@ -1289,12 +1294,16 @@ namespace {
             cv.notify_all();
         }
     };
-    Message fragment(uint8_t part, uint8_t value = 0) {
+    struct FragmentArguments {
+        uint8_t part;
+        uint8_t value = 0;
+    };
+    Message fragment(const FragmentArguments &arguments) {
         Message m;
         m.id = 0x28;
         m.dlc = 2;
-        m.data[0] = part;
-        m.data[1] = value;
+        m.data[0] = arguments.part;
+        m.data[1] = arguments.value;
         return m;
     }
 }
@@ -1308,14 +1317,14 @@ TEST_CASE("comm: report factories discard partial data across physical recovery"
     });
     auto core = DeviceRuntime::acquire(session, "reports", {{0x28, false}});
     core->observe_factory("reports", probe.factory());
-    fake->inject(fragment(1, 9));
+    fake->inject(fragment({1, 9}));
     REQUIRE(probe.wait(1));
     core->recover();
-    fake->inject(fragment(2, 7));
+    fake->inject(fragment({2, 7}));
     REQUIRE(probe.wait(2, 2));
     REQUIRE_FALSE(core->snapshot("reports").has_value());
-    fake->inject(fragment(1, 3));
-    fake->inject(fragment(2, 4));
+    fake->inject(fragment({1, 3}));
+    fake->inject(fragment({2, 4}));
     REQUIRE(probe.wait(4, 2));
     REQUIRE(core->snapshot_as<int>("reports") == 0x304);
     REQUIRE(test_support::require_value(core->snapshot("reports")).device_generation == 2);
@@ -1326,16 +1335,16 @@ TEST_CASE("comm: failed report resets assembler and exposes conflict health", "[
     ReportProbe probe;
     Rig rig;
     rig.runtime->observe_factory("reports", probe.factory());
-    rig.fake->inject(fragment(1, 9));
-    rig.fake->inject(fragment(0xee));
+    rig.fake->inject(fragment({1, 9}));
+    rig.fake->inject(fragment({0xee}));
     REQUIRE(probe.wait(2, 2));
-    rig.fake->inject(fragment(2, 7));
+    rig.fake->inject(fragment({2, 7}));
     REQUIRE(probe.wait(3, 2));
     REQUIRE_FALSE(test_support::require_value(rig.runtime->snapshot("reports")).valid);
     REQUIRE(rig.runtime->runtime_health().conflicting_duplicate_frames == 1);
     REQUIRE(rig.runtime->runtime_health().protocol_errors == 1);
-    rig.fake->inject(fragment(1, 3));
-    rig.fake->inject(fragment(2, 4));
+    rig.fake->inject(fragment({1, 3}));
+    rig.fake->inject(fragment({2, 4}));
     REQUIRE(probe.wait(5, 2));
     REQUIRE(rig.runtime->snapshot_as<int>("reports") == 0x304);
 }
@@ -1346,17 +1355,17 @@ TEST_CASE("comm: report assembly is reset after bounded inbox overflow", "[comm]
     auto session = Session::own(std::move(transport));
     auto core = DeviceRuntime::acquire(session, "reports", {{0x28, false}}, 1);
     core->observe_factory("reports", probe.factory(true));
-    fake->inject(fragment(1, 9));
+    fake->inject(fragment({1, 9}));
     REQUIRE(probe.wait(1));
-    fake->inject(fragment(0x7f));
+    fake->inject(fragment({0x7f}));
     bool entered;
     {
         std::unique_lock<std::mutex> lock(probe.mutex);
         entered = probe.cv.wait_for(lock, 1s, [&] { return probe.blocked; });
     }
     // Always release the decoder before assertions/unwinding.
-    fake->inject(fragment(2, 7));
-    fake->inject(fragment(2, 8));
+    fake->inject(fragment({2, 7}));
+    fake->inject(fragment({2, 8}));
     const auto limit = Clock::now() + 1s;
     while (!session->health().overflows && Clock::now() < limit) {
         std::this_thread::yield();
@@ -1367,12 +1376,12 @@ TEST_CASE("comm: report assembly is reset after bounded inbox overflow", "[comm]
     REQUIRE(overflow > 0);
     REQUIRE(probe.wait(2, 2));
     (void)core->runtime_health(); // overflow reset and queued-fragment drain have completed
-    fake->inject(fragment(2, 7));
+    fake->inject(fragment({2, 7}));
     REQUIRE(probe.wait(3, 2));
     REQUIRE_FALSE(core->snapshot_as<int>("reports").has_value());
-    fake->inject(fragment(1, 3));
+    fake->inject(fragment({1, 3}));
     REQUIRE(probe.wait(4, 2));
-    fake->inject(fragment(2, 4));
+    fake->inject(fragment({2, 4}));
     REQUIRE(probe.wait(5, 2));
     REQUIRE(core->snapshot_as<int>("reports") == 0x304);
     core->close();
@@ -1413,7 +1422,7 @@ TEST_CASE("comm: report factory reset failure faults runtime instead of using st
         }
         return DeviceRuntime::Decoder([](const Message &) { return linkerbot::hand::protocol::Progress::complete(1); });
     });
-    rig.fake->inject(fragment(1));
+    rig.fake->inject(fragment({1}));
     REQUIRE(rig.runtime->wait_for_fault(Clock::now() + 1s));
     REQUIRE(rig.runtime->runtime_health().state == linkerbot::hand::runtime::DeviceState::faulted);
     REQUIRE_FALSE(test_support::require_value(rig.runtime->snapshot("reports")).valid);

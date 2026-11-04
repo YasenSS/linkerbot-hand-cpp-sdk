@@ -41,11 +41,18 @@ namespace linkerbot::hand::identity_probe {
             }
         }
 
+        template <class Version> struct ClassicVersions {
+            const Version &pcb;
+            const Version &firmware;
+            const Version &mechanical;
+        };
+        template <class Version>
+        ClassicVersions(const Version &, const Version &, const Version &) -> ClassicVersions<Version>;
+
         template <typename Version>
-        [[nodiscard]] DeviceIdentity classic_identity(const Target &target, const ModelRule &rule,
-                                                      std::string product_code, const Version &pcb,
-                                                      const Version &firmware, const Version &mechanical,
-                                                      std::chrono::steady_clock::time_point timestamp) {
+        [[nodiscard]] DeviceIdentity
+        classic_identity(const Target &target, const ModelRule &rule, const std::string &product_code,
+                         const ClassicVersions<Version> &versions, std::chrono::steady_clock::time_point timestamp) {
             const auto side = identity_side(target.expected_side);
             if (!side) {
                 throw IdentityProtocolError("classic CAN identity requires a configured hand side");
@@ -58,9 +65,9 @@ namespace linkerbot::hand::identity_probe {
             identity.address = target.request_id;
             identity.product_code = factory.product_code;
             identity.serial_number = factory.serial_number;
-            identity.firmware_version = firmware.to_string();
-            identity.hardware_version = pcb.to_string();
-            identity.mechanical_version = mechanical.to_string();
+            identity.firmware_version = versions.firmware.to_string();
+            identity.hardware_version = versions.pcb.to_string();
+            identity.mechanical_version = versions.mechanical.to_string();
             identity.timestamp = timestamp;
             return identity;
         }
@@ -80,7 +87,7 @@ namespace linkerbot::hand::identity_probe {
             const auto pcb = runtime->query<Version>(pcb_plan(target.request_id), deadline);
             const auto firmware = runtime->query<Version>(firmware_plan(target.request_id), deadline);
             const auto mechanical = runtime->query<Version>(mechanical_plan(target.request_id), deadline);
-            return classic_identity(target, rule, std::move(product_code), pcb, firmware, mechanical,
+            return classic_identity(target, rule, product_code, ClassicVersions{pcb, firmware, mechanical},
                                     runtime->response_provenance().received_at);
         }
 

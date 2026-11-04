@@ -259,16 +259,21 @@ namespace linkerbot::hand::l30 {
         return id;
     }
     void Client::remove_report_handler(uint8_t subcmd, HandlerId id) {
+        struct HandlerBinding {
+            HandlerId handler;
+            uint8_t subcommand;
+        };
+        const auto binding = HandlerBinding{id, subcmd};
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            const auto it = handlers_.find(id);
-            if (it == handlers_.end() || it->second != subcmd) {
+            const auto it = handlers_.find(binding.handler);
+            if (it == handlers_.end() || it->second != binding.subcommand) {
                 return;
             }
         }
-        if (core_->unsubscribe(id)) {
+        if (core_->unsubscribe(binding.handler)) {
             std::lock_guard<std::mutex> lock(mutex_);
-            handlers_.erase(id);
+            handlers_.erase(binding.handler);
         }
     }
 } // namespace linkerbot::hand::l30
