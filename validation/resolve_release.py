@@ -4,6 +4,11 @@ import re
 import subprocess
 from pathlib import Path
 
+if __package__:
+    from .release_package import project_version
+else:
+    from release_package import project_version
+
 
 VERSION = r'(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)'
 SHA = r'[0-9a-f]{40}'
@@ -32,6 +37,8 @@ def release_inputs(event, ref, requested_sha, requested_version, pinned_sha=None
         if not match:
             raise ValueError('Automatic packaging requires a vMAJOR.MINOR.PATCH tag')
         sha, version = pinned_sha, match[1]
+    elif event == 'pull_request':
+        sha, version = pinned_sha, requested_version
     elif event == 'workflow_dispatch':
         sha, version = requested_sha, requested_version
     else:
@@ -59,8 +66,8 @@ def main():
     event = os.environ['GITHUB_EVENT_NAME']
     values = release_inputs(event, os.environ['GITHUB_REF'],
                             os.environ.get('REQUESTED_COMM_SHA', ''),
-                            os.environ.get('REQUESTED_VERSION', ''),
-                            ci_transport_sha(source) if event == 'push' else None)
+                            project_version(source) if event == 'pull_request' else os.environ.get('REQUESTED_VERSION', ''),
+                            ci_transport_sha(source) if event in ('push', 'pull_request') else None)
     values['HAND_SHA'] = checked_out_commit(source, os.environ['GITHUB_SHA'])
     with Path(os.environ['GITHUB_ENV']).open('a', encoding='utf-8') as output:
         for name, value in values.items():

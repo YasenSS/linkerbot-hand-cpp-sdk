@@ -40,7 +40,7 @@ L6 默认使用 Classic CAN；支持 CAN FD 的设备可显式选择[可选 HOP 
 ```bash
 mkdir sdk-build && cd sdk-build
 git clone https://github.com/linker-bot/linkerbot-transport-cpp.git
-git -C linkerbot-transport-cpp checkout --detach a46177e86e403bbd18834aedb6e81ef3233c6c22
+git -C linkerbot-transport-cpp checkout --detach 0ab37b179ee8c07bbd7f1e777015bd23774d27ab
 git clone https://github.com/linker-bot/linkerbot-hand-cpp-sdk.git linkerbot-hand-cpp
 cd linkerbot-hand-cpp
 
@@ -55,6 +55,12 @@ cmake --install build --prefix "$PWD/install"
 
 这会将 SDK 和配套通信库安装到当前目录的 `install/`，不需要 Catch2 或厂商开发包。
 后续命令均从 `linkerbot-hand-cpp` 源码根目录执行。
+
+也可直接使用 transport v0.3.2 的预构建 SDK，省去 transport 编译；
+使用 `cmake --preset prebuilt -DLINKERBOT_COMM_PREBUILT_PREFIX=/absolute/path/to/comm-sdk`。
+源码与预构建两种方式、下载校验及下游路径见[构建指南](docs/zh/guides/validation.md)。
+
+发布目标类型与 transport 对齐：八份 Ubuntu Release SDK 和四份 Windows x64/ARM64 Debug/Release SDK，见[发布产物与校验](docs/zh/guides/releases.md)。
 
 ### 2. 连接 CAN 总线
 

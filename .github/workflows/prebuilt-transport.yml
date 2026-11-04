@@ -1,0 +1,61 @@
+name: Prebuilt transport
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  released-sdk:
+    name: transport v0.3.2 / ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    env:
+      CC: gcc-13
+      CXX: g++-13
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check transport selection without downloads
+        run: python3 -m unittest discover -s validation -p 'test_transport_provider.py'
+      - name: Download and verify released transport SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive=linkerbot-comm-0.3.2-Linux-${{ matrix.arch }}-ubuntu24.04-GNU13.3.0-libstdcxx-abi1-Release.tar.gz
+          url=https://github.com/linker-bot/linkerbot-transport-cpp/releases/download/v0.3.2
+          mkdir -p "$RUNNER_TEMP/comm-download" "$RUNNER_TEMP/comm-sdk"
+          cd "$RUNNER_TEMP/comm-download"
+          curl --fail --location --retry 3 --remote-name "$url/$archive"
+          curl --fail --location --retry 3 --remote-name "$url/$archive.sha256"
+          sha256sum --check "$archive.sha256"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/comm-sdk" --strip-components=1
+      - name: Build hand with released transport
+        run: |
+          cmake --preset prebuilt \
+            -DLINKERBOT_COMM_PREBUILT_PREFIX="$RUNNER_TEMP/comm-sdk" \
+            -DLINKERBOT_COMM_SOURCE_DIR=/deliberately/missing \
+            -DLINKERBOT_BUILD_TESTS=ON -DLINKERBOT_ALLOW_DEPENDENCY_DOWNLOADS=ON
+          cmake --build --preset prebuilt --parallel 4 --target linkerbot-cpp-sdk tests protocol-tests
+          ctest --test-dir build/prebuilt --output-on-failure --timeout 120
+          cmake --install build/prebuilt --prefix "$RUNNER_TEMP/hand-sdk"
+      - name: Relocate and test downstream application
+        run: |
+          mv "$RUNNER_TEMP/comm-sdk" "$RUNNER_TEMP/comm-relocated"
+          mv "$RUNNER_TEMP/hand-sdk" "$RUNNER_TEMP/hand-relocated"
+          cmake -S validation/installed-consumer -B build/consumer \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/hand-relocated;$RUNNER_TEMP/comm-relocated"
+          cmake --build build/consumer --parallel 4
+          ctest --test-dir build/consumer --output-on-failure --timeout 120

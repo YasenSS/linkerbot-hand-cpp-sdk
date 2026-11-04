@@ -31,6 +31,17 @@ namespace linkerbot::hand::runtime {
         return std::chrono::ceil<std::chrono::milliseconds>(deadline - now);
     }
     namespace {
+        template <class Predicate>
+        bool wait_for_state(std::condition_variable &changed, std::unique_lock<std::mutex> &lock, Deadline deadline,
+                            Predicate ready) {
+            // Older libstdc++ can overflow while converting max() between clocks.
+            // An unbounded wait must still release the mutex for its producer.
+            if (deadline == Deadline::max()) {
+                changed.wait(lock, std::move(ready));
+                return true;
+            }
+            return changed.wait_until(lock, deadline, std::move(ready));
+        }
         LifecycleState lifecycle_state(DeviceState state) noexcept {
             switch (state) {
             case DeviceState::ready:
@@ -367,9 +378,8 @@ namespace linkerbot::hand::runtime {
             throw ValidationError("empty runtime request");
         }
         std::unique_lock<std::mutex> lock(state_->mutex);
-        if (!state_->cv.wait_until(lock, std::min(deadline, state_->deadline), [&] {
-                return state_->done || (state_->return_after_send && state_->sent_result);
-            })) {
+        if (!wait_for_state(state_->cv, lock, std::min(deadline, state_->deadline),
+                            [&] { return state_->done || (state_->return_after_send && state_->sent_result); })) {
             lock.unlock();
             if (state_->expire) {
                 state_->expire();
@@ -402,8 +412,8 @@ namespace linkerbot::hand::runtime {
             throw ValidationError("empty runtime request");
         }
         std::unique_lock<std::mutex> lock(state_->mutex);
-        if (!state_->cv.wait_until(lock, std::min(deadline, state_->deadline),
-                                   [&] { return state_->done || state_->sent_result.has_value(); })) {
+        if (!wait_for_state(state_->cv, lock, std::min(deadline, state_->deadline),
+                            [&] { return state_->done || state_->sent_result.has_value(); })) {
             lock.unlock();
             if (state_->expire) {
                 state_->expire();
@@ -1994,7 +2004,7 @@ namespace linkerbot::hand::runtime {
         const auto all_finished = [&] {
             return std::all_of(p.pollers.begin(), p.pollers.end(), [](const auto &poller) { return poller->finished; });
         };
-        if (!p.cv.wait_until(lock, deadline, all_finished)) {
+        if (!wait_for_state(p.cv, lock, deadline, all_finished)) {
             return false;
         }
         lock.unlock();
@@ -2038,7 +2048,7 @@ namespace linkerbot::hand::runtime {
     }
     bool DeviceRuntime::wait_for_fault(Deadline deadline) const {
         std::unique_lock<std::mutex> lock(impl_->mutex);
-        impl_->cv.wait_until(lock, deadline, [&] {
+        wait_for_state(impl_->cv, lock, deadline, [&] {
             return impl_->health.polling_faulted || impl_->health.state == DeviceState::faulted ||
                    impl_->health.state == DeviceState::closed;
         });

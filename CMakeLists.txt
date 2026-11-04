@@ -38,25 +38,8 @@ find_package(Threads REQUIRED)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-# An explicit source path binds paired development checkouts. An empty path
-# consumes an installed package and does not require a sibling source tree.
-set(_linkerbot_default_comm "")
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../linkerbot-transport-cpp/CMakeLists.txt")
-    set(_linkerbot_default_comm "${CMAKE_CURRENT_SOURCE_DIR}/../linkerbot-transport-cpp")
-endif()
-set(LINKERBOT_COMM_SOURCE_DIR "${_linkerbot_default_comm}"
-    CACHE PATH "Paired comm source tree; empty selects find_package")
 option(LINKERBOT_ALLOW_DEPENDENCY_DOWNLOADS "Allow missing test dependencies to be fetched" ON)
-if(NOT TARGET linkerbot::comm)
-    if(LINKERBOT_COMM_SOURCE_DIR)
-        if(NOT EXISTS "${LINKERBOT_COMM_SOURCE_DIR}/CMakeLists.txt")
-            message(FATAL_ERROR "Invalid LINKERBOT_COMM_SOURCE_DIR: ${LINKERBOT_COMM_SOURCE_DIR}")
-        endif()
-        add_subdirectory("${LINKERBOT_COMM_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/_deps/linkerbot-transport-cpp")
-    else()
-        find_package(linkerbot-comm ${PROJECT_VERSION} CONFIG REQUIRED)
-    endif()
-endif()
+include(cmake/TransportDependency.cmake)
 
 # Check both paired sources and a target supplied by the parent project.
 get_target_property(_linkerbot_comm_version linkerbot::comm LINKERBOT_COMM_VERSION)
@@ -152,21 +135,5 @@ install(FILES validation/fake_classic_hand.hpp
 include(cmake/ReleasePackage.cmake)
 
 if(LINKERBOT_IS_TOP_LEVEL)
-    set(CPACK_PACKAGE_NAME "linkerbot-hand-cpp")
-    set(CPACK_PACKAGE_VENDOR "LinkerBot")
-    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
-        "LinkerBot dexterous hand C++ SDK")
-    set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
-    set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
-    set(CPACK_PACKAGE_CHECKSUM SHA256)
-    if(WIN32)
-        set(CPACK_GENERATOR ZIP)
-        configure_file(cmake/WindowsCPack.cmake.in WindowsCPack.cmake @ONLY)
-        set(CPACK_PROJECT_CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/WindowsCPack.cmake")
-    else()
-        set(CPACK_GENERATOR "TGZ")
-    endif()
-    set(CPACK_PACKAGE_FILE_NAME
-        "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_SYSTEM_NAME}")
     include(CPack)
 endif()

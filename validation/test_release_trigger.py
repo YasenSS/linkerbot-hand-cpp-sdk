@@ -1,5 +1,6 @@
 """Release-input regression tests; creates no tags in the SDK repositories."""
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,8 +9,19 @@ from resolve_release import checked_out_commit, ci_transport_sha, release_inputs
 
 
 class ReleaseTriggerTests(unittest.TestCase):
+    def test_report_workflow_can_import_resolver_from_repository_root(self):
+        root = Path(__file__).resolve().parents[1]
+        output = subprocess.check_output([sys.executable, '-c',
+            'from pathlib import Path; from validation.resolve_release import ci_transport_sha; '
+            'print(ci_transport_sha(Path(".")))'], cwd=root, text=True).strip()
+        self.assertEqual(output, ci_transport_sha(root))
+
     def test_tag_uses_its_version_and_the_frozen_ci_pin(self):
         result = release_inputs('push', 'refs/tags/v0.3.0', 'b' * 40, '9.9.9', 'a' * 40)
+        self.assertEqual(result, {'COMM_SHA': 'a' * 40, 'RELEASE_VERSION': '0.3.0'})
+
+    def test_pull_request_tests_source_version_with_frozen_dependency(self):
+        result = release_inputs('pull_request', 'refs/pull/10/merge', '', '0.3.0', 'a' * 40)
         self.assertEqual(result, {'COMM_SHA': 'a' * 40, 'RELEASE_VERSION': '0.3.0'})
 
     def test_manual_dispatch_preserves_explicit_inputs(self):

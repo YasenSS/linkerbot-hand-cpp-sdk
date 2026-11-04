@@ -1,15 +1,26 @@
 name: Release packages
 
 "on":
+  pull_request:
+    paths:
+      - '.github/workflows/release-packages.yml'
+      - '.github/workflows/ci.yml'
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - 'src/**'
+      - 'include/**'
+      - 'tests/**'
+      - 'ci/package-targets.json'
+      - 'validation/**'
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
       comm_sha:
-        description: 'Full 40-character transport commit SHA'
+        description: 'Full 40-character compatible transport commit SHA'
         required: true
       expected_version:
-        description: 'Version required in both source projects and packages'
+        description: 'Hand SDK version (transport may use a compatible newer patch)'
         required: true
         default: '0.3.0'
 
@@ -18,104 +29,204 @@ permissions:
 
 env:
   COMM_REPOSITORY: ${{ vars.LINKERBOT_COMM_REPOSITORY || format('{0}/linkerbot-transport-cpp', github.repository_owner) }}
-  REQUESTED_COMM_SHA: ${{ inputs.comm_sha }}
-  REQUESTED_VERSION: ${{ inputs.expected_version }}
   PYTHONUTF8: '1'
 
 jobs:
-  package:
-    name: ${{ matrix.platform }} / Release / ${{ matrix.format }}
-    if: github.event_name != 'push' || github.event.deleted != true
+  targets:
+    runs-on: ubuntu-24.04
+    outputs:
+      linux: ${{ steps.matrix.outputs.linux }}
+      windows: ${{ steps.matrix.outputs.windows }}
+      hand_sha: ${{ steps.matrix.outputs.hand_sha }}
+      comm_sha: ${{ steps.matrix.outputs.comm_sha }}
+      version: ${{ steps.matrix.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Resolve immutable source inputs
+        env:
+          REQUESTED_COMM_SHA: ${{ inputs.comm_sha }}
+          REQUESTED_VERSION: ${{ inputs.expected_version }}
+        run: python3 validation/resolve_release.py
+      - name: Test release contracts
+        run: python3 -m unittest discover -s validation -p 'test_release*.py'
+      - id: matrix
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          sys.path.insert(0, 'validation')
+          from release_matrix import load_targets
+          targets = load_targets('ci/package-targets.json')
+          for row in targets['windows']:
+              arm = row['arch'] == 'ARM64'
+              row.update(runner='windows-11-vs2026-arm' if arm else 'windows-2022',
+                         generator='Visual Studio 18 2026' if arm else 'Visual Studio 17 2022',
+                         cmake='4.2.3' if arm else '3.31.8',
+                         cmake_arch='arm64' if arm else 'x86_64')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              for platform in ('linux', 'windows'):
+                  output.write(platform + '=' + json.dumps({'include': targets[platform]}) + '\n')
+              for name, source in [('hand_sha','HAND_SHA'), ('comm_sha','COMM_SHA'), ('version','RELEASE_VERSION')]:
+                  output.write(name + '=' + os.environ[source] + '\n')
+          PY
+
+  linux:
+    name: Ubuntu ${{ matrix.ubuntu }} / ${{ matrix.arch }} / Release
+    needs: targets
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - platform: linux
-            runner: ubuntu-24.04
-            format: TGZ
-          - platform: windows
-            runner: windows-2022
-            format: ZIP
+      matrix: ${{ fromJSON(needs.targets.outputs.linux) }}
+    env:
+      HAND_SHA: ${{ needs.targets.outputs.hand_sha }}
+      COMM_SHA: ${{ needs.targets.outputs.comm_sha }}
+      RELEASE_VERSION: ${{ needs.targets.outputs.version }}
     steps:
-      - name: Check out exact hand revision
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.HAND_SHA }}
           path: hand-cpp
-
-      - name: Resolve tag or manual release inputs
-        shell: python
-        run: |
-          import runpy
-          runpy.run_path('hand-cpp/validation/resolve_release.py', run_name='__main__')
-
-      - name: Check out exact transport revision
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           repository: ${{ env.COMM_REPOSITORY }}
           ref: ${{ env.COMM_SHA }}
           path: linkerbot-transport-cpp
           token: ${{ secrets.LINKERBOT_COMM_TOKEN || github.token }}
-
-      - name: Install Linux release tools
-        if: matrix.platform == 'linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends gcc-13 g++-13 make cmake python3
-
-      - name: Install fixed CMake and record Windows tools
-        if: matrix.platform == 'windows'
-        shell: pwsh
-        run: ./hand-cpp/validation/setup_windows.ps1
-
-      - name: Build and audit Linux TGZ
-        if: matrix.platform == 'linux'
+      - name: Pull native distribution image
         env:
-          CC: gcc-13
-          CXX: g++-13
+          UBUNTU: ${{ matrix.ubuntu }}
         run: |
-          set -eu
-          release_work=$(mktemp -d "${RUNNER_TEMP}/sdk-release-linux-XXXXXX")
-          printf 'RELEASE_WORK=%s\n' "$release_work" >> "$GITHUB_ENV"
-          python3 hand-cpp/validation/run_release_validation.py \
-            --comm-source linkerbot-transport-cpp --work-dir "$release_work" \
-            --hand-sha "$HAND_SHA" --comm-sha "$COMM_SHA" \
-            --expected-version "$RELEASE_VERSION" --package-format TGZ \
-            --config Release --suite all --require-slcan --allow-downloads --jobs 2
-
-      - name: Build and audit Windows ZIP
-        if: matrix.platform == 'windows'
-        shell: pwsh
+          docker pull "ubuntu:$UBUNTU"
+          docker image inspect "ubuntu:$UBUNTU" --format '{{index .RepoDigests 0}}' > "$RUNNER_TEMP/build-image.txt"
+          mkdir -p "$RUNNER_TEMP/release"
+      - name: Build, test, package and relocate inside target userspace
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          EXPECTED_DISTRIBUTION: ${{ matrix.distribution }}
         run: |
-          $ErrorActionPreference = 'Stop'
-          $Work = Join-Path $env:RUNNER_TEMP ('sdk-release-windows-' + [guid]::NewGuid().ToString('N'))
-          "RELEASE_WORK=$Work" >> $env:GITHUB_ENV
-          python hand-cpp/validation/run_release_validation.py `
-            --comm-source linkerbot-transport-cpp --work-dir $Work `
-            --hand-sha $env:HAND_SHA --comm-sha $env:COMM_SHA `
-            --expected-version $env:RELEASE_VERSION --package-format ZIP `
-            --config Release --suite all --require-slcan --allow-downloads --jobs 2 `
-            --generator 'Visual Studio 17 2022' --architecture x64 --toolset 'v143,version=14.44'
-          if ($LASTEXITCODE -ne 0) { throw 'Windows release acceptance failed' }
-
+          docker run --rm -v "$GITHUB_WORKSPACE:/src" -v "$RUNNER_TEMP/release:/release" -w /src \
+            -e HAND_SHA -e COMM_SHA -e RELEASE_VERSION -e EXPECTED_ARCH -e EXPECTED_DISTRIBUTION \
+            -e BUILD_IMAGE="$(cat "$RUNNER_TEMP/build-image.txt")" \
+            "$(cat "$RUNNER_TEMP/build-image.txt")" bash -euc '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends build-essential git ca-certificates python3 python3-venv ninja-build
+              test "$(uname -m)" = "$EXPECTED_ARCH"
+              python3 -m venv /opt/release-tools
+              /opt/release-tools/bin/pip install cmake==3.31.10
+              export PATH=/opt/release-tools/bin:$PATH
+              git config --global --add safe.directory /src/hand-cpp
+              git config --global --add safe.directory /src/linkerbot-transport-cpp
+              python hand-cpp/validation/run_release_validation.py \
+                --comm-source linkerbot-transport-cpp --work-dir /release \
+                --hand-sha "$HAND_SHA" --comm-sha "$COMM_SHA" \
+                --expected-version "$RELEASE_VERSION" --package-format TGZ \
+                --expected-arch "$EXPECTED_ARCH" --expected-distribution "$EXPECTED_DISTRIBUTION" \
+                --build-image "$BUILD_IMAGE" \
+                --config Release --suite all --require-slcan --allow-downloads --jobs 4
+            '
       - name: Upload diagnostic evidence
-        if: always() && env.RELEASE_WORK != ''
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.platform }}-evidence-${{ github.run_id }}-${{ github.run_attempt }}
-          if-no-files-found: error
-          path: ${{ env.RELEASE_WORK }}/evidence/
-
-      - name: Upload validated packages
-        if: success()
+          name: evidence-ubuntu${{ matrix.ubuntu }}-${{ matrix.arch }}
+          path: |
+            ${{ runner.temp }}/release/evidence/
+            ${{ runner.temp }}/build-image.txt
+      - name: Upload validated hand SDK
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.platform }}-${{ matrix.format }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: sdk-ubuntu${{ matrix.ubuntu }}-${{ matrix.arch }}
           if-no-files-found: error
           path: |
-            ${{ env.RELEASE_WORK }}/packages/*/*.tar.gz
-            ${{ env.RELEASE_WORK }}/packages/*/*.zip
-            ${{ env.RELEASE_WORK }}/packages/*/*.sha256
-            ${{ env.RELEASE_WORK }}/packages/release-manifest.json
+            ${{ runner.temp }}/release/packages/hand/*.tar.gz
+            ${{ runner.temp }}/release/packages/hand/*.sha256
+
+  windows:
+    name: Windows ${{ matrix.arch }} / ${{ matrix.configuration }}
+    needs: targets
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.targets.outputs.windows) }}
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      HAND_SHA: ${{ needs.targets.outputs.hand_sha }}
+      COMM_SHA: ${{ needs.targets.outputs.comm_sha }}
+      RELEASE_VERSION: ${{ needs.targets.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HAND_SHA }}
+          path: hand-cpp
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.COMM_REPOSITORY }}
+          ref: ${{ env.COMM_SHA }}
+          path: linkerbot-transport-cpp
+          token: ${{ secrets.LINKERBOT_COMM_TOKEN || github.token }}
+      - name: Install native CMake
+        run: ./hand-cpp/validation/setup_windows.ps1 -Version '${{ matrix.cmake }}' -Architecture '${{ matrix.cmake_arch }}'
+      - name: Require native runner architecture
+        run: |
+          $Expected = if ('${{ matrix.arch }}' -eq 'ARM64') { 'Arm64' } else { 'X64' }
+          if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString() -ne $Expected) { throw 'Native runner architecture mismatch' }
+      - name: Build, test, package and relocate Windows SDK
+        run: |
+          python hand-cpp/validation/run_release_validation.py `
+            --comm-source linkerbot-transport-cpp --work-dir "$env:RUNNER_TEMP/release" `
+            --hand-sha $env:HAND_SHA --comm-sha $env:COMM_SHA `
+            --expected-version $env:RELEASE_VERSION --package-format ZIP `
+            --expected-arch '${{ matrix.arch }}' --expected-distribution Windows `
+            --config '${{ matrix.configuration }}' --suite all --require-slcan --allow-downloads --jobs 4 `
+            --generator '${{ matrix.generator }}' --architecture '${{ matrix.arch }}' --toolset 'v143,version=14.44'
+          if ($LASTEXITCODE -ne 0) { throw 'Windows release acceptance failed' }
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-windows-${{ matrix.arch }}-${{ matrix.configuration }}
+          path: ${{ runner.temp }}/release/evidence/
+      - name: Upload validated hand SDK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-windows-${{ matrix.arch }}-${{ matrix.configuration }}
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/release/packages/hand/*.zip
+            ${{ runner.temp }}/release/packages/hand/*.sha256
+
+  collect:
+    name: Verify complete twelve-package release set
+    needs: [targets, linux, windows]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.targets.outputs.hand_sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: sdk-*
+          merge-multiple: true
+          path: release-assets
+      - name: Verify all archive bytes, target identities and source provenance
+        env:
+          VERSION: ${{ needs.targets.outputs.version }}
+          HAND_SHA: ${{ needs.targets.outputs.hand_sha }}
+          COMM_SHA: ${{ needs.targets.outputs.comm_sha }}
+        run: |
+          python3 validation/release_matrix.py release-assets \
+            --version "$VERSION" --hand-sha "$HAND_SHA" --comm-sha "$COMM_SHA"
+          cd release-assets
+          sha256sum --check SHA256SUMS.txt
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 26
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: release-assets/*
+          if-no-files-found: error

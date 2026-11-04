@@ -43,3 +43,5 @@
 
 Tutorials provide concrete steps, guides explain common usage, and references centralize capabilities and limitations. Both languages share historical hardware reports.
 When adding or moving documents, update the [Chinese counterpart](../zh/README.md), indexes, cross-links, installation, and release-package checks.
+
+- [Release artifacts and checksums](guides/releases.md)

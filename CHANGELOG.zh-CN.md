@@ -4,6 +4,11 @@
 
 ## 0.3.0（未发布）
 
+- 增加显式源码/预构建 transport 接入选项和独立 CMake presets。
+- 发布目标与 transport 对齐：八份 Ubuntu Release、四份 Windows x64/ARM64 Debug/Release SDK，校验构建身份与完整产物集。
+- 修正 Focal 旧版 libstdc++ 下 runtime 请求、轮询停止和故障监听的无限等待，保留有限 deadline 和异常传播语义。
+- transport 源码固定到 Focal 无限回执等待的修复提交，不替换已发布的 v0.3.2 归档。
+
 - 默认文档改为英文，保留完整中文对应页、双向导航及旧英文入口兼容副本。
 - 补充 C++17 贡献约定、构建/质量指南和历史实机证据英文摘要；不改写原始实测结果。
 - 接入 full 模式 C++ Report Card，以分析完整性为门禁并保留诊断，增加文档和打包回归检查。

@@ -57,7 +57,8 @@ def unpack_archive(archive, destination):
 
 
 def audit_package(prefix, archive, kind, sources, configuration, platform,
-                  require_clean=False, require_slcan=False, forbidden_paths=()):
+                  require_clean=False, require_slcan=False, forbidden_paths=(),
+                  expected_arch=None, expected_distribution=None):
     """Check package provenance, source licenses, dependencies and installed files."""
     packages = [('linkerbot-comm', 'comm')]
     if kind == 'hand':
@@ -94,14 +95,31 @@ def audit_package(prefix, archive, kind, sources, configuration, platform,
             raise RuntimeError(f'Release package contains dirty source metadata: {package}')
         if platform == 'win32':
             runtime = 'MDd' if configuration == 'Debug' else 'MD'
-            if (metadata.get('runtime'), metadata.get('architecture'), metadata.get('toolset')) != (runtime, 'x64', '143'):
+            if (metadata.get('runtime'), metadata.get('architecture'), metadata.get('toolset')) != (runtime, expected_arch or 'x64', '143'):
                 raise RuntimeError(f'Incorrect Windows runtime/architecture/toolset: {package}')
-            if not all(part in archive.name for part in ['Windows-x64-msvc143', configuration, '-' + runtime]):
+            if not all(part in archive.name for part in ['Windows-' + (expected_arch or 'x64') + '-msvc143', configuration, '-' + runtime]):
                 raise RuntimeError('Windows filename does not identify toolchain/configuration/runtime')
         library = 'linkerbot-comm' if source_name == 'comm' else 'linkerbot-cpp-sdk'
         library_name = library + '.lib' if platform == 'win32' else 'lib' + library + '.a'
         if not (prefix / 'lib' / library_name).is_file():
             raise RuntimeError(f'Library missing: {package}')
+
+    if expected_arch:
+        # Import lazily: release_matrix also uses the safe archive extractor.
+        from release_matrix import archive_name, identity, verify_objects
+        identities = []
+        for package, source_name in packages:
+            metadata = json.loads((prefix / 'share' / package / 'build-info.json').read_text(encoding='utf-8'))
+            identities.append(identity(metadata))
+            if metadata['architecture'] != expected_arch or (expected_distribution and
+                    metadata['distribution'] != expected_distribution):
+                raise RuntimeError('Unexpected release architecture/distribution')
+            library = 'linkerbot-comm' if source_name == 'comm' else 'linkerbot-cpp-sdk'
+            verify_objects(prefix, metadata, library)
+            if source_name == kind and archive.name != archive_name(metadata):
+                raise RuntimeError('Archive filename does not match metadata')
+        if len(set(identities)) != 1:
+            raise RuntimeError('Hand/transport release identities differ')
 
     files = sorted(p.relative_to(prefix).as_posix() for p in prefix.rglob('*') if p.is_file())
     for relative in files:

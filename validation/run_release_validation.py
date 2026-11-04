@@ -15,6 +15,7 @@ from pathlib import Path
 
 from build_support import add_build_arguments, cmake_options, validation_options
 from release_package import audit_package, project_version, unpack_archive
+from release_matrix import compatible_versions
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--comm-source', type=Path, required=True)
@@ -29,7 +30,10 @@ parser.add_argument('--allow-downloads', action='store_true')
 parser.add_argument('--require-slcan', action='store_true', help='Require stage-B comm source and package entries')
 parser.add_argument('--jobs', type=int, default=4)
 parser.add_argument('--package-format', choices=['ZIP', 'TGZ'], default='ZIP')
-parser.add_argument('--expected-version', help='Require both source projects and packages at this version')
+parser.add_argument('--expected-version', help='Require this hand version; transport may use a compatible newer patch')
+parser.add_argument('--expected-arch', help='Require actual release object architecture')
+parser.add_argument('--expected-distribution', help='Require release userspace distribution identity')
+parser.add_argument('--build-image', default='', help='Immutable native Linux container identity')
 add_build_arguments(parser)
 args = parser.parse_args()
 hand = Path(__file__).resolve().parents[1]
@@ -77,7 +81,7 @@ def source_info(name, source, expected):
     if expected and (len(expected) != 40 or sha != expected or dirty):
         raise RuntimeError(f'{name} must be a clean checkout at {expected}; actual {sha}, dirty={bool(dirty)}')
     version = project_version(source)
-    if args.expected_version and version != args.expected_version:
+    if name == 'hand' and args.expected_version and version != args.expected_version:
         raise RuntimeError(f'{name} version must be {args.expected_version}; actual {version}')
     diff = subprocess.check_output(['git', '-C', str(source), 'diff', '--binary', 'HEAD'])
     (evidence / f'{name}-source.patch').write_bytes(diff)
@@ -156,6 +160,7 @@ def package(name, directory, kind):
     files = audit_package(prefix, archive, kind, sources, args.config, sys.platform,
                           require_clean=bool(args.comm_sha or args.hand_sha),
                           require_slcan=args.require_slcan,
+                          expected_arch=args.expected_arch, expected_distribution=args.expected_distribution,
                           forbidden_paths=[hand, comm, work / 'comm-build', work / 'hand-build'])
     (evidence / (name + '-files.json')).write_text(json.dumps(files, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     report.setdefault('packages', []).append({'file': str(archive.relative_to(work)), 'sha256': actual,
@@ -174,17 +179,22 @@ def package(name, directory, kind):
 try:
     source_info('comm', comm, args.comm_sha)
     source_info('hand', hand, args.hand_sha)
+    compatible_versions(report['sources']['hand']['version'], report['sources']['comm']['version'])
     save()
     run('cmake-version', ['cmake', '--version'])
     common = [f'-DLINKERBOT_ALLOW_DEPENDENCY_DOWNLOADS={"ON" if args.allow_downloads else "OFF"}',
-              '-DCMAKE_INSTALL_LIBDIR=lib']
+              '-DCMAKE_INSTALL_LIBDIR=lib', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
+              f'-DLINKERBOT_HAND_BUILD_IMAGE={args.build_image}',
+              f'-DLINKERBOT_COMM_BUILD_IMAGE={args.build_image}']
+    if args.expected_arch and args.hand_sha and args.comm_sha:
+        common += ['-DLINKERBOT_HAND_RELEASE_BUILD=ON', '-DLINKERBOT_COMM_RELEASE_BUILD=ON']
     if args.catch2_dir:
         common.append(f'-DCatch2_DIR={args.catch2_dir.resolve()}')
     comm_build, hand_build = work / 'comm-build', work / 'hand-build'
     configure('comm-configure', comm, comm_build, [*common, '-DLINKERBOT_COMM_BUILD_TESTS=ON',
                                                  '-DLINKERBOT_COMM_BUILD_EXAMPLES=OFF'])
     build('comm-build', comm_build)
-    configure('hand-configure', hand, hand_build, [*common, f'-DLINKERBOT_COMM_SOURCE_DIR={comm}',
+    configure('hand-configure', hand, hand_build, [*common, '-DLINKERBOT_COMM_PROVIDER=SOURCE', f'-DLINKERBOT_COMM_SOURCE_DIR={comm}',
                '-DLINKERBOT_COMM_BUILD_TESTS=OFF', '-DLINKERBOT_COMM_BUILD_EXAMPLES=OFF',
                '-DLINKERBOT_BUILD_TESTS=ON', '-DLINKERBOT_BUILD_EXAMPLES=ON', '-DLINKERBOT_BUILD_TOOLS=ON'])
     hand_targets = ['linkerbot-cpp-sdk', 'windows_readonly', 'l6_hop_readonly', 'tests', 'protocol-tests']
@@ -208,10 +218,10 @@ try:
         comm_prefix = work / 'comm-only-install'
         run('comm-install', ['cmake', '--install', comm_build, '--config', args.config, '--prefix', comm_prefix])
         consumer('comm-only-consumer', comm_prefix, 'comm')
-        # Explicit empty SOURCE_DIR prevents silently using the sibling checkout.
+        # PREBUILT prevents silently using the sibling source checkout.
         installed_build = work / 'hand-with-installed-comm'
         configure('installed-comm-hand-configure', hand, installed_build, [
-            *common, '-DLINKERBOT_COMM_SOURCE_DIR=', f'-DCMAKE_PREFIX_PATH={comm_prefix}',
+            *common, '-DLINKERBOT_COMM_PROVIDER=PREBUILT', f'-DLINKERBOT_COMM_PREBUILT_PREFIX={comm_prefix}',
             '-DLINKERBOT_BUILD_TESTS=OFF', '-DLINKERBOT_BUILD_EXAMPLES=ON', '-DLINKERBOT_BUILD_TOOLS=OFF'])
         build('installed-comm-hand-build', installed_build, ['linkerbot-cpp-sdk', 'windows_readonly'])
         separate_prefix = work / 'separate-hand-install'

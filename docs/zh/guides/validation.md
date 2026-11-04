@@ -4,11 +4,66 @@
 
 ## 明确选择依赖
 
-transport 使用项目 README 与 `.github/workflows/ci.yml` 固定的完整提交号。
-显式设置 `LINKERBOT_COMM_SOURCE_DIR` 可以选择源码目录；将其设为空字符串，
-并配置 `CMAKE_PREFIX_PATH`，则使用已安装的 `linkerbot-comm` 包。
-未显式设置时，CMake 可能自动选中相邻的 `linkerbot-transport-cpp` 目录。
-测试报告应记录实际依赖提交和构建配置。
+默认 `LINKERBOT_COMM_PROVIDER=AUTO` 保留旧命令的行为；也可明确指定：
+
+- `SOURCE`：使用 `LINKERBOT_COMM_SOURCE_DIR`，未指定路径时使用同级 transport 目录。
+- `PREBUILT`：只查找已安装或解压的 `linkerbot-comm`，忽略源码目录。
+- `AUTO`：优先使用非空 `LINKERBOT_COMM_PREBUILT_PREFIX`，其次使用源码路径，最后查找安装包。
+
+父项目已经提供 `linkerbot::comm` 时，复用父项目的目标，并检查版本。
+显式设置旧参数 `LINKERBOT_COMM_SOURCE_DIR=` 仍可在 AUTO 下通过 `CMAKE_PREFIX_PATH`
+使用安装包。配置日志会显示实际选择的依赖；切换依赖时使用独立构建目录，避免旧 CMake 缓存。
+版本须为 `0.3.x` 且不低于 hand 版本；当前 hand `0.3.0` 可使用 transport `0.3.2`。
+源码开发继续使用 README 与 CI 固定的提交，并在测试报告中记录实际版本和构建配置。
+
+### 从源码构建
+
+```bash
+cmake --preset source -DLINKERBOT_COMM_SOURCE_DIR=../linkerbot-transport-cpp
+cmake --build --preset source --config Release --parallel 4
+cmake --install build/source --config Release --prefix "$PWD/install/hand"
+```
+
+Preset 需要 CMake 3.21+；使用 CMake 3.16+ 时可用
+`cmake -S . -B build/source -DCMAKE_BUILD_TYPE=Release -DLINKERBOT_COMM_PROVIDER=SOURCE`
+并附加相同的路径和构建开关。
+
+### 使用预构建 transport
+
+从 [transport v0.3.2](https://github.com/linker-bot/linkerbot-transport-cpp/releases/tag/v0.3.2)
+下载匹配系统、架构、编译器与运行库的 SDK 及同名 `.sha256` 文件。以下以
+Ubuntu 24.04 x86_64 为例，在下载目录执行：
+
+```bash
+archive=linkerbot-comm-0.3.2-Linux-x86_64-ubuntu24.04-GNU13.3.0-libstdcxx-abi1-Release.tar.gz
+sha256sum --check "$archive.sha256"
+mkdir -p comm-sdk
+tar -xzf "$archive" -C comm-sdk --strip-components=1
+```
+
+回到 Hand SDK 根目录，将路径替换为上面解压目录的绝对路径：
+
+```bash
+cmake --preset prebuilt -DLINKERBOT_COMM_PREBUILT_PREFIX=/absolute/path/to/comm-sdk
+cmake --build --preset prebuilt --config Release --parallel 4
+cmake --install build/prebuilt --config Release --prefix "$PWD/install/hand"
+```
+
+无需克隆或编译 transport。前缀必须指向含 `include/`、`lib/` 等目录的 SDK 根目录，
+不能指向归档文件或其父目录。也可省略专用前缀，使用 `CMAKE_PREFIX_PATH` 或 `linkerbot-comm_DIR`。
+配置时不自动下载依赖；缺少预构建包会报错，不会退回源码构建。
+Windows 解压 ZIP 后同样指定 SDK 根目录；Release 使用 `/MD`，Debug 使用 `/MDd`，
+构建时分别使用 `--config Release` 或 `--config Debug`。Linux 包使用 libstdc++ ABI1。
+不提供 macOS 发布包；本机编译的安装包也可通过此模式使用。
+驱动和厂商库仍需单独安装。
+
+仅安装 Hand SDK 不会复制预构建 transport。下游应用需要同时提供两个前缀：
+
+```bash
+cmake -S demo -B demo/build -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH="$PWD/install/hand;/absolute/path/to/comm-sdk"
+cmake --build demo/build --config Release --parallel 4
+```
 
 ## 运行离线测试
 
