@@ -31,7 +31,8 @@ linkerbot-hand-cpp-0.3.0-Windows-ARM64-msvc143-19.44.35229.0-Debug-MDd.zip
 收集步骤要求十二个目标完整且不重复，核对文件名、元数据和每个静态库对象的实际架构，
 拒绝缺包、校验不符、跨架构对象、错误 CRT 和不同源码来源。
 
-发布工作流由版本标签或手动 dispatch 触发，只上传验证后的 Actions 附件；
+构建/发布文件的 PR 变更、版本标签或手动 dispatch 会触发发布验证，只上传 Actions 附件；
+PR 产物记录测试用合并提交，不作为正式发行版。
 不会自动发布 GitHub Release，也不会替换已有附件。
 工作流完成不等于发布已存在，应以 [Releases](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/releases)
 实际附件为准。独立使用 transport 预编译包见[构建指南](validation.md)。

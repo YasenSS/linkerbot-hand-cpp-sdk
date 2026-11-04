@@ -1,6 +1,13 @@
 name: Release packages
 
 "on":
+  pull_request:
+    paths:
+      - '.github/workflows/release-packages.yml'
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - 'ci/package-targets.json'
+      - 'validation/**'
   push:
     tags: ['v*']
   workflow_dispatch:

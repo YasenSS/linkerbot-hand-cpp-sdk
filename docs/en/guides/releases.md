@@ -34,7 +34,8 @@ archive sizes and verified object counts. Collection requires all twelve distinc
 filenames, metadata and every static-library object's actual machine type. Missing archives, checksum
 mismatches, wrong architectures/CRT settings and source identity mismatches fail collection.
 
-Version tags or manual dispatch trigger validation and upload Actions artifacts. The workflow does
+Changes to build/release files in pull requests, version tags or manual dispatch trigger validation and upload Actions artifacts.
+PR artifacts describe the tested merge commit and are not published releases. The workflow does
 not publish a GitHub Release or replace existing assets. Refer to actual attachments on
 [Releases](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/releases) for download availability.
 For separate prebuilt transport consumption, see the [build guide](validation.md).
