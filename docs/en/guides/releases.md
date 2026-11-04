@@ -40,8 +40,15 @@ archive sizes and verified object counts. Collection requires all twelve distinc
 filenames, metadata and every static-library object's actual machine type. Missing archives, checksum
 mismatches, wrong architectures/CRT settings and source identity mismatches fail collection.
 
-Changes to build/release files in pull requests, version tags or manual dispatch trigger validation and upload Actions artifacts.
-PR artifacts describe the tested merge commit and are not published releases. The workflow does
-not publish a GitHub Release or replace existing assets. Refer to actual attachments on
-[Releases](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/releases) for download availability.
-For separate prebuilt transport consumption, see the [build guide](validation.md).
+Changes to build/release files in pull requests, version tags or manual dispatch trigger validation
+and upload Actions artifacts. PR artifacts describe the tested merge commit.
+
+To attach the complete set to a GitHub Release, manually run **Release packages** on an existing
+matching `v<version>` tag, supply the full transport SHA and version, and enable `create_draft`.
+The exact tagged hand commit must already have a successful main-push or manually dispatched
+**C++ Report Card** run under the A+ gate. All twelve builds and collection must pass first.
+The optional job creates a new **draft** with all 26 files and downloads them to verify their bytes.
+It rejects branch dispatches, moved/mismatched tags and existing releases; it never replaces assets.
+Default runs only upload Actions artifacts. Publishing the draft remains a separate maintainer action.
+Refer to actual attachments on [Releases](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/releases)
+for download availability. For separate prebuilt transport consumption, see the [build guide](validation.md).

@@ -59,20 +59,18 @@ jobs:
           python3 -m unittest discover -s validation -p 'test_quality_tools.py'
       - name: Generate complete quality report
         if: ${{ !cancelled() && steps.inputs.outcome == 'success' }}
-        uses: soulteary/cppreportcard-action@9458d052f286c576d557c34d8ad43096cedbf561 # v1.0.2
+        uses: soulteary/cppreportcard-action@8de72292324308064276a8feca167d543828d218 # v1.0.4
         with:
           mode: full
           config: .cppreportcard.json
           compile_commands: build/report-compile-commands.json
           output_dir: .github/cppreportcard
           install_tools: 'false'
-          # Preserve warnings while rejecting analyzer errors and incomplete coverage.
-          # The reviewed baseline does not exempt future errors from this gate.
-          fail_on: errors
-          threshold: '0'
+          fail_on: findings
+          threshold: '100'
           commit: 'false'
-      - name: Require complete analysis
-        run: python3 validation/check_report_complete.py .github/cppreportcard/report.json
+      - name: Require complete A+ analysis with zero diagnostics
+        run: python3 validation/check_report_complete.py .github/cppreportcard/report.json --require-aplus
       - name: Upload report and compilation scope
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -6,6 +6,9 @@
 中的全部 717 条诊断，对应 PR 提交 `26912797fe297bafdd8be40cab09e2a847221c60`。
 台账记录处理方式，不表示每条诊断均已消除；剩余问题继续在新报告中展示。
 
+当前 main 的[完整报告](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/actions/runs/41852646930)为 **A+、100/100、零诊断**。
+以下台账保留历史记录，当前 CI 门禁拒绝任何诊断。
+
 ## 运行时修复与证据
 
 `ExecutionGate` 原先持锁分配 shared_ptr 控制块，分配失败调用删除器后再次获取同一把锁。

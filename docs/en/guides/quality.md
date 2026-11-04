@@ -17,16 +17,16 @@ Dependencies and generated/build files are excluded. The historical standalone
 and is not part of the maintained CMake build. No diagnostic-based source exclusions
 are used. `.clang-format` remains the formatting authority.
 
-CI requires a complete report and zero error-severity diagnostics. It fails on missing tools,
-missing compile entries, analyzer errors or incomplete coverage. Existing findings
-are retained in the JSON/Markdown report; a successful job does not mean zero findings
-or A+. The numeric score does not measure test coverage or hardware compatibility.
-A future stricter quality gate must follow explicit review of the baseline, not
-silently exclude code or disable diagnostics to improve the badge.
+CI requires full analysis, **A+, 100/100 and zero diagnostics** from all three tools.
+Missing tools, compile entries, analyzer failures, incomplete coverage, warnings and
+informational findings all fail the gate. The action uses `fail_on: findings` and
+`threshold: 100`; an independent validator checks the grade and completeness.
+No new exclusions, suppressions or disabled rules are introduced by this gate.
+The numeric score does not measure test coverage or hardware compatibility.
 
 Every run uploads `report.json`, `report.md`, `badge.svg` and the merged compilation
 database as `cppreportcard-ubuntu-24.04-arm`. Reports are not automatically committed.
-The [report index](https://github.com/soulteary/linkerbot-hand-cpp-sdk/blob/main/.github/cppreportcard/README.md) links to the workflow.
+The [report index](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/blob/main/.github/cppreportcard/README.md) links to the workflow.
 
 ## Reproduce
 
@@ -37,9 +37,9 @@ checkout. Follow the workflow's configure/build/install/consumer steps, then:
 python3 validation/prepare_report_db.py --output build/report-compile-commands.json \
   build/report/compile_commands.json build/report-consumer/compile_commands.json \
   build/report-l6/compile_commands.json
-cppreportcard-cli --config .cppreportcard.json --mode full --fail-on errors --threshold 0 \
+cppreportcard-cli --config .cppreportcard.json --mode full --fail-on findings --threshold 100 \
   --output-dir .github/cppreportcard
-python3 validation/check_report_complete.py .github/cppreportcard/report.json
+python3 validation/check_report_complete.py .github/cppreportcard/report.json --require-aplus
 ```
 
 Use the CLI from the action revision pinned in `.github/workflows/cppreportcard.yml`.
