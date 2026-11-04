@@ -44,9 +44,19 @@ class TransportProviderTests(unittest.TestCase):
 
     @unittest.skipUnless(os.name == 'nt', 'Windows path syntax')
     def test_untyped_windows_source_path(self):
+        # Reparse a generated path as the real fixture setup does. This catches
+        # CMake escape errors without depending on Windows short/long names.
+        with (self.source / 'CMakeLists.txt').open('a', encoding='utf-8') as output:
+            output.write(r'''
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fixture-path.cmake"
+    "set(fixture \"${LINKERBOT_COMM_SOURCE_DIR}/tests/pcan_fixture.cpp\")\n")
+include("${CMAKE_CURRENT_BINARY_DIR}/fixture-path.cmake")
+''')
         self.configure(['-DLINKERBOT_COMM_PROVIDER=SOURCE',
                         f'-DLINKERBOT_COMM_SOURCE_DIR={self.source}'],
-                       'Transport: SOURCE (' + self.source.as_posix())
+                       'Transport: SOURCE')
+        generated = (self.root / 'build/_deps/linkerbot-transport-cpp/fixture-path.cmake').read_text()
+        self.assertNotIn('\\', generated)
 
     def test_legacy_source(self):
         self.configure([f'-DLINKERBOT_COMM_SOURCE_DIR={self.source}'], 'Transport: SOURCE')
