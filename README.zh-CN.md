@@ -1,7 +1,7 @@
 # LinkerBot 灵巧手 C++ SDK
 
 [![C++ Report Card](.github/cppreportcard/badge.svg)](.github/cppreportcard/README.zh-CN.md)
-[![C++ Report Card CI](https://github.com/soulteary/linkerbot-hand-cpp-sdk/actions/workflows/cppreportcard.yml/badge.svg?branch=main)](https://github.com/soulteary/linkerbot-hand-cpp-sdk/actions/workflows/cppreportcard.yml)
+[![C++ Report Card CI](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/actions/workflows/cppreportcard.yml/badge.svg?branch=main)](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/actions/workflows/cppreportcard.yml)
 
 [简体中文](README.zh-CN.md) | [English](README.md)
 

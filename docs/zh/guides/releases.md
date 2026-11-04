@@ -36,8 +36,14 @@ linkerbot-hand-cpp-0.3.0-Windows-ARM64-msvc143-19.44.35229.0-Debug-MDd.zip
 收集步骤要求十二个目标完整且不重复，核对文件名、元数据和每个静态库对象的实际架构，
 拒绝缺包、校验不符、跨架构对象、错误 CRT 和不同源码来源。
 
-构建/发布文件的 PR 变更、版本标签或手动 dispatch 会触发发布验证，只上传 Actions 附件；
-PR 产物记录测试用合并提交，不作为正式发行版。
-不会自动发布 GitHub Release，也不会替换已有附件。
-工作流完成不等于发布已存在，应以 [Releases](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/releases)
-实际附件为准。独立使用 transport 预编译包见[构建指南](validation.md)。
+构建/发布文件的 PR 变更、版本标签或手动 dispatch 会触发验证并上传 Actions 附件。
+PR 产物记录测试用合并提交。
+
+如需将完整集合附加到 GitHub Release，在已有且匹配的 `v<version>` 标签上手动运行
+**Release packages**，填写完整 transport SHA 和版本，并启用 `create_draft`。
+标签对应的 hand 提交须已有通过 A+ 门禁的主分支推送或手动触发的 **C++ Report Card** 运行。
+十二个平台构建及集合校验全部通过后，可选任务才会创建含 26 个文件的 **Release 草稿**，
+并下载核对上传字节。分支触发、移动或不匹配的标签、已有 Release 均被拒绝，不覆盖附件。
+默认运行只上传 Actions 附件；正式发布草稿由维护者另行操作。
+下载可用性以 [Releases](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/releases) 的实际附件为准。
+独立使用 transport 预编译包见[构建指南](validation.md)。

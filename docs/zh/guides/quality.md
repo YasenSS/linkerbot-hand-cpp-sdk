@@ -14,13 +14,14 @@ full 模式运行 clang-format、Cppcheck、clang-tidy（`clang-analyzer-*`、`b
 历史独立程序 `tests/hand/o30/hardware/verify_fixes.cc` 针对旧版 API，未纳入现行 CMake
 构建，因此明确排除；不按诊断结果排除源码。格式以 `.clang-format` 为准。
 
-CI 要求完整报告且 error 级别诊断为零。缺少工具、缺失编译单元、分析错误或覆盖不完整会使 CI 失败；
-已有诊断保留在 JSON/Markdown 报告中。工作流通过不代表零问题或 A+，分数也不代表
-测试覆盖或硬件兼容。后续收紧质量门禁应先审查基线，不通过排除代码或关闭规则美化分数。
+CI 要求三个工具均完整分析、**A+、100/100 且零诊断**。
+缺少工具或编译单元、分析失败、覆盖不完整，以及警告和信息级诊断都会使门禁失败。
+Action 使用 `fail_on: findings` 与 `threshold: 100`，另用独立校验器核对等级和完整性。
+此次门禁不新增排除项、抑制标记或关闭规则。分数不代表测试覆盖率或硬件兼容性。
 
 每次上传 `cppreportcard-ubuntu-24.04-arm` 附件，包含 `report.json`、`report.md`、
 `badge.svg` 和合并编译数据库。报告不自动提交到仓库。
-[报告索引](https://github.com/soulteary/linkerbot-hand-cpp-sdk/blob/main/.github/cppreportcard/README.md)链接到工作流。
+[报告索引](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/blob/main/.github/cppreportcard/README.md)链接到工作流。
 
 ## 本地复现
 
@@ -31,9 +32,9 @@ CI 要求完整报告且 error 级别诊断为零。缺少工具、缺失编译�
 python3 validation/prepare_report_db.py --output build/report-compile-commands.json \
   build/report/compile_commands.json build/report-consumer/compile_commands.json \
   build/report-l6/compile_commands.json
-cppreportcard-cli --config .cppreportcard.json --mode full --fail-on errors --threshold 0 \
+cppreportcard-cli --config .cppreportcard.json --mode full --fail-on findings --threshold 100 \
   --output-dir .github/cppreportcard
-python3 validation/check_report_complete.py .github/cppreportcard/report.json
+python3 validation/check_report_complete.py .github/cppreportcard/report.json --require-aplus
 ```
 
 CLI 应与 `.github/workflows/cppreportcard.yml` 固定的 Action 提交一致。

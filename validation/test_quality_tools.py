@@ -1,3 +1,4 @@
+import copy
 import json
 from pathlib import Path
 import tempfile
@@ -8,6 +9,24 @@ from cppcheck_report import command_database
 
 
 class QualityToolsTests(unittest.TestCase):
+    def test_aplus_gate_rejects_downgrades_and_retained_findings(self):
+        report = {"mode": "full", "analysis_complete": True, "grade": "A+",
+                  "score": 100, "status": "passed", "checks": [
+            {"tool": tool, "status": "passed", "analyzed": 2, "total": 2, "diagnostics": []}
+            for tool in ("clang-format", "cppcheck", "clang-tidy")]}
+        self.assertEqual(validate(report, require_aplus=True), 0)
+        for key, value in (("grade", "A"), ("score", 99.99), ("status", "findings"),
+                           ("analysis_complete", False)):
+            invalid = copy.deepcopy(report)
+            invalid[key] = value
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                validate(invalid, require_aplus=True)
+        for diagnostic in ({"severity": "warning"}, {"severity": "information"}):
+            invalid = copy.deepcopy(report)
+            invalid["checks"][1]["diagnostics"].append(diagnostic)
+            with self.assertRaises(ValueError):
+                validate(invalid, require_aplus=True)
+
     def test_shared_implementation_headers_remain_in_scope(self):
         config = (Path(__file__).resolve().parents[1] / ".clang-tidy").read_text()
         value = next(line.split(":", 1)[1].strip() for line in config.splitlines()

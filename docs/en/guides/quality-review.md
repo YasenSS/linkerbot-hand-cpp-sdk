@@ -7,6 +7,9 @@ The [diagnostic ledger](../../quality-baseline-2026-11-03.csv) preserves all 717
 PR head `26912797fe297bafdd8be40cab09e2a847221c60`. Entries describe treatment, not a claim
 that every diagnostic has been eliminated. Remaining findings stay visible in new reports.
 
+Current main [complete report](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/actions/runs/41852646930) is **A+, 100/100, zero diagnostics**.
+The ledger below is historical; the current CI gate rejects any finding.
+
 ## Runtime fixes and evidence
 
 `ExecutionGate` formerly allocated a shared-pointer control block while holding its mutex.

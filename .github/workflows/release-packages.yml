@@ -16,6 +16,10 @@ name: Release packages
     tags: ['v*']
   workflow_dispatch:
     inputs:
+      create_draft:
+        description: 'Create a new draft Release after all gates pass (version tag only)'
+        type: boolean
+        default: false
       comm_sha:
         description: 'Full 40-character compatible transport commit SHA'
         required: true
@@ -41,9 +45,14 @@ jobs:
       comm_sha: ${{ steps.matrix.outputs.comm_sha }}
       version: ${{ steps.matrix.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
+      - name: Require a version tag for an explicitly requested draft
+        if: github.event_name == 'workflow_dispatch' && inputs.create_draft
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+        run: test "$REF_TYPE" = tag
       - name: Resolve immutable source inputs
         env:
           REQUESTED_COMM_SHA: ${{ inputs.comm_sha }}
@@ -84,11 +93,11 @@ jobs:
       COMM_SHA: ${{ needs.targets.outputs.comm_sha }}
       RELEASE_VERSION: ${{ needs.targets.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.HAND_SHA }}
           path: hand-cpp
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ env.COMM_REPOSITORY }}
           ref: ${{ env.COMM_SHA }}
@@ -129,14 +138,14 @@ jobs:
             '
       - name: Upload diagnostic evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: evidence-ubuntu${{ matrix.ubuntu }}-${{ matrix.arch }}
           path: |
             ${{ runner.temp }}/release/evidence/
             ${{ runner.temp }}/build-image.txt
       - name: Upload validated hand SDK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sdk-ubuntu${{ matrix.ubuntu }}-${{ matrix.arch }}
           if-no-files-found: error
@@ -160,11 +169,11 @@ jobs:
       COMM_SHA: ${{ needs.targets.outputs.comm_sha }}
       RELEASE_VERSION: ${{ needs.targets.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.HAND_SHA }}
           path: hand-cpp
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ env.COMM_REPOSITORY }}
           ref: ${{ env.COMM_SHA }}
@@ -188,12 +197,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Windows release acceptance failed' }
       - name: Upload diagnostic evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: evidence-windows-${{ matrix.arch }}-${{ matrix.configuration }}
           path: ${{ runner.temp }}/release/evidence/
       - name: Upload validated hand SDK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sdk-windows-${{ matrix.arch }}-${{ matrix.configuration }}
           if-no-files-found: error
@@ -206,10 +215,10 @@ jobs:
     needs: [targets, linux, windows]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.targets.outputs.hand_sha }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: sdk-*
           merge-multiple: true
@@ -225,8 +234,34 @@ jobs:
           cd release-assets
           sha256sum --check SHA256SUMS.txt
           test "$(find . -maxdepth 1 -type f | wc -l)" -eq 26
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-assets
           path: release-assets/*
           if-no-files-found: error
+
+  draft:
+    name: Optionally create a verified draft Release
+    if: github.event_name == 'workflow_dispatch' && inputs.create_draft
+    needs: [targets, collect]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.targets.outputs.hand_sha }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+          path: release-assets
+      - name: Require exact-source A+ and create a new draft without overwriting assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.targets.outputs.version }}
+          HAND_SHA: ${{ needs.targets.outputs.hand_sha }}
+          COMM_SHA: ${{ needs.targets.outputs.comm_sha }}
+        run: |
+          python3 validation/publish_release.py --assets release-assets \
+            --version "$VERSION" --hand-sha "$HAND_SHA" --comm-sha "$COMM_SHA"

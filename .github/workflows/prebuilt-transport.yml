@@ -26,7 +26,7 @@ jobs:
       CC: gcc-13
       CXX: g++-13
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check transport selection without downloads
         run: python3 -m unittest discover -s validation -p 'test_transport_provider.py'
       - name: Download and verify released transport SDK
