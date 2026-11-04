@@ -582,8 +582,9 @@ TEST_CASE("HandDevice converts dynamic angle commands for every model", "[comm][
             FakeTransport *transport = nullptr;
             std::shared_ptr<o30_comm::HopEndpoint> hop;
             auto config = config_for(model);
-            // Encoding coverage must tolerate Windows host scheduling; deadline
-            // behavior is covered separately by command scheduler tests.
+            // Opening performs paced baseline reads before the command assertions.
+            // Give both paths scheduler headroom for multi-frame Windows I/O.
+            config.transaction_timeout = std::chrono::seconds{1};
             config.command_timeout = std::chrono::seconds{1};
             HandDevice device(config, [&] {
                 auto next = std::make_unique<FakeTransport>();
@@ -592,7 +593,7 @@ TEST_CASE("HandDevice converts dynamic angle commands for every model", "[comm][
                 return next;
             });
 
-            device.open();
+            REQUIRE_NOTHROW(device.open());
             transport->clear_sent();
             const auto handle = completed(device.set_angles(maximum_raw_angles(device.get_capabilities())));
             REQUIRE(handle.done());
@@ -611,8 +612,9 @@ TEST_CASE("HandDevice converts percent angle commands for every model", "[comm][
             FakeTransport *transport = nullptr;
             std::shared_ptr<o30_comm::HopEndpoint> hop;
             auto config = config_for(model);
-            // Encoding coverage must tolerate Windows host scheduling; deadline
-            // behavior is covered separately by command scheduler tests.
+            // Opening performs paced baseline reads before the command assertions.
+            // Give both paths scheduler headroom for multi-frame Windows I/O.
+            config.transaction_timeout = std::chrono::seconds{1};
             config.command_timeout = std::chrono::seconds{1};
             HandDevice device(config, [&] {
                 auto next = std::make_unique<FakeTransport>();
@@ -621,7 +623,7 @@ TEST_CASE("HandDevice converts percent angle commands for every model", "[comm][
                 return next;
             });
 
-            device.open();
+            REQUIRE_NOTHROW(device.open());
             transport->clear_sent();
             const auto capabilities = device.get_capabilities();
             const auto joint_count = capabilities.joints.size();
@@ -648,8 +650,9 @@ TEST_CASE("HandDevice dispatches every declared non-angle command", "[comm][devi
             FakeTransport *transport = nullptr;
             std::shared_ptr<o30_comm::HopEndpoint> hop;
             auto config = config_for(model);
-            // This is a command coverage check, not a latency test. L20 writes
-            // span several physical sends, including Windows scheduling gaps.
+            // Opening performs paced baseline reads before the command assertions.
+            // Give both paths scheduler headroom for multi-frame Windows I/O.
+            config.transaction_timeout = std::chrono::seconds{1};
             config.command_timeout = std::chrono::seconds{1};
             HandDevice device(config, [&] {
                 auto next = std::make_unique<FakeTransport>();
@@ -657,7 +660,7 @@ TEST_CASE("HandDevice dispatches every declared non-angle command", "[comm][devi
                 install_fake_device(model, transport, hop);
                 return next;
             });
-            device.open();
+            REQUIRE_NOTHROW(device.open());
 
             const auto capabilities = device.get_capabilities();
             for (const auto &command : capabilities.commands) {
