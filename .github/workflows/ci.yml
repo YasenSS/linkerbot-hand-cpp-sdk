@@ -172,6 +172,9 @@ jobs:
 
       # Both suites share these build trees. PRs stop after tests; pushes to the
       # main branch retain full installation and release-package acceptance.
+      - name: Check transport selection including Windows source paths
+        run: python -m unittest discover -s hand-cpp/validation -p 'test_transport_provider.py'
+
       - name: Build once and validate both test suites
         run: |
           $QuickArgs = @()

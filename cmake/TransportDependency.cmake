@@ -8,13 +8,19 @@ if(NOT _comm_provider MATCHES "^(AUTO|SOURCE|PREBUILT)$")
 endif()
 set(LINKERBOT_COMM_PREBUILT_PREFIX "" CACHE PATH "Extracted/installed transport SDK root (contains include and lib)")
 
-# Respect an explicitly empty legacy path as a request to find a package.
-if(NOT DEFINED LINKERBOT_COMM_SOURCE_DIR)
-    set(_comm_default_source "")
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../linkerbot-transport-cpp/CMakeLists.txt")
-        set(_comm_default_source "${CMAKE_CURRENT_SOURCE_DIR}/../linkerbot-transport-cpp")
-    endif()
-    set(LINKERBOT_COMM_SOURCE_DIR "${_comm_default_source}" CACHE PATH "Transport source checkout")
+# Type CLI paths even when supplied before this include. Untyped Windows
+# values otherwise retain backslashes that CMake can interpret as escapes when
+# source paths are expanded by downstream test/fixture commands.
+set(_comm_default_source "")
+if(NOT DEFINED LINKERBOT_COMM_SOURCE_DIR AND
+        EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../linkerbot-transport-cpp/CMakeLists.txt")
+    set(_comm_default_source "${CMAKE_CURRENT_SOURCE_DIR}/../linkerbot-transport-cpp")
+endif()
+set(LINKERBOT_COMM_SOURCE_DIR "${_comm_default_source}" CACHE PATH "Transport source checkout")
+if(LINKERBOT_COMM_SOURCE_DIR)
+    file(TO_CMAKE_PATH "${LINKERBOT_COMM_SOURCE_DIR}" LINKERBOT_COMM_SOURCE_DIR)
+    get_filename_component(LINKERBOT_COMM_SOURCE_DIR "${LINKERBOT_COMM_SOURCE_DIR}"
+        ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 endif()
 
 if(TARGET linkerbot::comm)

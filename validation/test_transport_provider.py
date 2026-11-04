@@ -1,4 +1,5 @@
 """Configure-only regression cases for transport selection; no downloads needed."""
+import os
 import pathlib
 import subprocess
 import tempfile
@@ -40,6 +41,12 @@ class TransportProviderTests(unittest.TestCase):
     def test_explicit_source(self):
         self.configure(['-DLINKERBOT_COMM_PROVIDER=SOURCE',
                         f'-DLINKERBOT_COMM_SOURCE_DIR={self.source}'], 'Transport: SOURCE')
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows path syntax')
+    def test_untyped_windows_source_path(self):
+        self.configure(['-DLINKERBOT_COMM_PROVIDER=SOURCE',
+                        f'-DLINKERBOT_COMM_SOURCE_DIR={self.source}'],
+                       'Transport: SOURCE (' + self.source.as_posix())
 
     def test_legacy_source(self):
         self.configure([f'-DLINKERBOT_COMM_SOURCE_DIR={self.source}'], 'Transport: SOURCE')
