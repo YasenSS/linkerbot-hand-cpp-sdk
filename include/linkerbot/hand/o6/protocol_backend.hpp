@@ -50,6 +50,8 @@ namespace linkerbot::hand::o6::protocol {
         for (size_t i = 0; i < raw.size(); ++i) {
             raw[i] = message.data[i + 1];
         }
+        // Progress owns this payload through std::any; covered by ownership regression tests.
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         return common::Progress::complete(AngleData{Angle::from_array(raw_to_percents(raw)), {}, origin, raw},
                                           origin == SampleOrigin::CommandFeedback ? common::Origin::command_feedback
                                                                                   : common::Origin::response);
@@ -151,6 +153,8 @@ namespace linkerbot::hand::o6::protocol {
         for (size_t i = 0; i < values.size(); ++i) {
             values[i] = static_cast<float>(message.data[i + 1]) * 100.0f / 255.0f;
         }
+        // Progress owns this payload through std::any; covered by ownership regression tests.
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         return common::Progress::complete(SpeedData{Speed::from_array(values), {}});
     }
     inline common::TransactionPlan read_speed(uint32_t id) {
@@ -190,6 +194,8 @@ namespace linkerbot::hand::o6::protocol {
             const uint8_t raw = message.data[i + 1];
             values[i] = raw == 0 ? 100.0f : static_cast<float>(raw - 1) * 99.0f / 253.0f;
         }
+        // Progress owns this payload through std::any; covered by ownership regression tests.
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         return common::Progress::complete(AccelerationData{Acceleration::from_array(values), {}});
     }
     inline common::TransactionPlan read_acceleration(uint32_t id) {
@@ -230,6 +236,8 @@ namespace linkerbot::hand::o6::protocol {
         for (size_t i = 0; i < values.size(); ++i) {
             values[i] = static_cast<float>(message.data[i + 1]);
         }
+        // Progress owns this payload through std::any; covered by ownership regression tests.
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         return common::Progress::complete(TemperatureData{Temperature::from_array(values), {}});
     }
     inline common::TransactionPlan read_temperature(uint32_t id) {
@@ -254,6 +262,8 @@ namespace linkerbot::hand::o6::protocol {
         for (size_t i = 0; i < raw.size(); ++i) {
             raw[i] = message.data[i + 1];
         }
+        // Progress owns this payload through std::any; covered by ownership regression tests.
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         return common::Progress::complete(FaultData{Fault::from_raw(raw), {}});
     }
     inline common::TransactionPlan read_fault(uint32_t id) {
@@ -280,6 +290,8 @@ namespace linkerbot::hand::o6::protocol {
         for (size_t i = 0; i < values.size(); ++i) {
             values[i] = static_cast<float>(message.data[i + 1]) * 10.0f;
         }
+        // Progress owns this payload through std::any; covered by ownership regression tests.
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         return common::Progress::complete(StallTimeData{StallTime::from_array(values), {}});
     }
     inline common::TransactionPlan read_stall_time(uint32_t id) {
@@ -318,6 +330,8 @@ namespace linkerbot::hand::o6::protocol {
         for (size_t i = 0; i < values.size(); ++i) {
             values[i] = static_cast<float>(message.data[i + 1]) * 1000.0f / 255.0f;
         }
+        // Progress owns this payload through std::any; covered by ownership regression tests.
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         return common::Progress::complete(StallLimitData{StallLimit::from_array(values), {}});
     }
     inline common::TransactionPlan read_stall_threshold(uint32_t id) {
@@ -356,6 +370,8 @@ namespace linkerbot::hand::o6::protocol {
         for (size_t i = 0; i < values.size(); ++i) {
             values[i] = static_cast<float>(message.data[i + 1]) * 1000.0f / 255.0f;
         }
+        // Progress owns this payload through std::any; covered by ownership regression tests.
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         return common::Progress::complete(StallLimitData{StallLimit::from_array(values), {}});
     }
     inline common::TransactionPlan read_stall_torque(uint32_t id) {
@@ -387,17 +403,28 @@ namespace linkerbot::hand::o6::protocol {
 
     // --- config: fire-and-forget writes, no response consumption ---
 
+    namespace argument_detail {
+        // Keep on-wire identifiers, selectors and lengths in one named record.
+        struct WriteConfigSetIdArguments {
+            uint32_t id;
+            uint8_t subcommand;
+            uint8_t target;
+        };
+        inline common::TransactionPlan write_config_set_id(const WriteConfigSetIdArguments &arguments) {
+            can::Message message;
+            message.id = arguments.id;
+            message.dlc = 3;
+            message.data[0] = 0xC3;
+            message.data[1] = arguments.subcommand;
+            message.data[2] = arguments.target;
+            common::TransactionPlan plan;
+            plan.keys = {"config"};
+            plan.frames = {message};
+            return plan;
+        }
+    }
     inline common::TransactionPlan write_config_set_id(uint32_t id, uint8_t subcommand, uint8_t target) {
-        can::Message message;
-        message.id = id;
-        message.dlc = 3;
-        message.data[0] = 0xC3;
-        message.data[1] = subcommand;
-        message.data[2] = target;
-        common::TransactionPlan plan;
-        plan.keys = {"config"};
-        plan.frames = {message};
-        return plan;
+        return argument_detail::write_config_set_id({id, subcommand, target});
     }
     inline common::TransactionPlan write_config_restore_factory(uint32_t id) {
         can::Message message;

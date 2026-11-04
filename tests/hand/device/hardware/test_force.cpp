@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include "hand_device_hardware_fixture.hpp"
 #include <algorithm>
 #include <catch2/catch_test_macros.hpp>
@@ -21,12 +22,13 @@ namespace {
             for (size_t i = 0; i < field.raw.size(); ++i) {
                 if (field.raw[i]) {
                     present = true;
-                    REQUIRE_FALSE(field.raw[i]->empty());
-                    for (const auto value : *field.raw[i]) {
+                    REQUIRE_FALSE(test_support::require_value(field.raw[i]).empty());
+                    for (const auto value : test_support::require_value(field.raw[i])) {
                         REQUIRE(std::isfinite(value));
                     }
                     if (field.valid_values[i]) {
-                        REQUIRE(field.valid_values[i]->size() == field.raw[i]->size());
+                        REQUIRE(test_support::require_value(field.valid_values[i]).size() ==
+                                test_support::require_value(field.raw[i]).size());
                     }
                 }
             }
@@ -126,6 +128,6 @@ TEST_CASE("HandDevice hardware normal force resultant", "[hardware][device][forc
     }
     const auto snapshot = hand.get_snapshot();
     REQUIRE(snapshot.normal_force_resultant.has_value());
-    REQUIRE(snapshot.normal_force_resultant->raw == result.raw);
+    REQUIRE(test_support::require_value(snapshot.normal_force_resultant).raw == result.raw);
     REQUIRE_THROWS_AS(hand.get_normal_force_resultant(0ms), ValidationError);
 }

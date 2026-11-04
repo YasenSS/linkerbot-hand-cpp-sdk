@@ -105,6 +105,8 @@ namespace linkerbot::hand::l6 {
             try {
                 stop_stream();
                 runtime_->quiesce_for_destruction();
+                // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+                // NOLINTNEXTLINE(bugprone-empty-catch)
             } catch (...) {
             }
             // Runtime cancellation wakes requests but does not account for the
@@ -113,6 +115,8 @@ namespace linkerbot::hand::l6 {
             // destruction where public stop() is deliberately rejected.
             try {
                 drain_manager_calls();
+                // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+                // NOLINTNEXTLINE(bugprone-empty-catch)
             } catch (...) {
             }
         }
@@ -590,9 +594,14 @@ namespace linkerbot::hand::l6 {
     }
 
     void L6::query_scheduled_angle(std::chrono::steady_clock::time_point due, runtime::Deadline deadline) {
-        const auto sample = angle.get_until(deadline);
+        struct ScheduledQuery {
+            std::chrono::steady_clock::time_point due;
+            runtime::Deadline deadline;
+        };
+        const auto timing = ScheduledQuery{due, deadline};
+        const auto sample = angle.get_until(timing.deadline);
         stats_.record_angle_deadline_latency(
-            std::chrono::duration_cast<std::chrono::microseconds>(sample.timestamp - due));
+            std::chrono::duration_cast<std::chrono::microseconds>(sample.timestamp - timing.due));
     }
 
     void L6::before_tactile_finger(size_t index, std::chrono::steady_clock::time_point deadline) {
@@ -689,12 +698,16 @@ namespace linkerbot::hand::l6 {
             if (run_angle) {
                 try {
                     query_scheduled_angle(angle_due, runtime::deadline_after(plan_.request_timeout));
+                    // The loop rechecks cancellation and the shared deadline after this bounded wait.
+                    // NOLINTNEXTLINE(bugprone-empty-catch)
                 } catch (const internal::DataRelayTimeout &) {
                 }
             }
             if (run_current_limit && polling_allowed()) {
                 try {
                     (void)current_limit.get_blocking(plan_.request_timeout);
+                    // The loop rechecks cancellation and the shared deadline after this bounded wait.
+                    // NOLINTNEXTLINE(bugprone-empty-catch)
                 } catch (const internal::DataRelayTimeout &) {
                 }
             }
@@ -759,6 +772,8 @@ namespace linkerbot::hand::l6 {
                     if (std::chrono::steady_clock::now() > started + plan_.tactile_period) {
                         stats_.add_tactile_service_overrun_count();
                     }
+                    // The loop rechecks cancellation and the shared deadline after this bounded wait.
+                    // NOLINTNEXTLINE(bugprone-empty-catch)
                 } catch (const internal::DataRelayTimeout &) {
                 } catch (const LifecycleError &) {
                     if (polling_allowed()) {

@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 #include <string_view>
 
 namespace linkerbot::hand::o30 {
@@ -105,7 +106,12 @@ namespace linkerbot::hand::o30 {
     // Actual vs setpoint. CTRL bit7 is RTS; kSetpoint sends MI | 0x80.
     enum class ValueKind { kActual, kSetpoint };
 
-    [[nodiscard]] constexpr std::string_view joint_name(size_t index) { return kJointNames.at(index); }
+    [[nodiscard]] constexpr std::string_view joint_name(size_t index) {
+        if (index >= kJointNames.size()) {
+            throw std::out_of_range("joint index out of range");
+        }
+        return kJointNames.at(index);
+    }
 
     [[nodiscard]] constexpr uint8_t joint_slot(size_t index) { return kJointSlots.at(index); }
 

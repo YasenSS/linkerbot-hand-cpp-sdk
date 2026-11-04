@@ -33,14 +33,19 @@ namespace {
         return {msg.data.begin(), msg.data.begin() + msg.dlc};
     }
 
-    Message sn_frame(uint32_t id, uint8_t key, const char *six) {
+    struct SnFrameArguments {
+        uint32_t id;
+        uint8_t key;
+        const char *six;
+    };
+    Message sn_frame(const SnFrameArguments &arguments) {
         Message msg;
-        msg.id = id;
+        msg.id = arguments.id;
         msg.dlc = 8;
         msg.data[0] = kSnCmd;
-        msg.data[1] = key;
+        msg.data[1] = arguments.key;
         for (uint8_t i = 0; i < 6; ++i) {
-            msg.data[2 + i] = static_cast<uint8_t>(six[i]);
+            msg.data[2 + i] = static_cast<uint8_t>(arguments.six[i]);
         }
         return msg;
     }
@@ -52,8 +57,8 @@ namespace {
             }
             switch (req.data[0]) {
             case kSnCmd:
-                return std::vector<Message>{sn_frame(id, 0, "LHO6-0"), sn_frame(id, 1, "3-123-"),
-                                            sn_frame(id, 2, "L-B-1-"), sn_frame(id, 3, "A\0\0\0\0\0")};
+                return std::vector<Message>{sn_frame({id, 0, "LHO6-0"}), sn_frame({id, 1, "3-123-"}),
+                                            sn_frame({id, 2, "L-B-1-"}), sn_frame({id, 3, "A\0\0\0\0\0"})};
             case kPcbCmd: {
                 Message reply;
                 reply.id = id;
@@ -141,11 +146,11 @@ TEST_CASE("comm: O6 serial accepts an unpadded final indexed fragment", "[comm][
                 if (request.data[0] != kSnCmd) {
                     return versions(request);
                 }
-                auto tail = sn_frame(kLeftId, 3, "EABCDE");
+                auto tail = sn_frame({kLeftId, 3, "EABCDE"});
                 tail.dlc = dlc;
                 // Bytes beyond DLC remain nonzero and must not be read.
-                return std::vector<Message>{sn_frame(kLeftId, 0, "LHO6-0"), sn_frame(kLeftId, 1, "4-021-"),
-                                            sn_frame(kLeftId, 2, "L-Z-1-"), tail};
+                return std::vector<Message>{sn_frame({kLeftId, 0, "LHO6-0"}), sn_frame({kLeftId, 1, "4-021-"}),
+                                            sn_frame({kLeftId, 2, "L-Z-1-"}), tail};
             });
             O6 hand(Side::kLeft, std::move(transport), "can0", test_util::unique_mapping_path());
             const auto info = hand.version.get_device_info(kTimeout);

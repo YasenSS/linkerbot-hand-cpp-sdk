@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <linkerbot/hand/errors.hpp>
@@ -242,8 +243,8 @@ TEST_CASE("comm: fault periodic report updates snapshot", "[comm][l30][fault]") 
     raw->inject(frame);
 
     REQUIRE(wait_until([&hand] { return hand.fault.get_snapshot().has_value(); }));
-    REQUIRE(hand.fault.get_snapshot()->has_load_fault(0));
-    REQUIRE_FALSE(hand.fault.get_snapshot()->has_voltage_fault(0));
+    REQUIRE(test_support::require_value(hand.fault.get_snapshot()).has_load_fault(0));
+    REQUIRE_FALSE(test_support::require_value(hand.fault.get_snapshot()).has_voltage_fault(0));
     REQUIRE(l30_comm::frames_for(raw, kQueryId).empty());
 }
 

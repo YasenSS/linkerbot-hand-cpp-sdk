@@ -19,7 +19,7 @@ namespace linkerbot::hand::o30 {
 
     void AccelerationManager::set_all(uint8_t acceleration, std::chrono::milliseconds timeout_ms) {
         auto operation = client_->operation(timeout_ms);
-        detail::write_all(*client_, protocol::kMiAcceleration, acceleration, timeout_ms);
+        detail::write_all(*client_, {protocol::kMiAcceleration, acceleration}, timeout_ms);
     }
 
     AccelerationData AccelerationManager::get_blocking(std::chrono::milliseconds timeout_ms, ValueKind kind) {

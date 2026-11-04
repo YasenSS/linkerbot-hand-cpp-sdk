@@ -16,7 +16,7 @@ args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 documents = {
     "readme": "README.md",
-    "readme-en": "README.en.md",
+    "readme-zh": "README.zh-CN.md",
 }
 for language in ("zh", "en"):
     for document, relative in {

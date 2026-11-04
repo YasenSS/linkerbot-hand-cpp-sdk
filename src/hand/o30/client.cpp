@@ -34,6 +34,8 @@ namespace linkerbot::hand::o30 {
             try {
                 runtime_->quiesce_for_destruction();
                 calls_.drain();
+                // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+                // NOLINTNEXTLINE(bugprone-empty-catch)
             } catch (...) {
             }
         }
@@ -141,10 +143,12 @@ namespace linkerbot::hand::o30 {
             return bytes;
         } catch (...) {
             // Cancellation/close can make set_routes fail; retain the original error.
+            const auto original = std::current_exception();
             if (next_id) {
                 try {
                     runtime_->set_routes({{old_response, false}});
                 } catch (...) {
+                    std::rethrow_exception(original);
                 }
             }
             throw;

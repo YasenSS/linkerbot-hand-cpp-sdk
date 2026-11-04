@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <linkerbot/hand/errors.hpp>
 
@@ -52,14 +53,19 @@ namespace {
         return reply;
     }
 
-    Message tactile_frame(uint8_t opcode, uint8_t row, uint8_t fill) {
+    struct TactileFrameArguments {
+        uint8_t opcode;
+        uint8_t row;
+        uint8_t fill;
+    };
+    Message tactile_frame(const TactileFrameArguments &arguments) {
         Message reply;
         reply.id = kLeftId;
         reply.dlc = 8;
-        reply.data[0] = opcode;
-        reply.data[1] = row;
+        reply.data[0] = arguments.opcode;
+        reply.data[1] = arguments.row;
         for (uint8_t column = 0; column < 6; ++column) {
-            reply.data[column + 2] = fill;
+            reply.data[column + 2] = arguments.fill;
         }
         return reply;
     }
@@ -68,7 +74,7 @@ namespace {
         std::vector<Message> frames;
         frames.reserve(12);
         for (uint8_t row = 0; row < 12; ++row) {
-            frames.push_back(tactile_frame(opcode, row, fill));
+            frames.push_back(tactile_frame({opcode, row, fill}));
         }
         return frames;
     }
@@ -302,7 +308,7 @@ TEST_CASE("comm: L6 tactile accepts identical duplicate rows", "[comm][l6][runti
             return std::vector<Message>{};
         }
         auto frames = tactile_frames(0xB1, 0x07);
-        frames.insert(frames.begin() + 1, tactile_frame(0xB1, 0, 0x07));
+        frames.insert(frames.begin() + 1, tactile_frame({0xB1, 0, 0x07}));
         return frames;
     });
     L6 hand(Side::kLeft, std::move(transport), "can0", test_util::unique_mapping_path());
@@ -355,9 +361,9 @@ TEST_CASE("comm: L6 does not stitch historical fingers into a new sample", "[com
     REQUIRE_THROWS_AS(hand.force_sensor.get_blocking(kTimeout), std::runtime_error);
     const auto snap = hand.force_sensor.get_snapshot();
     REQUIRE(snap.has_value());
-    REQUIRE(snap->sequence == first.sequence);
-    REQUIRE(snap->generation == first.generation);
-    REQUIRE(snap->thumb.values[0][0] == first.thumb.values[0][0]);
+    REQUIRE(test_support::require_value(snap).sequence == first.sequence);
+    REQUIRE(test_support::require_value(snap).generation == first.generation);
+    REQUIRE(test_support::require_value(snap).thumb.values[0][0] == first.thumb.values[0][0]);
 }
 
 // sequence 与 generation 单调且归属正确。
@@ -479,7 +485,7 @@ TEST_CASE("comm: L6 tactile protocol errors fail the active transaction", "[comm
         if (request.dlc != 2 || request.data[0] != 0xB1) {
             return std::vector<Message>{};
         }
-        auto invalid = tactile_frame(0xB1, 0, 0x11);
+        auto invalid = tactile_frame({0xB1, 0, 0x11});
         invalid.dlc = 7;
         return std::vector<Message>{invalid};
     });
@@ -505,14 +511,14 @@ TEST_CASE("comm: L6 tactile conflict quarantines late rows", "[comm][l6][runtime
             return std::vector<Message>{};
         }
         if (++requests == 1) {
-            return std::vector<Message>{tactile_frame(0xB1, 0, 0x11), tactile_frame(0xB1, 0, 0x22)};
+            return std::vector<Message>{tactile_frame({0xB1, 0, 0x11}), tactile_frame({0xB1, 0, 0x22})};
         }
         return tactile_frames(0xB1, 0x44);
     });
     L6 hand(Side::kLeft, std::move(transport), "can0", test_util::unique_mapping_path());
 
     REQUIRE_THROWS_AS(hand.force_sensor.get_finger("thumb").get_blocking(kTimeout), std::runtime_error);
-    raw->inject(tactile_frame(0xB1, 1, 0x33));
+    raw->inject(tactile_frame({0xB1, 1, 0x33}));
     const auto started = std::chrono::steady_clock::now();
     const auto sample = hand.force_sensor.get_finger("thumb").get_blocking(kTimeout);
     const auto elapsed = std::chrono::steady_clock::now() - started;

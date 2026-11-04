@@ -25,6 +25,8 @@ namespace linkerbot::hand::runtime {
         ~Channel() {
             try {
                 shutdown();
+                // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+                // NOLINTNEXTLINE(bugprone-empty-catch)
             } catch (...) {
             }
         }
@@ -84,7 +86,8 @@ namespace linkerbot::hand::runtime {
             if (plan.command_family.empty() && plan.optional_response_window) {
                 plan.command_family = domain_;
             }
-            (void)core_->submit(std::move(plan), deadline, token()).wait_sent_until(deadline);
+            auto request = core_->submit(std::move(plan), deadline, token());
+            (void)request.wait_sent_until(deadline);
         }
         void command(TransactionPlan plan) {
             auto call = enter();

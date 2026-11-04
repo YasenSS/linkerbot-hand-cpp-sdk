@@ -57,7 +57,8 @@ namespace linkerbot::hand {
         unified_detail::validate_force_field(name);
         for (auto &field : force_fields()) {
             if (field.name == name) {
-                return std::move(field);
+                auto result = std::move(field);
+                return result;
             }
         }
         throw ValidationError("unknown force field");
@@ -165,7 +166,7 @@ namespace linkerbot::hand::unified_detail {
 
     ForceSample descriptor_force_sample(const o30::SensorData &data, SampleMeta meta) {
         try {
-            return hand::protocol::hop::descriptor_force_sample(data, meta);
+            return hand::protocol::hop::descriptor_force_sample(data, std::move(meta));
         } catch (const hand::ProtocolError &error) {
             throw o30::protocol::ProtocolError(error.what());
         }

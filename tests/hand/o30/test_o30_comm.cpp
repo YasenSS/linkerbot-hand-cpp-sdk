@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <linkerbot/hand/errors.hpp>
 
@@ -153,10 +154,10 @@ TEST_CASE("comm: snapshot and stream receive a blocking angle read", "[comm][o30
     const auto snapshot = h.hand->get_snapshot();
 
     REQUIRE(event.has_value());
-    REQUIRE(std::holds_alternative<AngleEvent>(*event));
-    REQUIRE(std::get<AngleEvent>(*event).data.angles.to_raw() == data.angles.to_raw());
+    REQUIRE(std::holds_alternative<AngleEvent>(test_support::require_value(event)));
+    REQUIRE(std::get<AngleEvent>(test_support::require_value(event)).data.angles.to_raw() == data.angles.to_raw());
     REQUIRE(snapshot.angle.has_value());
-    REQUIRE(snapshot.angle->angles.to_raw() == data.angles.to_raw());
+    REQUIRE(test_support::require_value(snapshot.angle).angles.to_raw() == data.angles.to_raw());
 
     h.hand->stop_stream();
 }

@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
@@ -55,7 +56,7 @@ TEST_CASE("comm: five-frame assembler waits for all frames", "[comm][l20][multi_
 
     const auto assembled = assembler.put(0x45, pinky.data(), pinky.size());
     REQUIRE(assembled.has_value());
-    REQUIRE(*assembled ==
+    REQUIRE(test_support::require_value(assembled) ==
             (std::array<uint8_t, kJointCount>{10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160}));
 }
 

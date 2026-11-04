@@ -83,8 +83,17 @@ namespace linkerbot::hand::l30::protocol {
             out.push_back(static_cast<uint8_t>(value & 0xFFU));
         }
 
-        const uint8_t *validate_tactile_frame(const std::vector<uint8_t> &frame, uint8_t transaction,
-                                              size_t expected_length) {
+        struct TactileExpectation {
+            uint8_t transaction;
+            size_t expected_length;
+        };
+        struct PeriodicReportInput {
+            const uint8_t *data;
+            size_t len;
+            uint32_t joint_mask;
+        };
+
+        const uint8_t *validate_tactile_frame(const std::vector<uint8_t> &frame, const TactileExpectation &arguments) {
             if (frame.size() <= kStatusByteIndex) {
                 throw ProtocolError("tactile frame too short for status byte");
             }
@@ -98,17 +107,17 @@ namespace linkerbot::hand::l30::protocol {
                 throw ProtocolError(
                     "L30 tactile status " + hex_byte(status) + ": " + std::string(status_message(status)), status);
             }
-            if (frame[kTransactionByteIndex] != transaction) {
-                throw ProtocolError("tactile transaction mismatch: expected " + hex_byte(transaction) + ", got " +
-                                    hex_byte(frame[kTransactionByteIndex]));
+            if (frame[kTransactionByteIndex] != arguments.transaction) {
+                throw ProtocolError("tactile transaction mismatch: expected " + hex_byte(arguments.transaction) +
+                                    ", got " + hex_byte(frame[kTransactionByteIndex]));
             }
-            if (frame[kLengthByteIndex] != expected_length) {
-                throw ProtocolError("tactile length mismatch: expected " + std::to_string(expected_length) +
+            if (frame[kLengthByteIndex] != arguments.expected_length) {
+                throw ProtocolError("tactile length mismatch: expected " + std::to_string(arguments.expected_length) +
                                     " bytes, got " + std::to_string(static_cast<unsigned>(frame[kLengthByteIndex])));
             }
-            if (frame.size() < kResponseDataOffset + expected_length) {
-                throw ProtocolError("tactile frame payload too short: expected " + std::to_string(expected_length) +
-                                    " bytes");
+            if (frame.size() < kResponseDataOffset + arguments.expected_length) {
+                throw ProtocolError("tactile frame payload too short: expected " +
+                                    std::to_string(arguments.expected_length) + " bytes");
             }
             return frame.data() + kResponseDataOffset;
         }
@@ -279,24 +288,27 @@ namespace linkerbot::hand::l30::protocol {
     }
 
     std::vector<int16_t> decode_periodic_i16_report(const uint8_t *data, size_t len, uint32_t joint_mask) {
-        const auto count = reported_joint_count(joint_mask);
+        const PeriodicReportInput arguments{data, len, joint_mask};
+
+        const auto count = reported_joint_count(arguments.joint_mask);
         // Unsolicited reports carry no status byte, so useful data starts at
         // BYTE2 and BYTE0 counts from there.
         const auto expected = count * 2;
-        if (data == nullptr || len < kStatusByteIndex) {
+        if (arguments.data == nullptr || arguments.len < kStatusByteIndex) {
             throw ProtocolError("periodic report too short for header");
         }
-        if (data[kTransactionByteIndex] != kSingleFrameTransaction) {
+        if (arguments.data[kTransactionByteIndex] != kSingleFrameTransaction) {
             throw ProtocolError("unsupported periodic transaction marker");
         }
-        if (data[kLengthByteIndex] != expected) {
+        if (arguments.data[kLengthByteIndex] != expected) {
             throw ProtocolError("periodic report length mismatch: expected " + std::to_string(expected) +
-                                " bytes, got " + std::to_string(static_cast<unsigned>(data[kLengthByteIndex])));
+                                " bytes, got " +
+                                std::to_string(static_cast<unsigned>(arguments.data[kLengthByteIndex])));
         }
-        if (len < kStatusByteIndex + expected) {
+        if (arguments.len < kStatusByteIndex + expected) {
             throw ProtocolError("periodic report payload too short: expected " + std::to_string(expected) + " bytes");
         }
-        const auto *payload = data + kStatusByteIndex;
+        const auto *payload = arguments.data + kStatusByteIndex;
         std::vector<int16_t> values;
         values.reserve(count);
         for (size_t i = 0; i < count; ++i) {
@@ -306,28 +318,30 @@ namespace linkerbot::hand::l30::protocol {
     }
 
     std::vector<uint8_t> decode_periodic_u8_report(const uint8_t *data, size_t len, uint32_t joint_mask) {
-        const auto count = reported_joint_count(joint_mask);
-        if (data == nullptr || len < kStatusByteIndex) {
+        const PeriodicReportInput arguments{data, len, joint_mask};
+
+        const auto count = reported_joint_count(arguments.joint_mask);
+        if (arguments.data == nullptr || arguments.len < kStatusByteIndex) {
             throw ProtocolError("periodic report too short for header");
         }
-        if (data[kTransactionByteIndex] != kSingleFrameTransaction) {
+        if (arguments.data[kTransactionByteIndex] != kSingleFrameTransaction) {
             throw ProtocolError("unsupported periodic transaction marker");
         }
-        if (data[kLengthByteIndex] != count) {
+        if (arguments.data[kLengthByteIndex] != count) {
             throw ProtocolError("periodic report length mismatch: expected " + std::to_string(count) + " bytes, got " +
-                                std::to_string(static_cast<unsigned>(data[kLengthByteIndex])));
+                                std::to_string(static_cast<unsigned>(arguments.data[kLengthByteIndex])));
         }
-        if (len < kStatusByteIndex + count) {
+        if (arguments.len < kStatusByteIndex + count) {
             throw ProtocolError("periodic report payload too short: expected " + std::to_string(count) + " bytes");
         }
-        const auto *payload = data + kStatusByteIndex;
+        const auto *payload = arguments.data + kStatusByteIndex;
         return {payload, payload + count};
     }
 
     std::array<uint8_t, kTactileDataLength> assemble_tactile_payload(const std::vector<uint8_t> &first,
                                                                      const std::vector<uint8_t> &second) {
-        const auto *head = validate_tactile_frame(first, kTactileFirstTransaction, kTactileFirstLength);
-        const auto *tail = validate_tactile_frame(second, kTactileSecondTransaction, kTactileSecondLength);
+        const auto *head = validate_tactile_frame(first, {kTactileFirstTransaction, kTactileFirstLength});
+        const auto *tail = validate_tactile_frame(second, {kTactileSecondTransaction, kTactileSecondLength});
         std::array<uint8_t, kTactileDataLength> matrix{};
         for (size_t i = 0; i < kTactileFirstLength; ++i) {
             matrix[i] = head[i];

@@ -65,9 +65,8 @@ namespace linkerbot::hand::l30 {
 
     L30::L30(std::shared_ptr<transport::Session> session, uint8_t node_id, uint8_t host_id, bool auto_start_periodic)
         : session_(std::move(session)), client_(std::make_unique<Client>(session_, node_id, host_id)),
-          control(*client_), angle(*client_), speed(*client_), current_limit(*client_),
-          current(*client_), temperature(*client_), fault(*client_), force_sensor(*client_), report(*client_),
-          version(*client_) {
+          control(*client_), angle(*client_), speed(*client_), current_limit(*client_), current(*client_),
+          temperature(*client_), fault(*client_), force_sensor(*client_), report(*client_), version(*client_) {
         for (const auto *channel : {"angles", "speeds", "currents", "force", "temperatures", "faults", "version"}) {
             runtime()->register_channel(channel);
         }
@@ -81,9 +80,9 @@ namespace linkerbot::hand::l30 {
 
     L30::L30(std::shared_ptr<runtime::DeviceRuntime> core, uint8_t node_id, uint8_t host_id, bool auto_start_periodic)
         : session_(core ? core->session() : nullptr),
-          client_(std::make_unique<Client>(std::move(core), node_id, host_id)), control(*client_),
-          angle(*client_), speed(*client_), current_limit(*client_), current(*client_),
-          temperature(*client_), fault(*client_), force_sensor(*client_), report(*client_), version(*client_) {
+          client_(std::make_unique<Client>(std::move(core), node_id, host_id)), control(*client_), angle(*client_),
+          speed(*client_), current_limit(*client_), current(*client_), temperature(*client_), fault(*client_),
+          force_sensor(*client_), report(*client_), version(*client_) {
         for (const auto *channel : {"angles", "speeds", "currents", "force", "temperatures", "faults", "version"}) {
             runtime()->register_channel(channel);
         }
@@ -105,6 +104,8 @@ namespace linkerbot::hand::l30 {
                 stop_stream();
                 runtime()->quiesce_for_destruction();
                 client_->drain_calls();
+                // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+                // NOLINTNEXTLINE(bugprone-empty-catch)
             } catch (...) {
             }
         }
@@ -160,24 +161,29 @@ namespace linkerbot::hand::l30 {
         stage([&] { stop_polling(); });
         // Device-side reports are best effort on unplugged hardware. Failure
         // must not bypass local subscription, waiter or backend cleanup.
+        const auto close_local = [&] {
+            stage([&] { angle.close(); });
+            stage([&] { speed.close(); });
+            stage([&] { current.close(); });
+            stage([&] { temperature.close(); });
+            stage([&] { fault.close(); });
+            stage([&] { current_limit.relay_.close(); });
+            stage([&] { force_sensor.relay_.close(); });
+            stage([&] { client_->close(); });
+            if (owns_session_) {
+                stage([&] { session_->close(); });
+            }
+            if (first_error) {
+                std::rethrow_exception(first_error);
+            }
+        };
         try {
             report.disable_all();
         } catch (...) {
+            close_local();
+            return;
         }
-        stage([&] { angle.close(); });
-        stage([&] { speed.close(); });
-        stage([&] { current.close(); });
-        stage([&] { temperature.close(); });
-        stage([&] { fault.close(); });
-        stage([&] { current_limit.relay_.close(); });
-        stage([&] { force_sensor.relay_.close(); });
-        stage([&] { client_->close(); });
-        if (owns_session_) {
-            stage([&] { session_->close(); });
-        }
-        if (first_error) {
-            std::rethrow_exception(first_error);
-        }
+        close_local();
     }
 
     Snapshot L30::get_snapshot() const {

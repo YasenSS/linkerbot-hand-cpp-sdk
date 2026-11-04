@@ -55,14 +55,18 @@ namespace {
         return frames;
     }
 
-    Message tactile_frame(uint8_t row, uint8_t fill) {
+    struct TactileFrameArguments {
+        uint8_t row;
+        uint8_t fill;
+    };
+    Message tactile_frame(const TactileFrameArguments &arguments) {
         Message reply;
         reply.id = kLeftId;
         reply.dlc = 8;
         reply.data[0] = kThumbCmd;
-        reply.data[1] = row;
+        reply.data[1] = arguments.row;
         for (uint8_t column = 0; column < 6; ++column) {
-            reply.data[column + 2] = fill;
+            reply.data[column + 2] = arguments.fill;
         }
         return reply;
     }
@@ -120,7 +124,7 @@ TEST_CASE("comm: L6 tactile accepts direct row markers out of order", "[comm][l6
         std::vector<Message> frames;
         for (const uint8_t row : {uint8_t{5}, uint8_t{0}, uint8_t{11}, uint8_t{3}, uint8_t{1}, uint8_t{9}, uint8_t{2},
                                   uint8_t{8}, uint8_t{4}, uint8_t{7}, uint8_t{6}, uint8_t{10}}) {
-            frames.push_back(tactile_frame(row, row));
+            frames.push_back(tactile_frame({row, row}));
         }
         return frames;
     });
@@ -139,7 +143,7 @@ TEST_CASE("comm: L6 tactile rejects a conflicting duplicate row", "[comm][l6][tr
         if (request.dlc != 2 || request.data[0] != kThumbCmd) {
             return std::vector<Message>{};
         }
-        return std::vector<Message>{tactile_frame(0, 0x10), tactile_frame(1, 0x11), tactile_frame(1, 0x22)};
+        return std::vector<Message>{tactile_frame({0, 0x10}), tactile_frame({1, 0x11}), tactile_frame({1, 0x22})};
     });
 
     L6 hand(Side::kLeft, std::move(transport), "can0", test_util::unique_mapping_path());

@@ -1,4 +1,5 @@
 #include "hand/o6/legacy_regressions.hpp"
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <future>
 #include <linkerbot/can/fake_transport.hpp>
@@ -86,7 +87,7 @@ TEST_CASE("comm: L20lite full tactile replies cannot hide a failed final send", 
     REQUIRE(hand.runtime_health().in_flight == 0);
     auto snapshot = hand.force_sensor.get_snapshot();
     REQUIRE(snapshot.has_value());
-    REQUIRE(snapshot->thumb.timestamp == first.thumb.timestamp);
+    REQUIRE(test_support::require_value(snapshot).thumb.timestamp == first.thumb.timestamp);
 }
 
 TEST_CASE("comm: L20lite polling fault remains isolated to its source", "[comm][l20lite][runtime-migration]") {
@@ -217,7 +218,7 @@ TEST_CASE("comm: L20Lite stall writes queue within budget and cancel while gette
     });
     REQUIRE(sent.get_future().wait_for(1s) == std::future_status::ready);
     const auto count = raw->sent().size();
-    REQUIRE(hand.stall.get_times_blocking(20ms).timestamp == cached->timestamp);
+    REQUIRE(hand.stall.get_times_blocking(20ms).timestamp == test_support::require_value(cached).timestamp);
     REQUIRE_THROWS_AS(hand.stall.set_times(times, 20ms), linkerbot::hand::TimeoutError);
     REQUIRE(raw->sent().size() == count);
     hand.stall.stop();

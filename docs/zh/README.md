@@ -1,10 +1,10 @@
 # C++ SDK 中文文档
 
-[English](../en/README.md) · [文档总览](../README.md) · [项目首页](../../README.md)
+[English](../en/README.md) · [文档总览](../README.zh-CN.md) · [项目首页](../../README.zh-CN.md)
 
 ## 推荐阅读顺序
 
-1. **构建与安装**：Linux 从[项目快速开始](../../README.md#快速开始linux)入手；Windows 阅读[构建与应用接入](guides/windows.md)。
+1. **构建与安装**：Linux 从[项目快速开始](../../README.zh-CN.md#快速开始linux)入手；Windows 阅读[构建与应用接入](guides/windows.md)。
 2. **建立连接**：先[准备通信接口](connections/prepare-interface.md)，再根据部署选择[自动连接](connections/automatic.md)或[手动连接](connections/manual.md)。Windows 适配器的命令行步骤见[适配器接入](connections/windows-adapters.md)。
 3. **使用型号功能**：按实际设备选择下方教程，示例说明读取、控制、命令结果与传感器数据。
 4. **扩展应用**：阅读[API 使用指南](guides/usage.md)，了解统一 HandDevice、专有 Manager、异步命令、共享总线、轮询及关闭恢复。
@@ -26,6 +26,8 @@
 
 | 文档 | 用途 |
 | --- | --- |
+| [C++ 质量](guides/quality.md) | Report Card 范围、工具链与文档检查 |
+| [构建与验证指南](guides/validation.md) | 依赖选择、离线测试目标、CI 排错与结果判断 |
 | [Windows 使用指南](guides/windows.md) | 环境、构建、安装和应用接入 |
 | [API 使用指南](guides/usage.md) | 统一接口和型号 Manager 的操作方式及生命周期 |
 | [Windows 适配器接入](connections/windows-adapters.md) | PCAN、MiniCANFD、SLCAN 参数、命令与排错 |
@@ -37,7 +39,7 @@
 
 - [实机验收和型号报告](../hardware-acceptance/README.md)：保留各场次版本、设备、结果及遗留问题。
 - [Windows 真机验收](../hardware-acceptance/windows.md)：适配器发现、读取及单关节运动恢复检查。
-- [贡献说明](../../CONTRIBUTING.md)：问题反馈、代码约定和验证要求。
+- [贡献说明](../../CONTRIBUTING.zh-CN.md)：问题反馈、代码约定和验证要求。
 
 教程负责具体步骤，指南解释通用用法，参考说明集中维护能力与限制；历史实测报告由两种语言共用。
 新增或移动文档时，同时更新[英文对应页](../en/README.md)、导航、交叉链接、安装与发布包检查中的路径。

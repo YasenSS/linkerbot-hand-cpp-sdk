@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
@@ -109,7 +110,7 @@ TEST_CASE("common models preserve Python telemetry freshness contracts", "[comm]
             const auto *channel = profile.telemetry_channel(semantic);
             REQUIRE(channel != nullptr);
             REQUIRE(channel->freshness_ms.has_value());
-            REQUIRE(*channel->freshness_ms == Catch::Approx(threshold));
+            REQUIRE(test_support::require_value(channel->freshness_ms) == Catch::Approx(threshold));
         }
     }
 }

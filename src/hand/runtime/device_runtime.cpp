@@ -1,3 +1,5 @@
+#include "../detail/checked_optional.hpp"
+#include "../detail/failure_kind.hpp"
 #include "../unified/detail/runtime_access.hpp"
 #include <algorithm>
 #include <cmath>
@@ -375,14 +377,22 @@ namespace linkerbot::hand::runtime {
             throw state_->timeout_error("device request deadline expired");
         }
         if (state_->return_after_send && state_->sent_result &&
-            state_->sent_result->outcome == transport::SendOutcome::dispatched && !state_->sent_result->error) {
+            ::linkerbot::hand::detail::checked_value(state_->sent_result, "missing runtime state: state_->sent_result")
+                    .outcome == transport::SendOutcome::dispatched &&
+            !::linkerbot::hand::detail::checked_value(state_->sent_result, "missing runtime state: state_->sent_result")
+                 .error) {
             return {}; // Optional feedback remains owned by the native receiver.
         }
         if (state_->error) {
             rethrow_as_hand_error(state_->error, state_->context, ErrorCode::kProtocol);
         }
-        if (state_->return_after_send && state_->sent_result && state_->sent_result->error) {
-            rethrow_as_hand_error(state_->sent_result->error, state_->context, ErrorCode::kTransport);
+        if (state_->return_after_send && state_->sent_result &&
+            ::linkerbot::hand::detail::checked_value(state_->sent_result, "missing runtime state: state_->sent_result")
+                .error) {
+            rethrow_as_hand_error(::linkerbot::hand::detail::checked_value(state_->sent_result,
+                                                                           "missing runtime state: state_->sent_result")
+                                      .error,
+                                  state_->context, ErrorCode::kTransport);
         }
         return state_->result;
     }
@@ -406,7 +416,8 @@ namespace linkerbot::hand::runtime {
         if (!state_->sent_result) {
             throw InternalError("request completed without a send receipt", state_->context);
         }
-        const auto result = *state_->sent_result;
+        const auto result =
+            ::linkerbot::hand::detail::checked_value(state_->sent_result, "missing runtime state: state_->sent_result");
         if (result.error) {
             rethrow_as_hand_error(result.error, state_->context);
         }
@@ -423,7 +434,8 @@ namespace linkerbot::hand::runtime {
         if (!state_ || !state_->receipt) {
             return std::nullopt;
         }
-        return state_->receipt->result();
+        return ::linkerbot::hand::detail::checked_value(state_->receipt, "missing runtime state: state_->receipt")
+            .result();
     }
     void Request::cancel() const {
         if (!state_) {
@@ -515,6 +527,7 @@ namespace linkerbot::hand::runtime {
             CancellationToken cancellation;
             unified_detail::RuntimeAccess::SendObserver observer;
             unified_detail::RuntimeAccess::FinalSend final_send;
+            std::function<void()> prepare_send;
         };
         std::map<std::thread::id, CommandExecution> command_executions;
         struct SendAudit {
@@ -537,10 +550,13 @@ namespace linkerbot::hand::runtime {
                 if (!result.error && result.completed_at) {
                     last_successful_send = *result.completed_at;
                 }
-                if (it->observer) {
-                    it->observer(result, it->final_send);
-                }
+                auto observer = std::move(it->observer);
+                const bool final_send = it->final_send;
                 it = send_audit.erase(it);
+                // Retire accounting before invoking an observer which may throw.
+                if (observer) {
+                    observer(result, final_send);
+                }
             }
         }
         std::vector<std::unique_ptr<Poller>> pollers;
@@ -555,7 +571,9 @@ namespace linkerbot::hand::runtime {
         }
 
         ChannelState &channel_state_locked(std::string_view channel) {
-            const auto canonical = canonical_channel(channel);
+            return canonical_channel_state_locked(canonical_channel(channel));
+        }
+        ChannelState &canonical_channel_state_locked(const std::string &canonical) {
             auto [it, inserted] = channel_states.try_emplace(canonical);
             if (inserted) {
                 it->second.metrics.channel = canonical;
@@ -564,7 +582,9 @@ namespace linkerbot::hand::runtime {
         }
 
         CommandFamilyState &command_family_state_locked(const std::string &family) {
-            const auto canonical = canonical_command_family(family);
+            return canonical_command_family_state_locked(canonical_command_family(family));
+        }
+        CommandFamilyState &canonical_command_family_state_locked(const std::string &canonical) {
             auto [it, inserted] = command_family_states.try_emplace(canonical);
             if (inserted) {
                 it->second.metrics.family = canonical;
@@ -583,7 +603,10 @@ namespace linkerbot::hand::runtime {
 
         void record_channel_success_locked(const std::string &channel, HealthTimePoint received_at,
                                            std::optional<HealthDuration> latency, uint64_t feedback_sample_count) {
-            auto &state = channel_state_locked(channel);
+            record_channel_success_locked(channel_state_locked(channel), received_at, latency, feedback_sample_count);
+        }
+        void record_channel_success_locked(ChannelState &state, HealthTimePoint received_at,
+                                           std::optional<HealthDuration> latency, uint64_t feedback_sample_count) {
             ++state.metrics.completed_reads;
             state.metrics.feedback_samples += feedback_sample_count;
             state.metrics.data_age.valid = true;
@@ -629,15 +652,11 @@ namespace linkerbot::hand::runtime {
                 ++state.metrics.acknowledged;
             } else {
                 ++state.metrics.failed;
-                try {
-                    std::rethrow_exception(error);
-                } catch (const TimeoutError &) {
+                const auto kind = detail::failure_kind(error);
+                if (kind == detail::FailureKind::timeout) {
                     ++state.metrics.timed_out;
-                } catch (const LifecycleError &) {
+                } else if (kind == detail::FailureKind::lifecycle || kind == detail::FailureKind::closed) {
                     ++state.metrics.cancelled;
-                } catch (const ClosedError &) {
-                    ++state.metrics.cancelled;
-                } catch (...) {
                 }
             }
             complete_command_locked(state);
@@ -734,7 +753,9 @@ namespace linkerbot::hand::runtime {
             // Caller-side timeout/cancellation can beat the receive worker's next
             // reap. Account any already-completed physical receipt before freezing
             // the public command's terminal frame count.
-            if (state->receipt && state->receipt->completed()) {
+            if (state->receipt &&
+                ::linkerbot::hand::detail::checked_value(state->receipt, "missing runtime state: state->receipt")
+                    .completed()) {
                 reap_sends_locked();
             }
             if (error) {
@@ -743,7 +764,10 @@ namespace linkerbot::hand::runtime {
             sync_command_receipt_locked(*state);
             if (isolate) {
                 state->abort.cancel();
-                bool may_have_sent = state->receipt && state->receipt->result().claimed_at.has_value();
+                bool may_have_sent = state->receipt && ::linkerbot::hand::detail::checked_value(
+                                                           state->receipt, "missing runtime state: state->receipt")
+                                                           .result()
+                                                           .claimed_at.has_value();
                 if (may_have_sent) {
                     for (const auto &key : state->plan.keys) {
                         if (state->plan.poison_on_timeout) {
@@ -770,12 +794,17 @@ namespace linkerbot::hand::runtime {
                 // The writer can finish between reap_locked's receipt checks.
                 // Publish the receipt before publishing successful completion,
                 // even if the earlier harvest observed the send as pending.
-                if (state->receipt && state->receipt->completed()) {
-                    state->sent_result = state->receipt->result();
+                if (state->receipt &&
+                    ::linkerbot::hand::detail::checked_value(state->receipt, "missing runtime state: state->receipt")
+                        .completed()) {
+                    state->sent_result = ::linkerbot::hand::detail::checked_value(
+                                             state->receipt, "missing runtime state: state->receipt")
+                                             .result();
                 }
                 state->error = error;
                 if (!error && state->response) {
-                    state->result = *state->response;
+                    state->result = ::linkerbot::hand::detail::checked_value(state->response,
+                                                                             "missing runtime state: state->response");
                     if (state->result.started_at != Deadline{} &&
                         state->result.received_at >= state->result.started_at) {
                         completed_latency = state->result.received_at - state->result.started_at;
@@ -791,7 +820,9 @@ namespace linkerbot::hand::runtime {
                     }
                 }
                 if (!error && state->receipt) {
-                    const auto result = state->receipt->result();
+                    const auto result = ::linkerbot::hand::detail::checked_value(
+                                            state->receipt, "missing runtime state: state->receipt")
+                                            .result();
                     if (!completed_at && result.completed_at) {
                         completed_at = result.completed_at;
                     }
@@ -839,14 +870,18 @@ namespace linkerbot::hand::runtime {
             reap_sends_locked();
             const auto requests = pending;
             for (const auto &state : requests) {
-                if (state->receipt && state->receipt->completed()) {
+                if (state->receipt &&
+                    ::linkerbot::hand::detail::checked_value(state->receipt, "missing runtime state: state->receipt")
+                        .completed()) {
                     // Completion may race the initial harvest above. Deliver
                     // the facade's send observer before waking native callers;
                     // otherwise they can return before their handle is Dispatched.
                     reap_sends_locked();
                     sync_command_receipt_locked(*state);
                     std::lock_guard<std::mutex> request_lock(state->mutex);
-                    state->sent_result = state->receipt->result();
+                    state->sent_result = ::linkerbot::hand::detail::checked_value(
+                                             state->receipt, "missing runtime state: state->receipt")
+                                             .result();
                     state->cv.notify_all();
                 }
                 if (state->external.cancelled() || state->poll_cancel.cancelled() || state->abort.token().cancelled()) {
@@ -854,8 +889,12 @@ namespace linkerbot::hand::runtime {
                 } else if (Clock::now() >= state->deadline) {
                     finish_locked(
                         state, std::make_exception_ptr(state->timeout_error("device request deadline expired")), true);
-                } else if (state->receipt && state->receipt->completed()) {
-                    const auto result = state->receipt->result();
+                } else if (state->receipt && ::linkerbot::hand::detail::checked_value(
+                                                 state->receipt, "missing runtime state: state->receipt")
+                                                 .completed()) {
+                    const auto result = ::linkerbot::hand::detail::checked_value(
+                                            state->receipt, "missing runtime state: state->receipt")
+                                            .result();
                     if (result.error) {
                         finish_locked(state, classify_exception(result.error, state->context, ErrorCode::kTransport),
                                       true);
@@ -864,7 +903,8 @@ namespace linkerbot::hand::runtime {
                     } else if (!state->plan.consume) {
                         state->response = Sample{{},
                                                  true,
-                                                 *result.completed_at,
+                                                 ::linkerbot::hand::detail::checked_value(
+                                                     result.completed_at, "missing runtime state: result.completed_at"),
                                                  result.generation,
                                                  health.device_generation,
                                                  0,
@@ -874,7 +914,11 @@ namespace linkerbot::hand::runtime {
                                                  0};
                         finish_locked(state);
                     } else if (state->plan.optional_response_window &&
-                               Clock::now() >= *result.completed_at + *state->plan.optional_response_window) {
+                               Clock::now() >= ::linkerbot::hand::detail::checked_value(
+                                                   result.completed_at, "missing runtime state: result.completed_at") +
+                                                   ::linkerbot::hand::detail::checked_value(
+                                                       state->plan.optional_response_window,
+                                                       "missing runtime state: state->plan.optional_response_window")) {
                         finish_locked(state, {}, true);
                     }
                 }
@@ -1115,7 +1159,10 @@ namespace linkerbot::hand::runtime {
                 try {
                     receipt.wait();
                 } catch (...) {
-                } // result is recorded below
+                    if (!receipt.completed()) {
+                        throw;
+                    }
+                } // Terminal backend failures are audited below.
             }
             std::lock_guard<std::mutex> lock(mutex);
             reap_sends_locked();
@@ -1217,6 +1264,8 @@ namespace linkerbot::hand::runtime {
         // handles the subsequent dispatcher subscription cleanup externally.
         try {
             close_impl();
+            // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+            // NOLINTNEXTLINE(bugprone-empty-catch)
         } catch (...) {
         }
     }
@@ -1292,7 +1341,10 @@ namespace linkerbot::hand::runtime {
                             });
                         // Never abort a control's physical send merely because another
                         // target arrived. Only its remaining optional feedback may end.
-                        if (overlap && previous->receipt && previous->receipt->completed()) {
+                        if (overlap && previous->receipt &&
+                            ::linkerbot::hand::detail::checked_value(previous->receipt,
+                                                                     "missing runtime state: previous->receipt")
+                                .completed()) {
                             p.finish_locked(previous, {}, true, true);
                         }
                     }
@@ -1306,6 +1358,10 @@ namespace linkerbot::hand::runtime {
                     break;
                 }
                 p.cv.wait_until(lock, std::min(deadline, Clock::now() + std::chrono::milliseconds(1)));
+            }
+            if (const auto execution = p.command_executions.find(state->owner);
+                execution != p.command_executions.end() && execution->second.prepare_send) {
+                execution->second.prepare_send();
             }
             std::weak_ptr<DeviceRuntime> weak = shared_from_this();
             std::weak_ptr<Request::State> weak_state = state;
@@ -1372,7 +1428,9 @@ namespace linkerbot::hand::runtime {
                 state->receipt =
                     p.session->submit({state->plan.frames, state->plan.gap, state->plan.initial_delay}, options);
                 p.send_audit.push_back(
-                    {std::move(audit_domain), *state->receipt, std::move(send_observer), final_send});
+                    {std::move(audit_domain),
+                     ::linkerbot::hand::detail::checked_value(state->receipt, "missing runtime state: state->receipt"),
+                     std::move(send_observer), final_send});
                 p.reap_locked();
             } catch (...) {
                 p.finish_locked(state, std::current_exception(), true);
@@ -1388,7 +1446,8 @@ namespace linkerbot::hand::runtime {
                 ++it;
             }
         }
-        auto sample = submit(std::move(plan), deadline, cancellation).wait_until(deadline);
+        auto request = submit(std::move(plan), deadline, cancellation);
+        auto sample = request.wait_until(deadline);
         if (sample.origin != protocol::Origin::unknown) {
             last_response[this] = {weak_from_this(), sample};
         }
@@ -2118,8 +2177,9 @@ namespace linkerbot::hand::runtime {
         if (family.empty()) {
             throw ValidationError("command family name is empty");
         }
+        family = canonical_command_family(family);
         std::lock_guard<std::mutex> lock(impl_->mutex);
-        impl_->command_family_state_locked(family);
+        impl_->canonical_command_family_state_locked(family);
     }
     void DeviceRuntime::record_channel_success(std::string channel, HealthTimePoint received_at,
                                                std::optional<HealthDuration> latency, uint64_t feedback_samples) {
@@ -2129,22 +2189,26 @@ namespace linkerbot::hand::runtime {
         if (latency && *latency < HealthDuration::zero()) {
             throw ValidationError("health channel latency cannot be negative");
         }
+        channel = canonical_channel(channel);
         std::lock_guard<std::mutex> lock(impl_->mutex);
-        impl_->record_channel_success_locked(channel, received_at, latency, feedback_samples);
+        impl_->record_channel_success_locked(impl_->canonical_channel_state_locked(channel), received_at, latency,
+                                             feedback_samples);
     }
     void DeviceRuntime::record_channel_timeout(std::string channel) {
         if (channel.empty()) {
             throw ValidationError("health channel name is empty");
         }
+        channel = canonical_channel(channel);
         std::lock_guard<std::mutex> lock(impl_->mutex);
-        ++impl_->channel_state_locked(channel).metrics.timeouts;
+        ++impl_->canonical_channel_state_locked(channel).metrics.timeouts;
     }
     void DeviceRuntime::record_deadline_miss(std::string channel, uint64_t count) {
         if (channel.empty()) {
             throw ValidationError("health channel name is empty");
         }
+        channel = canonical_channel(channel);
         std::lock_guard<std::mutex> lock(impl_->mutex);
-        impl_->channel_state_locked(channel).metrics.missed_deadlines += count;
+        impl_->canonical_channel_state_locked(channel).metrics.missed_deadlines += count;
     }
     void DeviceRuntime::record_command_accepted(std::string family) {
         if (family.empty()) {
@@ -2161,8 +2225,9 @@ namespace linkerbot::hand::runtime {
         if (family.empty()) {
             throw ValidationError("command family name is empty");
         }
+        family = canonical_command_family(family);
         std::lock_guard<std::mutex> lock(impl_->mutex);
-        ++impl_->command_family_state_locked(family).metrics.dispatched;
+        ++impl_->canonical_command_family_state_locked(family).metrics.dispatched;
     }
     void DeviceRuntime::record_command_acknowledged(std::string family) {
         if (family.empty()) {
@@ -2440,7 +2505,15 @@ void linkerbot::hand::unified_detail::RuntimeAccess::execute_command(runtime::De
                                                                      runtime::Deadline deadline, bool send_only,
                                                                      SendObserver observer, FinalSend final_send,
                                                                      runtime::CancellationToken cancellation,
-                                                                     const std::function<void()> &execute) {
+                                                                     const std::function<void()> &execute,
+                                                                     std::function<void()> prepare_send) {
+    struct SendCallbacks {
+        SendObserver &observer;
+        FinalSend &final_send;
+        const std::function<void()> &execute;
+        std::function<void()> &prepare_send;
+    };
+    const auto callbacks = SendCallbacks{observer, final_send, execute, prepare_send};
     const auto owner = std::this_thread::get_id();
     auto &p = *runtime.impl_;
     std::optional<runtime::DeviceRuntime::Impl::CommandExecution> previous;
@@ -2449,9 +2522,10 @@ void linkerbot::hand::unified_detail::RuntimeAccess::execute_command(runtime::De
         if (const auto it = p.command_executions.find(owner); it != p.command_executions.end()) {
             previous = it->second;
         }
-        p.command_executions.insert_or_assign(
-            owner, runtime::DeviceRuntime::Impl::CommandExecution{send_only, deadline, cancellation,
-                                                                  std::move(observer), std::move(final_send)});
+        p.command_executions.insert_or_assign(owner,
+                                              runtime::DeviceRuntime::Impl::CommandExecution{
+                                                  send_only, deadline, cancellation, std::move(callbacks.observer),
+                                                  std::move(callbacks.final_send), std::move(callbacks.prepare_send)});
     }
     const auto restore = [&] {
         const std::lock_guard<std::mutex> lock(p.mutex);
@@ -2463,7 +2537,7 @@ void linkerbot::hand::unified_detail::RuntimeAccess::execute_command(runtime::De
     };
     try {
         auto operation = runtime.operation(deadline, cancellation);
-        execute();
+        callbacks.execute();
     } catch (...) {
         restore();
         throw;

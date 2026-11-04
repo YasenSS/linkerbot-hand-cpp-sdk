@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include "hand_device_hardware_fixture.hpp"
 #include "hand_device_transport_probe.hpp"
 #include <catch2/catch_test_macros.hpp>
@@ -20,16 +21,16 @@ TEST_CASE("HandDevice hardware repeated open close and recover", "[hardware][dev
         CAPTURE(cycle);
         hand.open();
         if (!identity) {
-            identity = *hand.get_identity();
+            identity = test_support::require_value(hand.get_identity());
         }
-        require_identity_equal(*hand.get_identity(), *identity);
+        require_identity_equal(test_support::require_value(hand.get_identity()), *identity);
         hand.start_polling({{TelemetrySemantic::kAngles, 100ms}});
         require_meta(hand.get_angles(500ms).meta, hand.get_health().connection_generation);
         if (cycle % 10 == 0) {
             const auto generation = hand.get_health().connection_generation;
             hand.recover();
             REQUIRE(hand.get_health().connection_generation > generation);
-            require_identity_equal(*hand.get_identity(), *identity);
+            require_identity_equal(test_support::require_value(hand.get_identity()), *identity);
             REQUIRE(hand.get_health().polling_active);
             require_meta(hand.get_angles(500ms).meta, hand.get_health().connection_generation);
         }
@@ -48,7 +49,7 @@ TEST_CASE("HandDevice hardware lifecycle and reopen", "[hardware][device][lifecy
     REQUIRE_NOTHROW(hand.close());
     REQUIRE_NOTHROW(hand.stop_stream());
     hand.open();
-    const auto original = *hand.get_identity();
+    const auto original = test_support::require_value(hand.get_identity());
     const auto generation = hand.get_health().connection_generation;
     const auto opened = hand.get_snapshot();
     REQUIRE(hand.is_open());
@@ -71,11 +72,12 @@ TEST_CASE("HandDevice hardware lifecycle and reopen", "[hardware][device][lifecy
     REQUIRE(hand.get_health().pending_commands() == 0);
     REQUIRE_NOTHROW(hand.close());
     hand.open();
-    require_identity_equal(*hand.get_identity(), original);
+    require_identity_equal(test_support::require_value(hand.get_identity()), original);
     // close/open rebuilds a backend whose native counter may restart at 1.
     // Verify fresh identity and samples instead of requiring a global counter.
     const auto reopened = hand.get_snapshot();
-    REQUIRE(*reopened.angles->meta.collected_at > *opened.angles->meta.collected_at);
+    REQUIRE(test_support::require_value(test_support::require_value(reopened.angles).meta.collected_at) >
+            test_support::require_value(test_support::require_value(opened.angles).meta.collected_at));
     REQUIRE_FALSE(hand.get_health().polling_active);
     require_meta(hand.get_angles(500ms).meta, hand.get_health().connection_generation);
 }
@@ -94,7 +96,7 @@ TEST_CASE("HandDevice hardware recover identity baseline and polling", "[hardwar
             }
             auto &hand = native ? native->device() : *probed->hand;
             hand.open();
-            const auto identity = *hand.get_identity();
+            const auto identity = test_support::require_value(hand.get_identity());
             hand.start_polling(PollingPlan{{TelemetrySemantic::kAngles, 50ms}});
             const auto before = hand.get_snapshot();
             hand.recover();
@@ -103,19 +105,21 @@ TEST_CASE("HandDevice hardware recover identity baseline and polling", "[hardwar
             REQUIRE(hand.get_health().identity_verified);
             REQUIRE(hand.get_health().polling_active);
             REQUIRE(hand.get_health().pending_commands() == 0);
-            require_identity_equal(*hand.get_identity(), identity);
+            require_identity_equal(test_support::require_value(hand.get_identity()), identity);
             REQUIRE(hand.get_verified_capabilities().has_value());
             const auto after = hand.get_snapshot();
             REQUIRE(after.connection_generation > before.connection_generation);
             REQUIRE(after.angles.has_value());
-            require_meta(after.angles->meta, after.connection_generation);
+            require_meta(test_support::require_value(after.angles).meta, after.connection_generation);
             REQUIRE(after.faults.has_value());
-            require_meta(after.faults->meta, after.connection_generation);
-            REQUIRE(*after.angles->meta.collected_at > *before.angles->meta.collected_at);
+            require_meta(test_support::require_value(after.faults).meta, after.connection_generation);
+            REQUIRE(test_support::require_value(test_support::require_value(after.angles).meta.collected_at) >
+                    test_support::require_value(test_support::require_value(before.angles).meta.collected_at));
             const auto next = hand.wait_for_snapshot(after, 2s);
             REQUIRE(next.angles.has_value());
             REQUIRE(next.snapshot_sequence > after.snapshot_sequence);
-            REQUIRE(*next.angles->meta.collected_at > *after.angles->meta.collected_at);
+            REQUIRE(test_support::require_value(test_support::require_value(next.angles).meta.collected_at) >
+                    test_support::require_value(test_support::require_value(after.angles).meta.collected_at));
             hand.stop_polling();
             REQUIRE_FALSE(hand.get_health().polling_active);
         }

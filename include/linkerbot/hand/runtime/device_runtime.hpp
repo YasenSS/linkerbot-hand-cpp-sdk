@@ -47,7 +47,7 @@ namespace linkerbot::hand::runtime {
     };
 
     // Source-compatibility view for callers written before HandHealth. Existing
-    // fields and meanings are retained throughout the 0.2.x release line; new code
+    // fields and meanings are retained for existing callers; new code
     // should prefer DeviceRuntime::health(). Binary layout is not guaranteed.
     struct RuntimeHealth {
         DeviceState state = DeviceState::ready;
@@ -216,7 +216,7 @@ namespace linkerbot::hand::runtime {
         void record_command_superseded(std::string family);
         void record_error(std::exception_ptr error, ErrorContext context = {},
                           ErrorCode fallback = ErrorCode::kInternal);
-        // Compatibility adapter retained throughout 0.2.x while callers migrate
+        // Compatibility adapter retained while callers migrate
         // to HandHealth. Its counters are runtime totals rather than per-channel
         // data; calling it performs no device I/O.
         [[nodiscard]] RuntimeHealth runtime_health() const;

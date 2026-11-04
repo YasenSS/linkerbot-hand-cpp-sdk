@@ -106,22 +106,34 @@ namespace {
         };
     }
 
-    std::vector<uint8_t> i16_frame(uint8_t declared, uint8_t transaction, uint8_t status, size_t data_bytes) {
-        std::vector<uint8_t> frame{declared, transaction, status};
-        for (size_t i = 0; i < data_bytes; ++i) {
+    struct I16FrameArguments {
+        uint8_t declared;
+        uint8_t transaction;
+        uint8_t status;
+        size_t data_bytes;
+    };
+    std::vector<uint8_t> i16_frame(const I16FrameArguments &arguments) {
+        std::vector<uint8_t> frame{arguments.declared, arguments.transaction, arguments.status};
+        for (size_t i = 0; i < arguments.data_bytes; ++i) {
             frame.push_back(static_cast<uint8_t>(i));
         }
         return frame;
     }
 
     // 触觉分帧：BYTE0 长度、BYTE1 事务码、BYTE2 状态，之后是 offset 起的斜坡数据。
-    std::vector<uint8_t> tactile_frame(uint8_t transaction, size_t length, size_t offset, size_t padding,
-                                       uint8_t status = kStatusOk) {
-        std::vector<uint8_t> frame{static_cast<uint8_t>(length), transaction, status};
-        for (size_t i = 0; i < length; ++i) {
-            frame.push_back(static_cast<uint8_t>(offset + i));
+    struct TactileFrameArguments {
+        uint8_t transaction;
+        size_t length;
+        size_t offset;
+        size_t padding;
+        uint8_t status = kStatusOk;
+    };
+    std::vector<uint8_t> tactile_frame(const TactileFrameArguments &arguments) {
+        std::vector<uint8_t> frame{static_cast<uint8_t>(arguments.length), arguments.transaction, arguments.status};
+        for (size_t i = 0; i < arguments.length; ++i) {
+            frame.push_back(static_cast<uint8_t>(arguments.offset + i));
         }
-        frame.resize(frame.size() + padding, 0x00);
+        frame.resize(frame.size() + arguments.padding, 0x00);
         return frame;
     }
 
@@ -475,20 +487,20 @@ TEST_CASE("comm: decode_i16_response and decode_u8_response read the payload", "
 
 // 声明长度不符、实际字节不够、单帧应答带非零事务码、短到读不到状态字，四类畸形都要拒。
 TEST_CASE("comm: decode_i16_response rejects malformed framing", "[comm][l30][protocol]") {
-    const auto short_frame = i16_frame(kVectorPayloadBytes, kSingleFrameTransaction, kStatusOk, 0);
+    const auto short_frame = i16_frame({kVectorPayloadBytes, kSingleFrameTransaction, kStatusOk, 0});
     REQUIRE(short_frame.size() == 3);
     const auto too_short =
         protocol_error_message([&] { (void)decode_i16_response(short_frame.data(), short_frame.size()); });
     REQUIRE(too_short.find("response payload too short") != std::string::npos);
 
-    const auto wrong_length = i16_frame(0x20, kSingleFrameTransaction, kStatusOk, kVectorPayloadBytes);
+    const auto wrong_length = i16_frame({0x20, kSingleFrameTransaction, kStatusOk, kVectorPayloadBytes});
     const auto mismatch =
         protocol_error_message([&] { (void)decode_i16_response(wrong_length.data(), wrong_length.size()); });
     REQUIRE(mismatch.find("response length mismatch") != std::string::npos);
     REQUIRE(mismatch.find("34") != std::string::npos);
     REQUIRE(mismatch.find("32") != std::string::npos);
 
-    const auto multi_frame = i16_frame(kVectorPayloadBytes, 0x10, kStatusOk, kVectorPayloadBytes);
+    const auto multi_frame = i16_frame({kVectorPayloadBytes, 0x10, kStatusOk, kVectorPayloadBytes});
     const auto transaction =
         protocol_error_message([&] { (void)decode_i16_response(multi_frame.data(), multi_frame.size()); });
     REQUIRE(transaction.find("unsupported transaction control") != std::string::npos);
@@ -536,7 +548,7 @@ TEST_CASE("comm: check_response_status only throws on a device status", "[comm][
     REQUIRE(protocol_error_status([&] { check_response_status(bad.data(), bad.size()); }) == 0x20);
 
     // 带负载的应答对 check_response_status 而言是长度不符（它期望 0 字节）。
-    const auto padded = i16_frame(0x02, kSingleFrameTransaction, kStatusOk, 2);
+    const auto padded = i16_frame({0x02, kSingleFrameTransaction, kStatusOk, 2});
     REQUIRE_THROWS_AS(check_response_status(padded.data(), padded.size()), ProtocolError);
 }
 
@@ -634,8 +646,8 @@ TEST_CASE("comm: periodic reports reject length mismatch and short payloads", "[
 // 触觉 61 + 11 拼成 72 字节；0x11 帧尾部的 FD 填充要被忽略。
 TEST_CASE("comm: assemble_tactile_payload joins the 61 and 11 byte frames", "[comm][l30][protocol]") {
     // 0x10 帧的 3 字节头加 61 字节数据正好是 64，已到 CAN FD 上限，无填充余地。
-    const auto first = tactile_frame(0x10, kTactileFirstLength, 0, 0);
-    const auto second = tactile_frame(0x11, kTactileSecondLength, kTactileFirstLength, 0);
+    const auto first = tactile_frame({0x10, kTactileFirstLength, 0, 0});
+    const auto second = tactile_frame({0x11, kTactileSecondLength, kTactileFirstLength, 0});
     REQUIRE(first.size() == 64);
     REQUIRE(second.size() == 14);
 
@@ -646,22 +658,22 @@ TEST_CASE("comm: assemble_tactile_payload joins the 61 and 11 byte frames", "[co
     }
 
     // 0x11 帧实际会被填充到 16 字节，多出来的零不能进结果。
-    const auto padded = tactile_frame(0x11, kTactileSecondLength, kTactileFirstLength, 2);
+    const auto padded = tactile_frame({0x11, kTactileSecondLength, kTactileFirstLength, 2});
     REQUIRE(padded.size() == 16);
     REQUIRE(assemble_tactile_payload(first, padded) == matrix);
 }
 
 // 触觉帧同样先看状态字再看事务码：事务码互换要报 mismatch，错误 ACK 要报状态码。
 TEST_CASE("comm: assemble_tactile_payload rejects swapped markers and bad status", "[comm][l30][protocol]") {
-    const auto swapped_first = tactile_frame(0x11, kTactileFirstLength, 0, 0);
-    const auto swapped_second = tactile_frame(0x10, kTactileSecondLength, kTactileFirstLength, 2);
+    const auto swapped_first = tactile_frame({0x11, kTactileFirstLength, 0, 0});
+    const auto swapped_second = tactile_frame({0x10, kTactileSecondLength, kTactileFirstLength, 2});
     const auto mismatch =
         protocol_error_message([&] { (void)assemble_tactile_payload(swapped_first, swapped_second); });
     REQUIRE(mismatch.find("tactile transaction mismatch") != std::string::npos);
     REQUIRE(mismatch.find("expected 0x10") != std::string::npos);
     REQUIRE(mismatch.find("got 0x11") != std::string::npos);
 
-    const auto first = tactile_frame(0x10, kTactileFirstLength, 0, 0);
+    const auto first = tactile_frame({0x10, kTactileFirstLength, 0, 0});
     const auto refused = ack_payload(0x20);
     REQUIRE(protocol_error_status([&] { (void)assemble_tactile_payload(refused, refused); }) == 0x20);
     const auto status_text = protocol_error_message([&] { (void)assemble_tactile_payload(refused, refused); });
@@ -669,11 +681,11 @@ TEST_CASE("comm: assemble_tactile_payload rejects swapped markers and bad status
     REQUIRE(status_text.find("transaction mismatch") == std::string::npos);
 
     // 长度字段不符与字节不够分别有各自的文案。
-    const auto wrong_length = tactile_frame(0x10, kTactileFirstLength, 0, 0);
+    const auto wrong_length = tactile_frame({0x10, kTactileFirstLength, 0, 0});
     std::vector<uint8_t> relabelled = wrong_length;
     relabelled[0] = 0x20;
     const auto length_text = protocol_error_message([&] {
-        (void)assemble_tactile_payload(relabelled, tactile_frame(0x11, kTactileSecondLength, kTactileFirstLength, 0));
+        (void)assemble_tactile_payload(relabelled, tactile_frame({0x11, kTactileSecondLength, kTactileFirstLength, 0}));
     });
     REQUIRE(length_text.find("tactile length mismatch") != std::string::npos);
 
@@ -682,10 +694,11 @@ TEST_CASE("comm: assemble_tactile_payload rejects swapped markers and bad status
 
     std::vector<uint8_t> truncated{static_cast<uint8_t>(kTactileFirstLength), 0x10, kStatusOk, 0x01, 0x02};
     const auto short_text = protocol_error_message([&] {
-        (void)assemble_tactile_payload(truncated, tactile_frame(0x11, kTactileSecondLength, kTactileFirstLength, 0));
+        (void)assemble_tactile_payload(truncated, tactile_frame({0x11, kTactileSecondLength, kTactileFirstLength, 0}));
     });
     REQUIRE(short_text.find("tactile frame payload too short") != std::string::npos);
-    REQUIRE_NOTHROW(assemble_tactile_payload(first, tactile_frame(0x11, kTactileSecondLength, kTactileFirstLength, 0)));
+    REQUIRE_NOTHROW(
+        assemble_tactile_payload(first, tactile_frame({0x11, kTactileSecondLength, kTactileFirstLength, 0})));
 }
 
 // 协议里定义的每个状态码都要有对应文案，未定义的落到 unknown status。

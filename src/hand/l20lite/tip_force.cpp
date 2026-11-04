@@ -18,6 +18,8 @@ namespace linkerbot::hand::l20lite {
     TipForceManager::~TipForceManager() {
         try {
             cancel_pending();
+            // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+            // NOLINTNEXTLINE(bugprone-empty-catch)
         } catch (...) {
         }
     }

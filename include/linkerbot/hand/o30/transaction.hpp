@@ -47,11 +47,26 @@ namespace linkerbot::hand::o30::protocol {
     // One instance belongs to exactly one on-wire operation. It has no I/O,
     // clocks, locks, global cache, or external lifecycle references.
     class RangeResponse {
+        struct ConstructorTag {};
+        struct ConstructorArguments {
+            uint32_t request_id;
+            uint8_t mi;
+            uint8_t si;
+            uint8_t length;
+            bool rts;
+            bool write_ack;
+            std::optional<uint32_t> next_id;
+        };
+        RangeResponse(ConstructorTag, ConstructorArguments arguments)
+            : response_id_(expected_response_id(arguments.request_id)), next_id_(arguments.next_id), mi_(arguments.mi),
+              si_(arguments.si), length_(arguments.length), rts_(arguments.rts), write_ack_(arguments.write_ack),
+              data_(arguments.length), covered_(arguments.length, false) {}
+
     public:
         RangeResponse(uint32_t request_id, uint8_t mi, uint8_t si, uint8_t length, bool rts, bool write_ack,
                       std::optional<uint32_t> next_id = {})
-            : response_id_(expected_response_id(request_id)), next_id_(next_id), mi_(mi), si_(si), length_(length),
-              rts_(rts), write_ack_(write_ack), data_(length), covered_(length, false) {}
+            : RangeResponse(ConstructorTag{},
+                            ConstructorArguments{request_id, mi, si, length, rts, write_ack, next_id}) {}
         hand::protocol::Progress consume(const can::Message &message) {
             using Progress = hand::protocol::Progress;
             if (message.is_extended || !message.is_fd || message.dlc > can::kMaxDataLen ||
@@ -97,6 +112,8 @@ namespace linkerbot::hand::o30::protocol {
             // failure, never a successful partially-filled sample.
             if (!write_ack_ && frame.edl < kMaxHopPayload && end < length_) {
                 if (mi_ == kMiCommError && si_ == 1 && length_ == 16 && offset == 0 && end == 15) {
+                    // Progress owns this payload through std::any; covered by ownership regression tests.
+                    // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
                     return Progress::complete(std::vector<uint8_t>(data_.begin(), data_.begin() + 15));
                 }
                 throw ProtocolError("short HOP object does not cover requested range");
@@ -108,6 +125,8 @@ namespace linkerbot::hand::o30::protocol {
             if ((!write_ack_ || terminal_) &&
                 std::all_of(covered_.begin(), covered_.begin() + static_cast<std::ptrdiff_t>(required),
                             [](bool covered) { return covered; })) {
+                // Progress owns this payload through std::any; covered by ownership regression tests.
+                // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
                 return Progress::complete(
                     std::vector<uint8_t>(data_.begin(), data_.begin() + static_cast<std::ptrdiff_t>(required)));
             }

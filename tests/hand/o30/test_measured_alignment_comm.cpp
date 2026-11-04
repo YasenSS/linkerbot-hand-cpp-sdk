@@ -1,4 +1,5 @@
 #include "hand/o30/comm_helpers.hpp"
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
@@ -59,7 +60,7 @@ TEST_CASE("comm: O30i percentage writes and reads isolate all twenty measured ax
     REQUIRE(h.hop->writes.size() == 3);
     const auto read = h.hand->angle.get_blocking();
     REQUIRE(read.angles[joint] == Catch::Approx(float(joint < 6 ? raw : 255 - raw) * 100 / 255));
-    REQUIRE(h.hand->angle.get_snapshot()->angles[joint] == read.angles[joint]);
+    REQUIRE(test_support::require_value(h.hand->angle.get_snapshot()).angles[joint] == read.angles[joint]);
 }
 
 TEST_CASE("comm: O30i sparse APIs map every mounted joint on both HOP revisions", "[comm][o30][alignment][sparse]") {
@@ -138,8 +139,8 @@ TEST_CASE("comm: O30i revision selects fault object without misreading valid mas
     }
     REQUIRE(o30_comm::last_payload(h.transport) ==
             std::vector<uint8_t>{static_cast<uint8_t>(mi | (kind == ValueKind::kSetpoint ? 0x80 : 0)), 0, 36});
-    REQUIRE(h.hand->fault.get_snapshot()->faults == data.faults);
-    REQUIRE(h.hand->get_snapshot().fault->faults == data.faults);
+    REQUIRE(test_support::require_value(h.hand->fault.get_snapshot()).faults == data.faults);
+    REQUIRE(test_support::require_value(h.hand->get_snapshot().fault).faults == data.faults);
     h.transport->clear_sent();
     (void)h.hand->fault.get_blocking(500ms, kind);
     REQUIRE(h.transport->sent().size() == 1); // cached version

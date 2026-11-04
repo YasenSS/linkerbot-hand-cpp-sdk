@@ -37,6 +37,14 @@ namespace linkerbot::hand::unified_detail {
         void notify_clock_advanced();
 
     private:
+        struct ConstructorTag {};
+        struct ConstructorArguments {
+            double rate_hz;
+            size_t capacity;
+            Now now;
+        };
+        CommandScheduler(ConstructorTag, ConstructorArguments arguments);
+
         struct Job {
             CommandRequest request;
             CommandHandle handle;

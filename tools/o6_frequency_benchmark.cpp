@@ -87,7 +87,7 @@ namespace {
             return out;
         }
         std::sort(values.begin(), values.end());
-        auto pct = [&](double p) { return values[static_cast<size_t>(p * (values.size() - 1))]; };
+        auto pct = [&](double p) { return values[static_cast<size_t>(p * static_cast<double>(values.size() - 1))]; };
         out.count = values.size();
         out.min_us = values.front();
         out.max_us = values.back();
@@ -683,26 +683,15 @@ namespace {
                 counters->angle_skipped.fetch_add(skipped);
             }
             const auto sent = Clock::now();
-            if (o.mode == Mode::Polling || o.angle_policy == AnglePolicy::QueryOnly ||
-                (o.mode == Mode::Control && o.angle_policy == AnglePolicy::Adaptive)) {
-                if (raw) {
-                    (void)raw->query_angle(timeout);
-                } else {
-                    (void)sdk->angle.get_blocking(timeout);
-                }
-                if (measured) {
-                    counters->query_angle.fetch_add(1);
-                }
+            if (raw) {
+                (void)raw->query_angle(timeout);
             } else {
-                if (raw) {
-                    (void)raw->query_angle(timeout);
-                } else {
-                    (void)sdk->angle.get_blocking(timeout);
-                }
-                if (measured) {
-                    counters->query_angle.fetch_add(1);
-                }
+                (void)sdk->angle.get_blocking(timeout);
             }
+            if (measured) {
+                counters->query_angle.fetch_add(1);
+            }
+
             record_angle(sent, Clock::now(), measured);
         };
 
@@ -839,9 +828,10 @@ namespace {
         }
         const auto actual_duration = o.duration_s;
         result.actual_duration = actual_duration;
-        result.actual_angle = counters->angle_completed.load() / std::max(actual_duration, 1e-9);
-        result.actual_tactile = counters->tactile_completed.load() / std::max(actual_duration, 1e-9);
-        result.actual_command = counters->command_sent.load() / std::max(actual_duration, 1e-9);
+        result.actual_angle = static_cast<double>(counters->angle_completed.load()) / std::max(actual_duration, 1e-9);
+        result.actual_tactile =
+            static_cast<double>(counters->tactile_completed.load()) / std::max(actual_duration, 1e-9);
+        result.actual_command = static_cast<double>(counters->command_sent.load()) / std::max(actual_duration, 1e-9);
         {
             std::lock_guard<std::mutex> lock(counters->value_mutex);
             result.angle_latency = summarize(counters->angle_latency);
@@ -872,7 +862,8 @@ namespace {
         };
         if (wants_angle(o) &&
             (result.actual_angle < o.angle_hz * .95 ||
-             counters->angle_completed.load() < static_cast<uint64_t>(counters->angle_scheduled.load() * .95))) {
+             counters->angle_completed.load() <
+                 static_cast<uint64_t>(static_cast<double>(counters->angle_scheduled.load()) * .95))) {
             fail("angle below 95%");
         }
         if (o.mode == Mode::Control &&
@@ -881,7 +872,8 @@ namespace {
         }
         if (wants_tactile(o) &&
             (result.actual_tactile < o.tactile_hz * .95 ||
-             counters->tactile_completed.load() < static_cast<uint64_t>(counters->tactile_scheduled.load() * .95))) {
+             counters->tactile_completed.load() <
+                 static_cast<uint64_t>(static_cast<double>(counters->tactile_scheduled.load()) * .95))) {
             fail("tactile below 95%");
         }
         if (counters->timeout.load()) {

@@ -42,12 +42,14 @@ namespace {
         identity.address = 0x28U;
         identity.product_code = "LHL6-L";
         identity.timestamp = std::chrono::steady_clock::now();
-        return DiscoveryCandidate{channel(name),
+        auto selected_channel = channel(name);
+        auto selected_transport = transport(std::move(name), created);
+        return DiscoveryCandidate{std::move(selected_channel),
                                   TransportKind::kCan,
                                   DiscoveryAddress{"classic_can_id", 0x28U, 0x28U, false},
                                   DiscoveryStatus::kVerified,
                                   std::move(identity),
-                                  transport(name, created),
+                                  std::move(selected_transport),
                                   declared_capabilities(Model::kL6, HandSide::kLeft)};
     }
 
@@ -58,12 +60,14 @@ namespace {
         identity.side = HandSide::kUnknown;
         identity.address = 0x28U;
         identity.timestamp = std::chrono::steady_clock::now();
-        return DiscoveryCandidate{channel(name),
+        auto selected_channel = channel(name);
+        auto selected_transport = transport(std::move(name), created);
+        return DiscoveryCandidate{std::move(selected_channel),
                                   TransportKind::kCan,
                                   DiscoveryAddress{"classic_can_id", 0x28U, 0x28U, false},
                                   DiscoveryStatus::kPartial,
                                   std::move(identity),
-                                  transport(name, created),
+                                  std::move(selected_transport),
                                   {},
                                   {DiscoveryProblem{std::move(problem_code), "device identity is incomplete"}}};
     }
@@ -210,6 +214,21 @@ namespace {
         std::chrono::milliseconds delay_;
     };
 } // namespace
+
+TEST_CASE("discovery contract: helper ownership preserves both channel names", "[discovery][contract]") {
+    const std::string name = "stable-channel-with-a-name-longer-than-small-string-storage";
+    int created = 0;
+    const auto verified = verified_candidate(name, &created);
+    const auto partial = partial_candidate(name, &created);
+    for (const auto *candidate : {&verified, &partial}) {
+        REQUIRE(candidate->channel().name() == name);
+        REQUIRE(candidate->channel().native_name() == name);
+        REQUIRE(candidate->transport().channel() == name);
+        REQUIRE(candidate->transport().native_channel() == name);
+        REQUIRE(candidate->transport().factory()() != nullptr);
+    }
+    REQUIRE(created == 2);
+}
 
 TEST_CASE("discovery contract: default scan bounds are explicit", "[discovery][contract]") {
     const DiscoveryConfig config;

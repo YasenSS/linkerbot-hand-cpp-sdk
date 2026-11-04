@@ -84,6 +84,8 @@ namespace l6_benchmark {
             ~FilteredSocketCanTransport() override {
                 try {
                     close();
+                    // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+                    // NOLINTNEXTLINE(bugprone-empty-catch)
                 } catch (...) {
                 }
             }
@@ -224,7 +226,11 @@ namespace l6_benchmark {
             quarantine_until_ = Clock::now() + late_response_guard_;
             throw std::runtime_error(error);
         }
-        auto sample = *angle_pending_->sample;
+        const auto &pending_sample = angle_pending_->sample;
+        if (!pending_sample.has_value()) {
+            throw std::runtime_error("Raw L6 angle transaction completed without a sample");
+        }
+        auto sample = *pending_sample;
         angle_pending_.reset();
         return sample;
     }

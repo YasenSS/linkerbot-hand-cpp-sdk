@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 
 #include <chrono>
@@ -30,17 +31,22 @@ namespace {
     constexpr uint8_t kRequestByte = 0xC6;
     constexpr auto kTimeout = std::chrono::milliseconds{500};
 
-    std::vector<Message> force_frames(uint32_t id, uint8_t prefix, uint8_t fill) {
+    struct ForceFramesArguments {
+        uint32_t id;
+        uint8_t prefix;
+        uint8_t fill;
+    };
+    std::vector<Message> force_frames(const ForceFramesArguments &arguments) {
         std::vector<Message> frames;
         frames.reserve(12);
         for (uint8_t i = 0; i < 12; ++i) {
             Message msg;
-            msg.id = id;
+            msg.id = arguments.id;
             msg.dlc = 8;
-            msg.data[0] = prefix;
+            msg.data[0] = arguments.prefix;
             msg.data[1] = static_cast<uint8_t>(i << 4);
             for (uint8_t j = 0; j < 6; ++j) {
-                msg.data[2 + j] = fill;
+                msg.data[2 + j] = arguments.fill;
             }
             frames.push_back(msg);
         }
@@ -55,7 +61,7 @@ namespace {
             if (req.data[0] < 0xB1 || req.data[0] > 0xB5) {
                 return std::vector<Message>{};
             }
-            return force_frames(id, req.data[0], kFill);
+            return force_frames({id, req.data[0], kFill});
         };
     }
 
@@ -111,8 +117,8 @@ TEST_CASE("comm: force sensor polling populates snapshot", "[comm][l20lite][forc
 
     const auto snap = hand.get_snapshot();
     REQUIRE(snap.force_sensor.has_value());
-    REQUIRE(snap.force_sensor->thumb.values[0][0] == kFill);
-    REQUIRE(snap.force_sensor->pinky.values[11][5] == kFill);
+    REQUIRE(test_support::require_value(snap.force_sensor).thumb.values[0][0] == kFill);
+    REQUIRE(test_support::require_value(snap.force_sensor).pinky.values[11][5] == kFill);
 }
 
 // 轮询期间数据流应吐出 ForceSensorEvent，食指 [0][0] 为填充值。

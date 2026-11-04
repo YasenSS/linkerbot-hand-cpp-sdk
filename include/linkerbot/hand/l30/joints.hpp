@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 #include <string_view>
 
 namespace linkerbot::hand::l30 {
@@ -55,7 +56,12 @@ namespace linkerbot::hand::l30 {
     inline constexpr uint16_t kSpeedMax = 250;
     inline constexpr float kSpeedRpmPerCount = 0.732F;
 
-    [[nodiscard]] constexpr std::string_view joint_name(size_t index) { return kJointSpecs.at(index).name; }
+    [[nodiscard]] constexpr std::string_view joint_name(size_t index) {
+        if (index >= kJointSpecs.size()) {
+            throw std::out_of_range("joint index out of range");
+        }
+        return kJointSpecs.at(index).name;
+    }
 
     // Flexion: 0 % -> maximum, 100 % -> minimum, matching Python's public API.
     // Other axes: 0 % -> minimum, 100 % -> maximum; symmetric axes center at 50 %.

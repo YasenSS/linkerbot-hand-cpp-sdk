@@ -1,32 +1,59 @@
-# 参与贡献与问题反馈
+# Contributing
 
-通过本仓库的 Issues 提交问题或功能建议，通过 Pull Request 提交修改。
-提交前请先查看 [README](README.md)、[支持范围](docs/zh/reference/compatibility.md) 和已有问题。
+[English](CONTRIBUTING.md) | [简体中文](CONTRIBUTING.zh-CN.md)
 
-## 提交问题
+Read the [project guide](README.md), [validation guide](docs/en/guides/validation.md),
+[compatibility policy](docs/en/reference/compatibility.md) and existing issues before changing behavior.
 
-请提供：
+## Report a problem
 
-- hand 与 `linkerbot-transport-cpp` 的版本或提交号、工作区是否有修改。
-- 系统、架构、编译器、CMake、Debug/Release；Windows 同时提供运行库配置。
-- 最小复现代码、执行命令、预期行为、实际结果和完整错误信息。
-- 实机问题补充型号、左右手、固件、backend、适配器/驱动/DLL/固件、通道及速率。
-  运动问题说明是否有设备反馈以及其他程序是否同时控制设备。
+Include the hand SDK and transport commits, local modifications, OS, architecture,
+compiler, CMake version, build configuration and Windows runtime selection.
+Provide a minimal reproducer, exact commands, expected/actual behavior and the complete error.
+For hardware issues, also record model, side, firmware, adapter/backend, driver/DLL,
+channel, bitrate and whether another process controls the device.
 
-上传日志前移除口令、令牌、内部服务器地址和个人目录信息。
-不需要上传厂商 DLL、驱动、完整硬件原始日志或无法公开的数据。
+Remove credentials, private server addresses and personal directory information from logs.
+Do not upload vendor drivers, DLLs or non-public hardware captures.
 
-## 提交修改
+## C++ implementation rules
 
-函数声明和定义使用前置返回类型（例如 `void push(...)`），不使用尾置返回类型。
-lambda 由编译器推导返回类型；需要类型转换时在返回表达式中明确类型。
-左花括号放在当前行末尾，其他排版遵循仓库的 `.clang-format`，提交前运行 `just format-check`。
-行宽设为 120 列；`if/else/for/while` 的语句体即使只有一条语句也使用花括号，保留 `else if` 链式写法。
-格式化工具需使用支持 `InsertBraces` 的 clang-format 15 或更新版本。
+The supported language level is C++17; do not require newer language features without
+an explicit compatibility change. Follow C++ Core Guidelines principles where they fit
+this SDK: RAII ownership, explicit lifetime contracts, checked boundaries and narrow interfaces.
 
-保持修改范围集中，说明问题、行为变化及验证结果；公开接口变化同时更新文档和兼容说明。
-测试入口见 [测试说明](tests/hand/device/hardware/README.md)。按修改范围选择离线测试，
-未连接设备时无需运行实机测试，也不要把跳过写成通过。设备测试应由操作者先确认环境。
-构建或安装变化应验证用户通过 `find_package` 接入的方式。
+- Keep protocols, device runtime, transport and public APIs in their existing layers.
+- Validate sizes, ranges and capabilities before physical I/O. Preserve typed errors and context.
+- Use monotonic deadlines for elapsed time. Preserve cancellation, partial-send and late-result semantics.
+- Do not hold a physical writer lock across ACK waits or execute user callbacks on the bus receive path.
+- Preserve public enum values and source compatibility unless a documented migration is intentional.
+- Use leading return types for functions. Let lambdas infer their result where possible.
+- Use braces for control-flow bodies, including single statements. Keep `else if` chains.
+- Follow `.clang-format` with clang-format 18 (minimum 15 for `InsertBraces`), 120 columns,
+  four-space indentation and opening braces on the current line.
 
-项目采用 [MIT 许可证](LICENSE)。提交贡献前请确认你有权公开相关代码和资料。
+Run `just format-check` with the configured formatter available. The
+[quality guide](docs/en/guides/quality.md) describes the Report Card scope and current policy.
+Static analysis findings require review; a score does not replace tests or hardware evidence.
+
+## Validate a change
+
+Keep patches focused. Explain the trigger, resulting behavior, compatibility impact and evidence.
+Add regression coverage for observable defects, including timeout and lifecycle boundaries where relevant.
+Use synchronization barriers for concurrency tests; do not rely on host scheduling to prove an ordering.
+Encoding-only tests can have an explicit host budget; deadline-contract tests must still test the exact boundary.
+
+Run the relevant offline tests. Build or installation changes also require an installed
+`find_package` consumer. Hardware tests require the operator to prepare the actual environment;
+record skipped or unperformed checks explicitly rather than calling them passes.
+See [hardware test instructions](tests/hand/device/hardware/README.md).
+
+## Maintain documentation
+
+English is the default entry point. Keep Chinese counterparts and reciprocal language links current.
+Use exact API names, units, firmware limits and runnable commands; separate receipt, ACK and mechanical outcomes.
+Do not present historical hardware reports as validation of a newer commit.
+The `.en.md` landing pages are compatibility aliases; the documentation check keeps them aligned.
+Do not commit machine-specific `.vscode` files or generated build artifacts.
+
+Contributions are distributed under the [MIT license](LICENSE). Only submit material you are entitled to publish.

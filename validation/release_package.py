@@ -73,7 +73,7 @@ def audit_package(prefix, archive, kind, sources, configuration, platform,
         for relative in documents:
             if not (share / relative).is_file():
                 raise RuntimeError(f'Required package entry missing: {package}/{relative}')
-        for name in ['LICENSE', 'NOTICE', 'README.md', 'README.en.md', 'CHANGELOG.md', 'CONTRIBUTING.md']:
+        for name in ['LICENSE', 'NOTICE', 'README.md', 'README.en.md', 'README.zh-CN.md', 'CHANGELOG.md', 'CHANGELOG.zh-CN.md', 'CONTRIBUTING.md', 'CONTRIBUTING.zh-CN.md']:
             original = Path(source['path']) / name
             if original.is_file() and (not (share / name).is_file()
                                        or (share / name).read_bytes() != original.read_bytes()):

@@ -25,6 +25,8 @@ namespace linkerbot::hand::l20 {
     };
 
     constexpr L20FaultCode operator|(L20FaultCode lhs, L20FaultCode rhs) {
+        // Fixed-underlying-type enum values are valid C++17, including unknown values and bit masks.
+        // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
         return static_cast<L20FaultCode>(static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs));
     }
 
@@ -59,10 +61,8 @@ namespace linkerbot::hand::l20 {
               L20FaultCode i_root, L20FaultCode i_tip, L20FaultCode m_abd, L20FaultCode m_root, L20FaultCode m_tip,
               L20FaultCode r_abd, L20FaultCode r_root, L20FaultCode r_tip, L20FaultCode p_abd, L20FaultCode p_root,
               L20FaultCode p_tip)
-            : thumb_abd(t_abd), thumb_yaw(t_yaw), thumb_root1(t_root), thumb_tip(t_tip), index_abd(i_abd),
-              index_root1(i_root), index_tip(i_tip), middle_abd(m_abd), middle_root1(m_root), middle_tip(m_tip),
-              ring_abd(r_abd), ring_root1(r_root), ring_tip(r_tip), pinky_abd(p_abd), pinky_root1(p_root),
-              pinky_tip(p_tip) {}
+            : Fault(from_fields({t_abd, t_yaw, t_root, t_tip, i_abd, i_root, i_tip, m_abd, m_root, m_tip, r_abd, r_root,
+                                 r_tip, p_abd, p_root, p_tip})) {}
 
         [[nodiscard]] std::array<L20FaultCode, kJointCount> to_array() const {
             return {thumb_abd,    thumb_yaw,  thumb_root1, thumb_tip,  index_abd, index_root1, index_tip,   middle_abd,
@@ -70,8 +70,7 @@ namespace linkerbot::hand::l20 {
         }
 
         [[nodiscard]] static Fault from_array(const std::array<L20FaultCode, kJointCount> &values) {
-            return {values[0], values[1], values[2],  values[3],  values[4],  values[5],  values[6],  values[7],
-                    values[8], values[9], values[10], values[11], values[12], values[13], values[14], values[15]};
+            return from_fields(values);
         }
 
         [[nodiscard]] static Fault from_raw(const std::array<uint8_t, kJointCount> &values) {
@@ -102,6 +101,28 @@ namespace linkerbot::hand::l20 {
                 }
             }
             return false;
+        }
+
+    private:
+        static Fault from_fields(const std::array<L20FaultCode, kJointCount> &values) {
+            Fault result;
+            result.thumb_abd = values[0];
+            result.thumb_yaw = values[1];
+            result.thumb_root1 = values[2];
+            result.thumb_tip = values[3];
+            result.index_abd = values[4];
+            result.index_root1 = values[5];
+            result.index_tip = values[6];
+            result.middle_abd = values[7];
+            result.middle_root1 = values[8];
+            result.middle_tip = values[9];
+            result.ring_abd = values[10];
+            result.ring_root1 = values[11];
+            result.ring_tip = values[12];
+            result.pinky_abd = values[13];
+            result.pinky_root1 = values[14];
+            result.pinky_tip = values[15];
+            return result;
         }
     };
 

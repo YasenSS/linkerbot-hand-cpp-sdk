@@ -58,7 +58,9 @@ TEST_CASE("comm: relay cancellation wakes queued calls before active send return
                 },
                 2.F);
         } catch (...) {
+            return std::current_exception();
         }
+        return std::exception_ptr{};
     });
     entered.get_future().wait();
     std::atomic<bool> sent{false};
@@ -75,7 +77,9 @@ TEST_CASE("comm: relay cancellation wakes queued calls before active send return
     relay.cancel(std::make_exception_ptr(std::runtime_error("stop")));
     const auto status = second.wait_for(250ms);
     release.set_value();
-    first.get();
+    const auto first_error = first.get();
+    REQUIRE(first_error != nullptr);
+    REQUIRE_THROWS_AS(std::rethrow_exception(first_error), std::runtime_error);
     REQUIRE(status == std::future_status::ready);
     REQUIRE(second.get());
     REQUIRE_FALSE(sent);

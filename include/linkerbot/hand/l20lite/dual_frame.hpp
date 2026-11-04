@@ -18,7 +18,7 @@ namespace linkerbot::hand::l20lite {
 
     class DualFrameAssembler {
     public:
-        DualFrameAssembler(FramePart first, FramePart second) : parts_{first, second} {}
+        DualFrameAssembler(FramePart first, FramePart second) : parts_{std::move(first), std::move(second)} {}
 
         [[nodiscard]] const std::array<FramePart, 2> &parts() const { return parts_; }
 

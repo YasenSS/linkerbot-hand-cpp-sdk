@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <linkerbot/hand/l30/protocol_backend.hpp>
+#include <stdexcept>
 using namespace linkerbot::hand::l30;
 namespace common = linkerbot::hand::protocol;
 namespace {
@@ -51,6 +52,8 @@ TEST_CASE("L30 production ACK/read plans retain raw status and reject invalid fr
         case 5:
             bad.data[1] = 0x10;
             break;
+        default:
+            throw std::logic_error("invalid test vector selector");
         }
         REQUIRE(plan.consume(bad).kind != common::ProgressKind::complete);
     }
@@ -90,6 +93,8 @@ TEST_CASE("L30 tactile malformed and conflicting fragments fail without partial 
         case 3:
             first.data[1] = 0x12;
             break;
+        default:
+            throw std::logic_error("invalid test vector selector");
         }
         auto result = plan.consume(first);
         REQUIRE(result.kind == common::ProgressKind::failed);

@@ -35,13 +35,18 @@ namespace {
 
     float raw_to_percent(uint8_t raw) { return static_cast<float>(raw) * 100.0f / 255.0f; }
 
-    Message reply_payload(uint32_t id, uint8_t cmd, uint8_t fill) {
+    struct ReplyPayloadArguments {
+        uint32_t id;
+        uint8_t cmd;
+        uint8_t fill;
+    };
+    Message reply_payload(const ReplyPayloadArguments &arguments) {
         Message reply;
-        reply.id = id;
+        reply.id = arguments.id;
         reply.dlc = 1 + static_cast<uint8_t>(Angle::kJointCount);
-        reply.data[0] = cmd;
+        reply.data[0] = arguments.cmd;
         for (size_t i = 0; i < Angle::kJointCount; ++i) {
-            reply.data[i + 1] = fill;
+            reply.data[i + 1] = arguments.fill;
         }
         return reply;
     }
@@ -52,10 +57,10 @@ namespace {
                 return std::vector<Message>{};
             }
             if (req.data[0] == kAngleCmd) {
-                return std::vector<Message>{reply_payload(id, kAngleCmd, angle_fill)};
+                return std::vector<Message>{reply_payload({id, kAngleCmd, angle_fill})};
             }
             if (req.data[0] == kCurrentCmd) {
-                return std::vector<Message>{reply_payload(id, kCurrentCmd, current_fill)};
+                return std::vector<Message>{reply_payload({id, kCurrentCmd, current_fill})};
             }
             return std::vector<Message>{};
         };

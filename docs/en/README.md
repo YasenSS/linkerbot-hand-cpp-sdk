@@ -1,10 +1,10 @@
 # C++ SDK Documentation
 
-[中文](../zh/README.md) · [Documentation overview](../README.en.md) · [Project home](../../README.en.md)
+[中文](../zh/README.md) · [Documentation overview](../README.md) · [Project home](../../README.md)
 
 ## Suggested reading order
 
-1. **Build and install**: start with the [Linux quick start](../../README.en.md#quick-start-linux) or the [Windows build and integration guide](guides/windows.md).
+1. **Build and install**: start with the [Linux quick start](../../README.md#quick-start-linux) or the [Windows build and integration guide](guides/windows.md).
 2. **Connect**: [Prepare the communication interface](connections/prepare-interface.md), then choose [Automatic connection](connections/automatic.md) or [Manual connection](connections/manual.md). For Windows adapter commands, see [Adapter integration](connections/windows-adapters.md).
 3. **Use model features**: select your device below for examples covering reads, control, command results, and sensor data.
 4. **Extend your application**: read the [API guide](guides/usage.md) for unified HandDevice, native Managers, asynchronous commands, shared buses, polling, closing, and recovery.
@@ -26,6 +26,8 @@
 
 | Document | Purpose |
 | --- | --- |
+| [C++ quality](guides/quality.md) | Report Card scope, toolchain and documentation checks |
+| [Build and validation guide](guides/validation.md) | Dependency selection, offline test targets, CI failures and result interpretation |
 | [Windows guide](guides/windows.md) | Environment, building, installation, and application integration |
 | [API guide](guides/usage.md) | Unified APIs, model Managers, and lifecycle |
 | [Windows adapter integration](connections/windows-adapters.md) | PCAN, MiniCANFD, and SLCAN parameters, commands, and troubleshooting |
@@ -35,9 +37,9 @@
 
 ## Hardware records and contributing
 
-- [Hardware acceptance and model reports](../hardware-acceptance/README.md) (Chinese): per-session revisions, devices, results, and unresolved issues.
+- [Hardware acceptance and model summaries](../hardware-acceptance/README.en.md): per-session revisions, devices, results, and unresolved issues.
 - [Windows hardware acceptance](../hardware-acceptance/windows.md) (Chinese): adapter discovery, reads, and single-joint motion/restoration checks.
-- [Contributing](../../CONTRIBUTING.md) (Chinese): issue reporting, code conventions, and validation requirements.
+- [Contributing](../../CONTRIBUTING.md): issue reporting, code conventions, and validation requirements.
 
 Tutorials provide concrete steps, guides explain common usage, and references centralize capabilities and limitations. Both languages share historical hardware reports.
 When adding or moving documents, update the [Chinese counterpart](../zh/README.md), indexes, cross-links, installation, and release-package checks.

@@ -11,6 +11,8 @@ __pycache__/
 /docs/*
 !/docs/README.md
 !/docs/README.en.md
+!/docs/README.zh-CN.md
+!/docs/quality-baseline-2026-11-03.csv
 !/docs/hardware-acceptance/
 
 !/docs/zh/
@@ -330,12 +332,7 @@ tags
 
 #################### VisualStudioCode.gitignore ####################
 
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-!.vscode/*.code-snippets
+.vscode/
 
 # Local History for Visual Studio Code
 .history/

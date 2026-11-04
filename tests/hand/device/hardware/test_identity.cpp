@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include "hand_device_hardware_fixture.hpp"
 #include <catch2/catch_test_macros.hpp>
 
@@ -12,7 +13,7 @@ TEST_CASE("HandDevice hardware identity refresh and cache", "[hardware][device][
     REQUIRE_FALSE(hand.get_verified_capabilities().has_value());
     hand.open();
     REQUIRE(hand.get_identity().has_value());
-    const auto identity = *hand.get_identity();
+    const auto identity = test_support::require_value(hand.get_identity());
     std::cout << "Hardware identity: product=" << identity.product_code.value_or("unavailable")
               << ", serial=" << identity.serial_number.value_or("unavailable")
               << ", firmware=" << identity.firmware_version.value_or("unavailable")
@@ -32,7 +33,7 @@ TEST_CASE("HandDevice hardware identity refresh and cache", "[hardware][device][
         REQUIRE(identity.side != HandSide::kUnknown);
     }
     REQUIRE(identity.product_code.has_value());
-    REQUIRE_FALSE(identity.product_code->empty());
+    REQUIRE_FALSE(test_support::require_value(identity.product_code).empty());
     // Protocols that do not expose identifiers must retain nullopt, not fabricate them.
     for (const auto &text :
          {identity.serial_number, identity.firmware_version, identity.hardware_version, identity.mechanical_version}) {
@@ -45,15 +46,15 @@ TEST_CASE("HandDevice hardware identity refresh and cache", "[hardware][device][
         REQUIRE(identity.firmware_version.has_value());
     }
     REQUIRE(hand.get_verified_capabilities().has_value());
-    REQUIRE(hand.get_verified_capabilities()->validate());
-    REQUIRE(hand.get_verified_capabilities()->model == identity.model);
+    REQUIRE(test_support::require_value(hand.get_verified_capabilities()).validate());
+    REQUIRE(test_support::require_value(hand.get_verified_capabilities()).model == identity.model);
     const auto refreshed = hand.verify_identity(2s);
     require_identity_equal(refreshed, identity);
     REQUIRE(refreshed.timestamp >= identity.timestamp);
     const auto info = hand.get_device_info(2s);
     require_identity_equal(info, identity);
     REQUIRE(info.timestamp >= refreshed.timestamp);
-    require_identity_equal(*hand.get_identity(), info);
+    require_identity_equal(test_support::require_value(hand.get_identity()), info);
     REQUIRE(hand.get_health().identity_verified);
     hand.close();
     REQUIRE_FALSE(hand.get_identity().has_value());
@@ -61,5 +62,5 @@ TEST_CASE("HandDevice hardware identity refresh and cache", "[hardware][device][
     REQUIRE_FALSE(hand.get_health().identity_verified);
     REQUIRE_THROWS_AS(hand.get_device_info(2s), DeviceNotReadyError);
     hand.open();
-    require_identity_equal(*hand.get_identity(), identity);
+    require_identity_equal(test_support::require_value(hand.get_identity()), identity);
 }

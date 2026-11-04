@@ -13,25 +13,36 @@ namespace linkerbot::hand::l30::protocol {
         return m.id == id && m.is_extended && m.is_fd && m.dlc <= m.data.size();
     }
     inline std::string response_key(uint32_t id) { return "l30.response." + std::to_string(id); }
-    inline const char *write_command_family(uint8_t parent, uint8_t subcmd) {
-        if (parent == kParentControl) {
-            switch (subcmd) {
-            case kSubPosition:
-                return "angle_targets";
-            case kSubCurrentLimit:
-                return "current_limits";
-            case kSubSpeed:
-                return "speed_targets";
-            case kSubFault:
-                return "fault_reset";
-            default:
+    namespace argument_detail {
+        // Keep on-wire identifiers, selectors and lengths in one named record.
+        struct WriteCommandFamilyArguments {
+            uint8_t parent;
+            uint8_t subcmd;
+        };
+        inline const char *write_command_family(const WriteCommandFamilyArguments &arguments) {
+            if (arguments.parent == kParentControl) {
+                switch (arguments.subcmd) {
+                case kSubPosition:
+                    return "angle_targets";
+                case kSubCurrentLimit:
+                    return "current_limits";
+                case kSubSpeed:
+                    return "speed_targets";
+                case kSubFault:
+                    return "fault_reset";
+                default:
+                    return "configuration";
+                }
+            }
+            if (arguments.parent == kParentConfig || arguments.parent == kParentPeriodic ||
+                arguments.parent == kParentTactile) {
                 return "configuration";
             }
+            return "l30_writes";
         }
-        if (parent == kParentConfig || parent == kParentPeriodic || parent == kParentTactile) {
-            return "configuration";
-        }
-        return "l30_writes";
+    }
+    inline const char *write_command_family(uint8_t parent, uint8_t subcmd) {
+        return argument_detail::write_command_family({parent, subcmd});
     }
     inline common::TransactionPlan request_plan(can::Message request, bool response = true) {
         common::TransactionPlan plan;
@@ -98,7 +109,8 @@ namespace linkerbot::hand::l30::protocol {
                     throw ProtocolError("tactile frame payload too short");
                 }
                 auto &part = transaction == kTactileFirstTransaction ? first : second;
-                const std::vector<uint8_t> useful(bytes.begin(), bytes.begin() + expected + 3);
+                const std::vector<uint8_t> useful(bytes.begin(),
+                                                  bytes.begin() + static_cast<std::ptrdiff_t>(expected + 3));
                 if (part && *part != useful) {
                     result.conflicting_duplicates = 1;
                     throw ProtocolError("conflicting duplicate tactile fragment");
@@ -137,6 +149,8 @@ namespace linkerbot::hand::l30::protocol {
             fields.parent != kParentPeriodic) {
             return common::Progress::unmatched();
         }
+        // Progress owns this payload through std::any; covered by ownership regression tests.
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         return common::Progress::complete(Report{fields.subcmd, {m.data.begin(), m.data.begin() + m.dlc}},
                                           common::Origin::report);
     }

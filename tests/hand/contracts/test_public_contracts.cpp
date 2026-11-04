@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
 
 #include <chrono>
@@ -152,8 +153,8 @@ TEST_CASE("public contract: declared angle mappings convert both directions", "[
 
     const auto round_trip = raw_angles_to_percent(raw, capabilities);
     REQUIRE(round_trip.size() == raw.size());
-    REQUIRE(round_trip[0].value() == 0.0);
-    REQUIRE(round_trip[2].value() == 100.0);
+    REQUIRE(test_support::require_value(round_trip[0]) == 0.0);
+    REQUIRE(test_support::require_value(round_trip[2]) == 100.0);
 
     const auto physical = raw_angles_to_physical_rad(raw, capabilities);
     REQUIRE(physical.size() == raw.size());
@@ -180,8 +181,8 @@ TEST_CASE("public contract: feedback conversion preserves out-of-range evidence"
     const std::vector<double> raw{-1.0, 0.0, 0.0, 0.0, 0.0, 256.0};
     const auto percent = raw_angles_to_percent(raw, capabilities);
 
-    REQUIRE(percent.front().value() < 0.0);
-    REQUIRE(percent.back().value() > 100.0);
+    REQUIRE(test_support::require_value(percent.front()) < 0.0);
+    REQUIRE(test_support::require_value(percent.back()) > 100.0);
     REQUIRE_FALSE(raw_angles_within_declared_range(raw, capabilities));
 }
 

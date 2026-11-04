@@ -31,6 +31,7 @@ namespace linkerbot::hand {
         std::exception_ptr error;
         std::vector<CommandTransition> history;
         std::vector<transport::SendResult> send_results;
+        size_t reserved_receipts = 0;
         bool done = false;
     };
 
@@ -93,9 +94,17 @@ namespace linkerbot::hand {
         return state_->send_results;
     }
 
-    void command_detail::CommandHandleAccess::record_send_result(
-        CommandHandle &handle, const transport::SendResult &result) {
+    void command_detail::CommandHandleAccess::reserve_send_result(CommandHandle &handle) {
         const std::lock_guard<std::mutex> lock(handle.state_->mutex);
+        const auto capacity = handle.state_->reserved_receipts + 1;
+        handle.state_->send_results.reserve(capacity);
+        handle.state_->reserved_receipts = capacity;
+    }
+
+    void command_detail::CommandHandleAccess::record_send_result(CommandHandle &handle,
+                                                                 const transport::SendResult &result) {
+        const std::lock_guard<std::mutex> lock(handle.state_->mutex);
+        // Runtime preparation reserves one slot per batch before physical I/O.
         handle.state_->send_results.push_back(result);
     }
 

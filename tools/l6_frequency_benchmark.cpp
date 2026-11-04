@@ -1,5 +1,6 @@
 #include "l6_frequency_benchmark_types.hpp"
 #include "l6_raw_session.hpp"
+#include "restore_state.hpp"
 #include <linkerbot/hand/l6/detail/interstage.hpp>
 
 #include <array>
@@ -94,29 +95,41 @@ namespace {
         return argv[index];
     }
 
-    double parse_positive_double(const std::string &text, const std::string &option) {
+    struct ParsePositiveDoubleArguments {
+        const std::string &text;
+        const std::string &option;
+    };
+    double parse_positive_double(const ParsePositiveDoubleArguments &arguments) {
         size_t consumed = 0;
-        const double value = std::stod(text, &consumed);
-        if (consumed != text.size() || !std::isfinite(value) || value <= 0) {
-            throw std::invalid_argument(option + " must be a positive number");
+        const double value = std::stod(arguments.text, &consumed);
+        if (consumed != arguments.text.size() || !std::isfinite(value) || value <= 0) {
+            throw std::invalid_argument(arguments.option + " must be a positive number");
         }
         return value;
     }
 
-    double parse_nonnegative_double(const std::string &text, const std::string &option) {
+    struct ParseNonnegativeDoubleArguments {
+        const std::string &text;
+        const std::string &option;
+    };
+    double parse_nonnegative_double(const ParseNonnegativeDoubleArguments &arguments) {
         size_t consumed = 0;
-        const double value = std::stod(text, &consumed);
-        if (consumed != text.size() || !std::isfinite(value) || value < 0) {
-            throw std::invalid_argument(option + " must be a non-negative number");
+        const double value = std::stod(arguments.text, &consumed);
+        if (consumed != arguments.text.size() || !std::isfinite(value) || value < 0) {
+            throw std::invalid_argument(arguments.option + " must be a non-negative number");
         }
         return value;
     }
 
-    int parse_positive_int(const std::string &text, const std::string &option) {
+    struct ParsePositiveIntArguments {
+        const std::string &text;
+        const std::string &option;
+    };
+    int parse_positive_int(const ParsePositiveIntArguments &arguments) {
         size_t consumed = 0;
-        const int value = std::stoi(text, &consumed);
-        if (consumed != text.size() || value <= 0) {
-            throw std::invalid_argument(option + " must be a positive integer");
+        const int value = std::stoi(arguments.text, &consumed);
+        if (consumed != arguments.text.size() || value <= 0) {
+            throw std::invalid_argument(arguments.option + " must be a positive integer");
         }
         return value;
     }
@@ -179,37 +192,37 @@ namespace {
             } else if (argument == "--interstage-limit") {
                 const auto text = next();
                 options.interstage.max_angle_transactions =
-                    text == "0" ? 0 : static_cast<unsigned>(parse_positive_int(text, argument));
+                    text == "0" ? 0 : static_cast<unsigned>(parse_positive_int({text, argument}));
             } else if (argument == "--query-lookahead") {
                 options.interstage.query_lookahead = true;
             } else if (argument == "--finger-estimate-us") {
-                options.interstage.finger_estimate = std::chrono::microseconds{parse_positive_int(next(), argument)};
+                options.interstage.finger_estimate = std::chrono::microseconds{parse_positive_int({next(), argument})};
             } else if (argument == "--timing-margin-us") {
                 const auto text = next();
                 options.interstage.timing_margin =
-                    std::chrono::microseconds{text == "0" ? 0 : parse_positive_int(text, argument)};
+                    std::chrono::microseconds{text == "0" ? 0 : parse_positive_int({text, argument})};
             } else if (argument == "--interstage-angle-budget-us") {
-                options.interstage.angle_budget = std::chrono::microseconds{parse_positive_int(next(), argument)};
+                options.interstage.angle_budget = std::chrono::microseconds{parse_positive_int({next(), argument})};
             } else if (argument == "--interstage-request-timeout-us") {
-                options.interstage.request_timeout = std::chrono::microseconds{parse_positive_int(next(), argument)};
+                options.interstage.request_timeout = std::chrono::microseconds{parse_positive_int({next(), argument})};
             } else if (argument == "--angle-hz") {
-                options.angle_hz = parse_positive_double(next(), "--angle-hz");
+                options.angle_hz = parse_positive_double({next(), "--angle-hz"});
             } else if (argument == "--tactile-hz") {
-                options.tactile_hz = parse_positive_double(next(), "--tactile-hz");
+                options.tactile_hz = parse_positive_double({next(), "--tactile-hz"});
             } else if (argument == "--command-hz") {
-                options.command_hz = parse_positive_double(next(), "--command-hz");
+                options.command_hz = parse_positive_double({next(), "--command-hz"});
             } else if (argument == "--duration") {
-                options.duration_s = parse_positive_double(next(), "--duration");
+                options.duration_s = parse_positive_double({next(), "--duration"});
             } else if (argument == "--warmup") {
-                options.warmup_s = parse_nonnegative_double(next(), "--warmup");
+                options.warmup_s = parse_nonnegative_double({next(), "--warmup"});
             } else if (argument == "--rounds") {
-                options.rounds = parse_positive_int(next(), "--rounds");
+                options.rounds = parse_positive_int({next(), "--rounds"});
             } else if (argument == "--timeout-ms") {
-                options.timeout_ms = parse_positive_int(next(), "--timeout-ms");
+                options.timeout_ms = parse_positive_int({next(), "--timeout-ms"});
             } else if (argument == "--guard-ms") {
-                options.late_guard_ms = static_cast<int>(parse_nonnegative_double(next(), "--guard-ms"));
+                options.late_guard_ms = static_cast<int>(parse_nonnegative_double({next(), "--guard-ms"}));
             } else if (argument == "--event-queue-size") {
-                options.event_queue_size = static_cast<size_t>(parse_positive_int(next(), "--event-queue-size"));
+                options.event_queue_size = static_cast<size_t>(parse_positive_int({next(), "--event-queue-size"}));
             } else if (argument == "--output") {
                 options.output_path = next();
             } else if (argument == "--search") {
@@ -217,25 +230,25 @@ namespace {
             } else if (argument == "--single") {
                 options.search = false;
             } else if (argument == "--search-min") {
-                options.search_min_hz = parse_positive_double(next(), "--search-min");
+                options.search_min_hz = parse_positive_double({next(), "--search-min"});
             } else if (argument == "--search-max") {
-                options.search_max_hz = parse_positive_double(next(), "--search-max");
+                options.search_max_hz = parse_positive_double({next(), "--search-max"});
             } else if (argument == "--search-step") {
-                options.search_step_hz = parse_positive_double(next(), "--search-step");
+                options.search_step_hz = parse_positive_double({next(), "--search-step"});
             } else if (argument == "--search-resolution") {
-                options.search_resolution_hz = parse_positive_double(next(), "--search-resolution");
+                options.search_resolution_hz = parse_positive_double({next(), "--search-resolution"});
             } else if (argument == "--final-duration") {
-                options.final_duration_s = parse_positive_double(next(), "--final-duration");
+                options.final_duration_s = parse_positive_double({next(), "--final-duration"});
             } else if (argument == "--final-rounds") {
-                options.final_rounds = parse_positive_int(next(), "--final-rounds");
+                options.final_rounds = parse_positive_int({next(), "--final-rounds"});
             } else if (argument == "--skip-final-validation") {
                 options.final_validation = false;
             } else if (argument == "--round-gap") {
-                options.round_gap_s = parse_nonnegative_double(next(), "--round-gap");
+                options.round_gap_s = parse_nonnegative_double({next(), "--round-gap"});
             } else if (argument == "--confirm-motion") {
                 options.confirm_motion = true;
             } else if (argument == "--motion-amplitude") {
-                options.motion_amplitude_percent = parse_nonnegative_double(next(), "--motion-amplitude");
+                options.motion_amplitude_percent = parse_nonnegative_double({next(), "--motion-amplitude"});
             } else if (argument == "--initial-reply-state") {
                 const auto value = next();
                 if (value == "on") {
@@ -523,18 +536,24 @@ namespace {
         return transport;
     }
 
-    Clock::time_point advance_deadline(Clock::time_point &deadline, std::chrono::microseconds period,
-                                       Clock::time_point now, uint64_t &scheduled, uint64_t &skipped,
-                                       std::vector<double> &jitters) {
-        const auto due = deadline;
-        const auto late = now - deadline;
-        const auto periods = static_cast<uint64_t>(late / period) + 1;
-        ++scheduled;
+    struct AdvanceDeadlineArguments {
+        Clock::time_point &deadline;
+        std::chrono::microseconds period;
+        Clock::time_point now;
+        uint64_t &scheduled;
+        uint64_t &skipped;
+        std::vector<double> &jitters;
+    };
+    Clock::time_point advance_deadline(const AdvanceDeadlineArguments &arguments) {
+        const auto due = arguments.deadline;
+        const auto late = arguments.now - arguments.deadline;
+        const auto periods = static_cast<uint64_t>(late / arguments.period) + 1;
+        ++arguments.scheduled;
         if (periods > 1) {
-            skipped += periods - 1;
+            arguments.skipped += periods - 1;
         }
-        jitters.push_back(std::chrono::duration<double, std::micro>(late).count());
-        deadline += periods * period;
+        arguments.jitters.push_back(std::chrono::duration<double, std::micro>(late).count());
+        arguments.deadline += periods * arguments.period;
         return due;
     }
 
@@ -607,8 +626,8 @@ namespace {
             if (!wants_angle(options.data) || now < angle_due || now >= end || g_stop.load()) {
                 return false;
             }
-            const auto due = advance_deadline(angle_due, angle_period, now, scheduling.angle_scheduled_count,
-                                              scheduling.angle_skipped_deadline_count, jitters);
+            const auto due = advance_deadline({angle_due, angle_period, now, scheduling.angle_scheduled_count,
+                                               scheduling.angle_skipped_deadline_count, jitters});
             bool query = options.policy == AngleFeedbackPolicy::QueryOnly;
             if (options.policy == AngleFeedbackPolicy::Adaptive) {
                 query = linkerbot::hand::l6::detail::adaptive_requires_query(last_command_feedback, due);
@@ -628,8 +647,8 @@ namespace {
             const bool due_angle = wants_angle(options.data) && now >= angle_due;
             const bool due_tactile = wants_tactile(options.data) && now >= tactile_due;
             if (due_command) {
-                (void)advance_deadline(command_due, command_period, now, scheduling.command_scheduled_count,
-                                       scheduling.command_skipped_deadline_count, jitters);
+                (void)advance_deadline({command_due, command_period, now, scheduling.command_scheduled_count,
+                                        scheduling.command_skipped_deadline_count, jitters});
                 try {
                     const auto sample = session.command_angle(command_target, desired_reply_state(options), timeout);
                     ++scheduling.command_sent_count;
@@ -649,8 +668,8 @@ namespace {
                 }
             }
             if (due_tactile && !g_stop.load() && Clock::now() < end) {
-                (void)advance_deadline(tactile_due, tactile_period, Clock::now(), scheduling.tactile_scheduled_count,
-                                       scheduling.tactile_skipped_deadline_count, jitters);
+                (void)advance_deadline({tactile_due, tactile_period, Clock::now(), scheduling.tactile_scheduled_count,
+                                        scheduling.tactile_skipped_deadline_count, jitters});
                 try {
                     const auto tactile_started = Clock::now();
                     const auto service_deadline = tactile_started + tactile_period;
@@ -717,6 +736,7 @@ namespace {
                         boundary_stats.add_tactile_service_overrun_count();
                     }
                 } catch (const WindowEnded &) {
+                    break;
                 } catch (const std::exception &) {
                     ++scheduling.thread_error_count;
                 }
@@ -852,7 +872,8 @@ namespace {
         result.actual_duration_s = result.metrics.measurement_duration_s;
         const auto period_count = [&](double hz) {
             const auto period = period_for_hz(hz);
-            return static_cast<uint64_t>(std::ceil(result.actual_duration_s * 1e6 / period.count()));
+            return static_cast<uint64_t>(
+                std::ceil(result.actual_duration_s * 1e6 / static_cast<double>(period.count())));
         };
         result.metrics.angle_requested_period_count = wants_angle(options.data) ? period_count(options.angle_hz) : 0;
         result.metrics.tactile_requested_period_count =
@@ -894,12 +915,12 @@ namespace {
                 return;
             }
             session.set_stop_predicate({});
-            try {
-                (void)session.command_angle(initial.raw, desired_reply_state(options),
-                                            std::chrono::milliseconds{options.timeout_ms});
-            } catch (...) {
-            }
-            session.set_reply_enabled(restore_reply);
+            restore_state(
+                [&] {
+                    (void)session.command_angle(initial.raw, desired_reply_state(options),
+                                                std::chrono::milliseconds{options.timeout_ms});
+                },
+                [&] { session.set_reply_enabled(restore_reply); });
         };
 
         try {
@@ -919,7 +940,12 @@ namespace {
             if (options.mode == Mode::Control) {
                 try {
                     restore_device();
+                } catch (const std::exception &error) {
+                    std::cerr << "Device restoration failed while preserving the original error: " << error.what()
+                              << '\n';
                 } catch (...) {
+                    std::cerr
+                        << "Device restoration failed with a non-standard exception; preserving the original error\n";
                 }
             }
             throw;
@@ -936,20 +962,26 @@ namespace {
         std::vector<double> jitters;
     };
 
-    Metrics run_sdk_measurement(L6 &hand, const Options &options, const std::array<uint8_t, Angle::kJointCount> &hold,
-                                double warmup_s, double duration_s) {
+    struct RunSdkMeasurementArguments {
+        L6 &hand;
+        const Options &options;
+        const std::array<uint8_t, Angle::kJointCount> &hold;
+        double warmup_s;
+        double duration_s;
+    };
+    Metrics run_sdk_measurement(const RunSdkMeasurementArguments &arguments) {
         L6PollingPlan plan;
-        plan.interstage = options.interstage;
-        plan.angle_enabled = wants_angle(options.data);
-        plan.tactile_enabled = wants_tactile(options.data);
-        plan.angle_period = period_for_hz(options.angle_hz);
-        plan.tactile_period = period_for_hz(options.tactile_hz);
-        plan.angle_policy = options.policy;
-        plan.request_timeout = std::chrono::milliseconds{options.timeout_ms};
-        plan.tactile_timeout = std::chrono::milliseconds{std::max(options.timeout_ms, 1000)};
-        plan.late_response_guard = std::chrono::milliseconds{options.late_guard_ms};
+        plan.interstage = arguments.options.interstage;
+        plan.angle_enabled = wants_angle(arguments.options.data);
+        plan.tactile_enabled = wants_tactile(arguments.options.data);
+        plan.angle_period = period_for_hz(arguments.options.angle_hz);
+        plan.tactile_period = period_for_hz(arguments.options.tactile_hz);
+        plan.angle_policy = arguments.options.policy;
+        plan.request_timeout = std::chrono::milliseconds{arguments.options.timeout_ms};
+        plan.tactile_timeout = std::chrono::milliseconds{std::max(arguments.options.timeout_ms, 1000)};
+        plan.late_response_guard = std::chrono::milliseconds{arguments.options.late_guard_ms};
 
-        std::atomic<bool> command_active{options.mode == Mode::Control};
+        std::atomic<bool> command_active{arguments.options.mode == Mode::Control};
         std::atomic<bool> measure_commands{false};
         CommandCounters command;
         std::thread commander;
@@ -958,10 +990,10 @@ namespace {
         Clock::time_point started;
         Clock::time_point end;
         try {
-            hand.start_polling(plan);
-            if (options.mode == Mode::Control) {
+            arguments.hand.start_polling(plan);
+            if (arguments.options.mode == Mode::Control) {
                 commander = std::thread([&] {
-                    const auto period = period_for_hz(options.command_hz);
+                    const auto period = period_for_hz(arguments.options.command_hz);
                     auto due = Clock::now();
                     while (command_active.load() && !g_stop.load()) {
                         const auto now = Clock::now();
@@ -984,12 +1016,12 @@ namespace {
                         }
                         due += periods * period;
                         try {
-                            const auto target = target_raw(hold, options.motion_amplitude_percent);
-                            if (desired_reply_state(options)) {
-                                (void)hand.angle.set_angles_blocking(target,
-                                                                     std::chrono::milliseconds{options.timeout_ms});
+                            const auto target = target_raw(arguments.hold, arguments.options.motion_amplitude_percent);
+                            if (desired_reply_state(arguments.options)) {
+                                (void)arguments.hand.angle.set_angles_blocking(
+                                    target, std::chrono::milliseconds{arguments.options.timeout_ms});
                             } else {
-                                hand.angle.set_angles(target);
+                                arguments.hand.angle.set_angles(target);
                             }
                             if (measured) {
                                 command.sent.fetch_add(1);
@@ -1003,11 +1035,12 @@ namespace {
                     }
                 });
             }
-            wait_duration(warmup_s);
-            auto &queue = hand.stream(options.event_queue_size);
-            hand.reset_runtime_stats();
+            wait_duration(arguments.warmup_s);
+            auto &queue = arguments.hand.stream(arguments.options.event_queue_size);
+            arguments.hand.reset_runtime_stats();
             started = Clock::now();
-            end = started + std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(duration_s));
+            end = started +
+                  std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(arguments.duration_s));
             samples.begin = started;
             samples.end = end;
             consumer = std::thread([&] {
@@ -1033,8 +1066,8 @@ namespace {
             if (commander.joinable()) {
                 commander.join();
             }
-            hand.stop_polling();
-            hand.stop_stream();
+            arguments.hand.stop_polling();
+            arguments.hand.stop_stream();
             if (consumer.joinable()) {
                 consumer.join();
             }
@@ -1047,16 +1080,17 @@ namespace {
         if (commander.joinable()) {
             commander.join();
         }
-        const auto transaction_timeout_ms =
-            wants_tactile(options.data) ? std::max(options.timeout_ms, 1000) : options.timeout_ms;
-        const auto drain_timeout = std::chrono::milliseconds{transaction_timeout_ms + options.late_guard_ms};
-        const bool drained = hand.stop_polling_gracefully(drain_timeout);
-        hand.stop_stream();
+        const auto transaction_timeout_ms = wants_tactile(arguments.options.data)
+                                                ? std::max(arguments.options.timeout_ms, 1000)
+                                                : arguments.options.timeout_ms;
+        const auto drain_timeout = std::chrono::milliseconds{transaction_timeout_ms + arguments.options.late_guard_ms};
+        const bool drained = arguments.hand.stop_polling_gracefully(drain_timeout);
+        arguments.hand.stop_stream();
         if (consumer.joinable()) {
             consumer.join();
         }
 
-        const auto runtime = hand.get_runtime_stats();
+        const auto runtime = arguments.hand.get_runtime_stats();
         Metrics metrics;
         metrics.scheduled_count = runtime.scheduled_count;
         metrics.sent_count = runtime.sent_count;
@@ -1085,7 +1119,7 @@ namespace {
         metrics.event_drop_count = runtime.event_drop_count;
         metrics.pending_count = runtime.pending_count;
         metrics.in_flight_count = runtime.in_flight_count;
-        const auto transport_health = hand.runtime()->session()->health();
+        const auto transport_health = arguments.hand.runtime()->session()->health();
         metrics.session_queue_high_water = transport_health.queue_high_water;
         metrics.session_rx_overflows = transport_health.overflows;
         metrics.unknown_origin_count = runtime.unknown_origin_count;
@@ -1127,16 +1161,16 @@ namespace {
             if (options.mode != Mode::Control) {
                 return;
             }
-            try {
-                if (desired_reply_state(options)) {
-                    (void)hand->angle.set_angles_blocking(initial.device_raw,
-                                                          std::chrono::milliseconds{options.timeout_ms});
-                } else {
-                    hand->angle.set_angles(initial.device_raw);
-                }
-            } catch (...) {
-            }
-            hand->config.set_reply_enabled(restore_reply);
+            restore_state(
+                [&] {
+                    if (desired_reply_state(options)) {
+                        (void)hand->angle.set_angles_blocking(initial.device_raw,
+                                                              std::chrono::milliseconds{options.timeout_ms});
+                    } else {
+                        hand->angle.set_angles(initial.device_raw);
+                    }
+                },
+                [&] { hand->config.set_reply_enabled(restore_reply); });
         };
         try {
             if (options.mode == Mode::Control) {
@@ -1144,7 +1178,7 @@ namespace {
             }
             const auto started = Clock::now();
             result.metrics =
-                run_sdk_measurement(*hand, options, initial.device_raw, options.warmup_s, options.duration_s);
+                run_sdk_measurement({*hand, options, initial.device_raw, options.warmup_s, options.duration_s});
             const auto health = hand->get_transport_health();
             result.transport_healthy = health.connected() && health.consecutive_errors == 0;
             restore_device();
@@ -1153,7 +1187,12 @@ namespace {
             if (options.mode == Mode::Control) {
                 try {
                     restore_device();
+                } catch (const std::exception &error) {
+                    std::cerr << "Device restoration failed while preserving the original error: " << error.what()
+                              << '\n';
                 } catch (...) {
+                    std::cerr
+                        << "Device restoration failed with a non-standard exception; preserving the original error\n";
                 }
             }
             throw;

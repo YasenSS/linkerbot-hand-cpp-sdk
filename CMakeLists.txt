@@ -123,17 +123,25 @@ write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/linkerbot-hand-cpp-
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/linkerbot-hand-cpp-config.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/linkerbot-hand-cpp-config-version.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/linkerbot-hand-cpp)
-install(FILES LICENSE README.md README.en.md NOTICE CHANGELOG.md CONTRIBUTING.md
+install(FILES LICENSE README.md README.en.md README.zh-CN.md NOTICE
+    CHANGELOG.md CHANGELOG.zh-CN.md CONTRIBUTING.md CONTRIBUTING.zh-CN.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp
     COMPONENT Documentation)
-install(FILES docs/README.md docs/README.en.md
+install(FILES docs/README.md docs/README.en.md docs/README.zh-CN.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp/docs
+    COMPONENT Documentation)
+install(FILES docs/quality-baseline-2026-11-03.csv
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp/docs
+    COMPONENT Documentation)
+install(FILES .github/cppreportcard/README.md .github/cppreportcard/README.zh-CN.md
+    .github/cppreportcard/badge.svg
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp/.github/cppreportcard
     COMPONENT Documentation)
 install(DIRECTORY docs/zh docs/en docs/hardware-acceptance
     DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp/docs
     COMPONENT Documentation
     FILES_MATCHING PATTERN "*.md")
-install(FILES tests/hand/device/hardware/README.md
+install(FILES tests/hand/device/hardware/README.md tests/hand/device/hardware/README.zh-CN.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/linkerbot-hand-cpp/tests/hand/device/hardware
     COMPONENT Documentation)
 install(FILES validation/installed-consumer/CMakeLists.txt validation/installed-consumer/main.cpp

@@ -19,7 +19,7 @@ namespace linkerbot::hand::o30 {
 
     void CurrentManager::set_all_current_limits(uint8_t current, std::chrono::milliseconds timeout_ms) {
         auto operation = client_->operation(timeout_ms);
-        detail::write_all(*client_, protocol::kMiCurrent, current, timeout_ms);
+        detail::write_all(*client_, {protocol::kMiCurrent, current}, timeout_ms);
     }
 
     CurrentData CurrentManager::get_currents(std::chrono::milliseconds timeout_ms) {

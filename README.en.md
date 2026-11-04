@@ -1,6 +1,9 @@
 # LinkerBot Dexterous Hand C++ SDK
 
-[English](README.en.md) | [简体中文](README.md)
+[![C++ Report Card](.github/cppreportcard/badge.svg)](.github/cppreportcard/README.md)
+[![C++ Report Card CI](https://github.com/soulteary/linkerbot-hand-cpp-sdk/actions/workflows/cppreportcard.yml/badge.svg?branch=main)](https://github.com/soulteary/linkerbot-hand-cpp-sdk/actions/workflows/cppreportcard.yml)
+
+[English](README.md) | [简体中文](README.zh-CN.md)
 
 A C++17 SDK for connecting to LinkerBot dexterous hands, controlling joints, reading sensors,
 and collecting telemetry in the background. CAN/CAN FD communication is provided by
@@ -40,8 +43,8 @@ Use paired `0.3.x` versions; the transport version must be at least the hand SDK
 ```bash
 mkdir sdk-build && cd sdk-build
 git clone https://github.com/linker-bot/linkerbot-transport-cpp.git
-git -C linkerbot-transport-cpp checkout --detach 37c2e6f05ec93045e13459194b6bee7d1a2f091d
-git clone https://github.com/linker-bot/linkerbot-hand-cpp.git
+git -C linkerbot-transport-cpp checkout --detach a46177e86e403bbd18834aedb6e81ef3233c6c22
+git clone https://github.com/linker-bot/linkerbot-hand-cpp-sdk.git linkerbot-hand-cpp
 cd linkerbot-hand-cpp
 
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
@@ -152,16 +155,20 @@ To run offline tests, install Catch2 3 and configure a separate build directory 
 ```bash
 cmake -S . -B build-tests -DCMAKE_BUILD_TYPE=Release \
   -DLINKERBOT_BUILD_TESTS=ON -DLINKERBOT_BUILD_TOOLS=OFF \
+  -DLINKERBOT_COMM_SOURCE_DIR=../linkerbot-transport-cpp \
+  -DLINKERBOT_BUILD_EXAMPLES=OFF \
   -DLINKERBOT_ALLOW_DEPENDENCY_DOWNLOADS=OFF -DLINKERBOT_COMM_BUILD_TESTS=OFF
-cmake --build build-tests --parallel 4
+cmake --build build-tests --parallel 4 --target tests protocol-tests
 ctest --test-dir build-tests --output-on-failure
 ```
 
 Hardware test configuration and execution are documented in the
-[hardware test guide](tests/hand/device/hardware/README.md).
+[hardware test guide](tests/hand/device/hardware/README.zh-CN.md).
 
 ## Documentation
 
+- [C++ quality and documentation checks](docs/en/guides/quality.md)
+- [Build and validation guide](docs/en/guides/validation.md)
 - [Windows guide](docs/en/guides/windows.md): environment, build, installation, and application integration.
 - [Windows adapters](docs/en/connections/windows-adapters.md): PCAN, MiniCANFD, and SLCAN configuration and troubleshooting.
 - [API guide](docs/en/guides/usage.md): reading, control, background polling, and lifecycle.

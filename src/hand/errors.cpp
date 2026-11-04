@@ -73,7 +73,6 @@ namespace linkerbot::hand {
             case can::ErrorCode::kTimeout:
                 return ErrorCode::kTimeout;
             case can::ErrorCode::kTransportIo:
-                return ErrorCode::kTransport;
             case can::ErrorCode::kFaulted:
                 return ErrorCode::kTransport;
             case can::ErrorCode::kQueueFull:

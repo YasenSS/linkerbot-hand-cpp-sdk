@@ -19,22 +19,47 @@ namespace linkerbot::hand::unified_detail {
         bool acknowledged = false;
     };
 
-#define LINKERBOT_DECLARE_MODEL_ADAPTERS(DeviceType)                                                                   \
-    [[nodiscard]] CommandOutcome submit_command(DeviceType &device, const CommandRequest &request);                    \
-    [[nodiscard]] TelemetrySample read_telemetry(DeviceType &device, TelemetrySemantic semantic,                       \
-                                                 std::chrono::milliseconds timeout);                                   \
-    [[nodiscard]] CommandOutcome operate_device(DeviceType &device, DeviceOperation operation,                         \
-                                                std::chrono::milliseconds timeout)
+    [[nodiscard]] CommandOutcome submit_command(l6::L6 &device, const CommandRequest &request);
+    [[nodiscard]] TelemetrySample read_telemetry(l6::L6 &device, TelemetrySemantic semantic,
+                                                 std::chrono::milliseconds timeout);
+    [[nodiscard]] CommandOutcome operate_device(l6::L6 &device, DeviceOperation operation,
+                                                std::chrono::milliseconds timeout);
 
-    LINKERBOT_DECLARE_MODEL_ADAPTERS(l6::L6);
-    LINKERBOT_DECLARE_MODEL_ADAPTERS(l6::HopL6);
-    LINKERBOT_DECLARE_MODEL_ADAPTERS(o6::O6);
-    LINKERBOT_DECLARE_MODEL_ADAPTERS(l20lite::L20lite);
-    LINKERBOT_DECLARE_MODEL_ADAPTERS(l20::L20);
-    LINKERBOT_DECLARE_MODEL_ADAPTERS(l30::L30);
-    LINKERBOT_DECLARE_MODEL_ADAPTERS(o30::O30);
+    [[nodiscard]] CommandOutcome submit_command(l6::HopL6 &device, const CommandRequest &request);
+    [[nodiscard]] TelemetrySample read_telemetry(l6::HopL6 &device, TelemetrySemantic semantic,
+                                                 std::chrono::milliseconds timeout);
+    [[nodiscard]] CommandOutcome operate_device(l6::HopL6 &device, DeviceOperation operation,
+                                                std::chrono::milliseconds timeout);
 
-#undef LINKERBOT_DECLARE_MODEL_ADAPTERS
+    [[nodiscard]] CommandOutcome submit_command(o6::O6 &device, const CommandRequest &request);
+    [[nodiscard]] TelemetrySample read_telemetry(o6::O6 &device, TelemetrySemantic semantic,
+                                                 std::chrono::milliseconds timeout);
+    [[nodiscard]] CommandOutcome operate_device(o6::O6 &device, DeviceOperation operation,
+                                                std::chrono::milliseconds timeout);
+
+    [[nodiscard]] CommandOutcome submit_command(l20lite::L20lite &device, const CommandRequest &request);
+    [[nodiscard]] TelemetrySample read_telemetry(l20lite::L20lite &device, TelemetrySemantic semantic,
+                                                 std::chrono::milliseconds timeout);
+    [[nodiscard]] CommandOutcome operate_device(l20lite::L20lite &device, DeviceOperation operation,
+                                                std::chrono::milliseconds timeout);
+
+    [[nodiscard]] CommandOutcome submit_command(l20::L20 &device, const CommandRequest &request);
+    [[nodiscard]] TelemetrySample read_telemetry(l20::L20 &device, TelemetrySemantic semantic,
+                                                 std::chrono::milliseconds timeout);
+    [[nodiscard]] CommandOutcome operate_device(l20::L20 &device, DeviceOperation operation,
+                                                std::chrono::milliseconds timeout);
+
+    [[nodiscard]] CommandOutcome submit_command(l30::L30 &device, const CommandRequest &request);
+    [[nodiscard]] TelemetrySample read_telemetry(l30::L30 &device, TelemetrySemantic semantic,
+                                                 std::chrono::milliseconds timeout);
+    [[nodiscard]] CommandOutcome operate_device(l30::L30 &device, DeviceOperation operation,
+                                                std::chrono::milliseconds timeout);
+
+    [[nodiscard]] CommandOutcome submit_command(o30::O30 &device, const CommandRequest &request);
+    [[nodiscard]] TelemetrySample read_telemetry(o30::O30 &device, TelemetrySemantic semantic,
+                                                 std::chrono::milliseconds timeout);
+    [[nodiscard]] CommandOutcome operate_device(o30::O30 &device, DeviceOperation operation,
+                                                std::chrono::milliseconds timeout);
 
     [[nodiscard]] AngleSample angle_sample(const l6::AngleData &data, const DeviceCapabilities &capabilities);
     [[nodiscard]] AngleSample angle_sample(const o6::AngleData &data, const DeviceCapabilities &capabilities);

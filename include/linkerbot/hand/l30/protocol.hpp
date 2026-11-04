@@ -78,7 +78,7 @@ namespace linkerbot::hand::l30::protocol {
     inline constexpr uint8_t kVectorPayloadBytes = 34; // 17 joints x 2 bytes
     inline constexpr uint8_t kVectorWireBytes = 48;    // DLC 0x0E
     inline constexpr uint8_t kU8VectorPayloadBytes = 17;
-    inline constexpr uint8_t kU8VectorWireBytes = 20;     // DLC 0x0B
+    inline constexpr uint8_t kU8VectorWireBytes = 20; // DLC 0x0B
     // Section 10.1 writes this as "DLC=0x10", meaning 16 bytes decimal; the
     // actual DLC nibble for 16 wire bytes is 0x0A.
     inline constexpr uint8_t kPeriodicConfigWireBytes = 16;
@@ -161,7 +161,6 @@ namespace linkerbot::hand::l30::protocol {
     [[nodiscard]] std::vector<uint8_t> empty_request_payload();
 
     [[nodiscard]] std::vector<uint8_t> ack_payload(uint8_t status = kStatusOk);
-
 
     [[nodiscard]] std::vector<uint8_t> encode_i16_vector(const std::array<int16_t, kJointCount> &values);
 

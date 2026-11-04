@@ -11,9 +11,35 @@ namespace linkerbot::hand::unified_detail {
     // setters with waiting polling/active reads at transaction boundaries.
     // Native managers use this only when owned by a unified backend.
     class ExecutionGate : public std::enable_shared_from_this<ExecutionGate> {
+        friend struct ExecutionGateTestAccess;
+        struct Lease {
+            explicit Lease(std::shared_ptr<ExecutionGate> gate) : owner(std::move(gate)) {}
+            ~Lease() {
+                if (active) {
+                    const std::lock_guard<std::mutex> lock(owner->mutex_);
+                    owner->busy_ = false;
+                    owner->changed_.notify_all();
+                }
+            }
+            std::shared_ptr<ExecutionGate> owner;
+            bool active = false;
+        };
+
     public:
         std::shared_ptr<void> acquire(bool command, runtime::Deadline deadline, runtime::CancellationToken token = {},
                                       std::function<bool()> valid = {}) {
+            return acquire_with_allocator(std::allocator<Lease>{}, command, deadline, std::move(token),
+                                          std::move(valid));
+        }
+
+    private:
+        template <class Allocator>
+        std::shared_ptr<void> acquire_with_allocator(const Allocator &allocator, bool command,
+                                                     runtime::Deadline deadline, runtime::CancellationToken token,
+                                                     std::function<bool()> valid) {
+            // Allocate before taking the gate lock. A failed allocation must not
+            // invoke a deleter that tries to reacquire this same mutex.
+            auto lease = std::allocate_shared<Lease>(allocator, shared_from_this());
             std::unique_lock<std::mutex> lock(mutex_);
             auto &queue = command ? commands_ : reads_;
             const auto ticket = next_++;
@@ -35,17 +61,16 @@ namespace linkerbot::hand::unified_detail {
                     }
                     changed_.wait_until(lock, std::min(deadline, runtime::Clock::now() + std::chrono::milliseconds{1}));
                 }
-                auto lease = std::shared_ptr<void>(this, [self = shared_from_this()](void *) {
-                    const std::lock_guard<std::mutex> release(self->mutex_);
-                    self->busy_ = false;
-                    self->changed_.notify_all();
-                });
                 queue.pop_front();
                 busy_ = true;
                 prefer_command_ = !command;
-                return lease;
+                lease->active = true;
+                return std::shared_ptr<void>(lease, this);
             } catch (...) {
-                queue.erase(std::find(queue.begin(), queue.end(), ticket));
+                const auto position = std::find(queue.begin(), queue.end(), ticket);
+                if (position != queue.end()) {
+                    queue.erase(position);
+                }
                 changed_.notify_all();
                 throw;
             }

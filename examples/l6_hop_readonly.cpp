@@ -35,6 +35,9 @@ int main(int argc, char **argv) {
         HandDevice device(config);
         device.open();
         const auto identity = device.get_identity();
+        if (!identity.has_value()) {
+            throw std::runtime_error("device identity unavailable after open");
+        }
         std::cout << identity->product_code.value_or("L6") << " HOP " << identity->protocol_version.value_or("")
                   << '\n';
         for (const auto value : device.get_angles().raw) {

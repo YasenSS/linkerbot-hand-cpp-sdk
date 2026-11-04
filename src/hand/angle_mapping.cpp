@@ -299,21 +299,25 @@ namespace linkerbot::hand {
             return out;
         }
 
-        bool is_table_header_line(std::string_view line, std::string &key_out, std::string &header_out) {
+        struct ParsedTableHeader {
+            std::string key;
+            std::string header;
+        };
+        std::optional<ParsedTableHeader> parse_table_header(std::string_view line) {
             std::size_t i = 0;
             while (i < line.size() && (line[i] == ' ' || line[i] == '\t')) {
                 ++i;
             }
             if (i >= line.size() || line[i] != '[') {
-                return false;
+                return std::nullopt;
             }
             ++i;
             if (i >= line.size()) {
-                return false;
+                return std::nullopt;
             }
             const char quote = line[i];
             if (quote != '"' && quote != '\'') {
-                return false;
+                return std::nullopt;
             }
             ++i;
             const auto key_start = i;
@@ -321,11 +325,10 @@ namespace linkerbot::hand {
                 ++i;
             }
             if (i >= line.size() || i + 1 >= line.size() || line[i + 1] != ']') {
-                return false;
+                return std::nullopt;
             }
-            key_out = std::string(line.substr(key_start, i - key_start));
-            header_out = std::string(line.substr(0, i + 2));
-            return true;
+            return ParsedTableHeader{std::string(line.substr(key_start, i - key_start)),
+                                     std::string(line.substr(0, i + 2))};
         }
 
         TomlDocument parse_document(const std::string &text) {
@@ -351,13 +354,11 @@ namespace linkerbot::hand {
                 if (!line.empty() && line.back() == '\r') {
                     line.pop_back();
                 }
-                std::string key;
-                std::string header;
-                if (is_table_header_line(line, key, header)) {
+                if (auto header = parse_table_header(line)) {
                     flush_table();
                     in_table = true;
-                    current.key = std::move(key);
-                    current.header = std::move(header);
+                    current.key = std::move(header->key);
+                    current.header = std::move(header->header);
                     continue;
                 }
                 if (in_table) {
@@ -571,6 +572,8 @@ namespace linkerbot::hand {
 #else
             std::filesystem::rename(tmp, path);
 #endif
+            // Value is observed by RAII cleanup or subsequent Catch2 assertions.
+            // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
             committed = true;
         }
     } // namespace
@@ -678,7 +681,12 @@ namespace linkerbot::hand {
         }
 
         std::optional<std::vector<std::string>> parse_optional_strings(std::string_view body, std::string_view key) {
-            Cursor cursor(body);
+            struct OptionalStringField {
+                std::string_view body;
+                std::string_view key;
+            };
+            const auto field = OptionalStringField{body, key};
+            Cursor cursor(field.body);
             while (!cursor.done()) {
                 const auto ident = cursor.read_ident();
                 if (ident.empty()) {
@@ -689,7 +697,7 @@ namespace linkerbot::hand {
                     throw ValidationError("expected '=' after TOML key");
                 }
                 cursor.skip_ws_and_comments();
-                if (ident == key) {
+                if (ident == field.key) {
                     return cursor.parse_string_array();
                 }
                 cursor.skip_value();

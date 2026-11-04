@@ -81,6 +81,8 @@ namespace linkerbot::hand::o6 {
     ForceSensorManager::~ForceSensorManager() {
         try {
             cancel_pending();
+            // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+            // NOLINTNEXTLINE(bugprone-empty-catch)
         } catch (...) {
         }
     }

@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include "hand_device_angle_baseline.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -82,11 +83,11 @@ namespace {
             REQUIRE(std::isfinite(sample.raw[index]));
             REQUIRE(sample.percent[index].has_value() == caps.joints[index].percent_mapping.has_value());
             if (sample.percent[index]) {
-                REQUIRE(std::isfinite(*sample.percent[index]));
+                REQUIRE(std::isfinite(test_support::require_value(sample.percent[index])));
             }
             REQUIRE(sample.physical_rad[index].has_value() == caps.joints[index].physical_angle_mapping.has_value());
             if (sample.physical_rad[index]) {
-                REQUIRE(std::isfinite(*sample.physical_rad[index]));
+                REQUIRE(std::isfinite(test_support::require_value(sample.physical_rad[index])));
             }
         }
         // Feedback may overshoot: do not clamp it to the command range.
@@ -323,7 +324,7 @@ namespace {
                 // from sensor percentages that may legitimately exceed 0..100.
                 for (size_t channel = 0; channel < original.size(); ++channel) {
                     REQUIRE(caps.joints[channel].percent_mapping.has_value());
-                    const auto &mapping = *caps.joints[channel].percent_mapping;
+                    const auto &mapping = test_support::require_value(caps.joints[channel].percent_mapping);
                     REQUIRE(mapping.raw_at_hundred != mapping.raw_at_zero);
                     const auto value = 100.0 * (original[channel] - mapping.raw_at_zero) /
                                        (mapping.raw_at_hundred - mapping.raw_at_zero);
@@ -335,7 +336,7 @@ namespace {
                                                             : percentages[index] - options.step_percent;
                 percentages[index] = static_cast<float>(percent_target);
                 REQUIRE(joint.percent_mapping.has_value());
-                const auto &mapping = *joint.percent_mapping;
+                const auto &mapping = test_support::require_value(joint.percent_mapping);
                 REQUIRE(mapping.quantization == Quantization::kNearestTiesAwayFromZero);
                 target[index] = static_cast<int32_t>(std::llround(
                     mapping.raw_at_zero + percentages[index] / 100.0 * (mapping.raw_at_hundred - mapping.raw_at_zero)));
@@ -360,23 +361,25 @@ namespace {
             if (configured_pose) {
                 const auto written_targets = o30_setpoint_pose(fixture.config(), fixture.setpoint_reader());
                 REQUIRE(written_targets.has_value());
-                REQUIRE(*written_targets == target);
+                REQUIRE(test_support::require_value(written_targets) == target);
                 std::cout << "O30 setpoint confirmed: joint=" << index << ", target_raw=" << target[index] << '\n';
             }
             const auto after = wait_for_pose(hand, caps, target, options, selected_joint);
             require_sample(after, caps, hand.get_health().connection_generation);
-            REQUIRE(*after.meta.collected_at > *before.meta.collected_at);
+            REQUIRE(test_support::require_value(after.meta.collected_at) >
+                    test_support::require_value(before.meta.collected_at));
             if (percent_command) {
                 REQUIRE(after.percent[index].has_value());
-                const auto &mapping = *joint.percent_mapping;
+                const auto &mapping = test_support::require_value(joint.percent_mapping);
                 const auto quantization = 50.0 / std::abs(mapping.raw_at_hundred - mapping.raw_at_zero);
-                REQUIRE(std::abs(*after.percent[index] - percent_target) <= options.tolerance_percent + quantization);
+                REQUIRE(std::abs(test_support::require_value(after.percent[index]) - percent_target) <=
+                        options.tolerance_percent + quantization);
             }
             const auto restored = guard.restore();
             if (configured_pose) {
                 const auto restored_targets = o30_setpoint_pose(fixture.config(), fixture.setpoint_reader());
                 REQUIRE(restored_targets.has_value());
-                REQUIRE(*restored_targets == original);
+                REQUIRE(test_support::require_value(restored_targets) == original);
                 for (size_t other = 0; other < original.size(); ++other) {
                     if (other == index) {
                         continue;
@@ -407,7 +410,8 @@ namespace {
         const auto generation = hand.get_health().connection_generation;
         require_sample(first, caps, generation);
         require_sample(second, caps, generation);
-        REQUIRE(*second.meta.collected_at > *first.meta.collected_at);
+        REQUIRE(test_support::require_value(second.meta.collected_at) >
+                test_support::require_value(first.meta.collected_at));
     }
 
     void check_angle_input_validation() {

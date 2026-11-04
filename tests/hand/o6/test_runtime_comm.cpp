@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include "legacy_regressions.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <future>
@@ -79,7 +80,7 @@ TEST_CASE("comm: O6 full tactile replies cannot hide a failed final send", "[com
     REQUIRE(hand.runtime_health().in_flight == 0);
     auto snapshot = hand.force_sensor.get_snapshot();
     REQUIRE(snapshot.has_value());
-    REQUIRE(snapshot->thumb.timestamp == first.thumb.timestamp);
+    REQUIRE(test_support::require_value(snapshot).thumb.timestamp == first.thumb.timestamp);
 }
 
 TEST_CASE("comm: O6 polling fault remains isolated to its source", "[comm][o6][runtime-migration]") {

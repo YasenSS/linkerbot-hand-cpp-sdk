@@ -1,3 +1,4 @@
+#include "hand/support/optional_value.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
@@ -140,8 +141,8 @@ TEST_CASE("comm: angle readback and snapshots decode all measured joint endpoint
         const auto actual_percent = i < 6 ? 0.0F : 100.0F;
         const auto expected = kind == ValueKind::kActual ? actual_percent : 100.0F - actual_percent;
         REQUIRE(data.angles.values[i] == expected);
-        REQUIRE(manager->angles.values[i] == expected);
-        REQUIRE(hand.angle->angles.values[i] == expected);
+        REQUIRE(test_support::require_value(manager).angles.values[i] == expected);
+        REQUIRE(test_support::require_value(hand.angle).angles.values[i] == expected);
     }
 }
 
@@ -192,6 +193,8 @@ TEST_CASE("comm: raw angle setters retain protocol bytes at both endpoints", "[c
     case 5:
         h.hand->angle.set_sparse({{9, raw}}, kTimeout);
         break;
+    default:
+        throw std::logic_error("invalid test vector selector");
     }
     REQUIRE(h.hop->writes.size() == (api == 0 ? 3 : 1));
     size_t bytes = 0;
@@ -286,7 +289,7 @@ TEST_CASE("comm: get_blocking projects 36 slots onto 20 joints", "[comm][o30][an
     REQUIRE(data.kind == ValueKind::kActual);
     REQUIRE(data.angles.to_raw() == o30_comm::projected_ramp());
     REQUIRE(h.hand->angle.get_snapshot().has_value());
-    REQUIRE(h.hand->angle.get_snapshot()->angles.to_raw() == o30_comm::projected_ramp());
+    REQUIRE(test_support::require_value(h.hand->angle.get_snapshot()).angles.to_raw() == o30_comm::projected_ramp());
 }
 
 // 设定值读 CTRL=0x81。

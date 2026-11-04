@@ -1,3 +1,4 @@
+#include "../detail/checked_optional.hpp"
 #include <linkerbot/hand/api/device.hpp>
 
 #include "detail/backend.hpp"
@@ -144,6 +145,8 @@ namespace linkerbot::hand {
                     backend_->cancel_commands();
                     backend_->close();
                 } catch (...) {
+                    scheduler_.reset();
+                    return;
                 }
             }
             scheduler_.reset();
@@ -639,20 +642,23 @@ namespace linkerbot::hand {
             impl_->open_.store(true, std::memory_order_release);
         } catch (...) {
             const auto original = std::current_exception();
+            const auto finish_failure = [&] {
+                {
+                    const std::lock_guard<std::mutex> lock(impl_->mutex_);
+                    impl_->state_.store(Impl::State::kClosed, std::memory_order_release);
+                    impl_->open_.store(false, std::memory_order_release);
+                }
+                impl_->snapshot_cv_.notify_all();
+                std::rethrow_exception(original);
+            };
             if (next) {
                 try {
                     next->close();
-                } catch (...) // Preserve initialization failure.
-                {
+                } catch (...) {
+                    finish_failure();
                 }
             }
-            {
-                const std::lock_guard<std::mutex> lock(impl_->mutex_);
-                impl_->state_.store(Impl::State::kClosed, std::memory_order_release);
-                impl_->open_.store(false, std::memory_order_release);
-            }
-            impl_->snapshot_cv_.notify_all();
-            std::rethrow_exception(original);
+            finish_failure();
         }
     }
 
@@ -770,7 +776,11 @@ namespace linkerbot::hand {
         try {
             auto identity = context.backend->verify_identity(impl_->config_.side, timeout);
             unified_detail::validate_connection_identity(
-                identity, impl_->config_, impl_->expected_identity_ ? &*impl_->expected_identity_ : nullptr,
+                identity, impl_->config_,
+                impl_->expected_identity_
+                    ? &::linkerbot::hand::detail::checked_value(impl_->expected_identity_,
+                                                                "missing runtime state: impl_->expected_identity_")
+                    : nullptr,
                 "verify_identity");
             const std::lock_guard<std::mutex> lock(impl_->mutex_);
             if (impl_->generation_ != context.generation + 1) {
@@ -782,21 +792,26 @@ namespace linkerbot::hand {
             impl_->open_.store(true, std::memory_order_release);
             return identity;
         } catch (...) {
+            const auto original = std::current_exception();
+            const auto invalidate_identity = [&] {
+                {
+                    const std::lock_guard<std::mutex> lock(impl_->mutex_);
+                    if (impl_->generation_ == context.generation + 1) {
+                        impl_->polling_plan_.reset();
+                        impl_->state_.store(Impl::State::kFaulted, std::memory_order_release);
+                    }
+                }
+                impl_->snapshot_cv_.notify_all();
+                impl_->stream_cv_.notify_all();
+            };
             try {
                 context.backend->stop_polling();
-            } catch (...) // Preserve identity failure.
-            {
+            } catch (...) {
+                invalidate_identity();
+                std::rethrow_exception(original);
             }
-            {
-                const std::lock_guard<std::mutex> lock(impl_->mutex_);
-                if (impl_->generation_ == context.generation + 1) {
-                    impl_->polling_plan_.reset();
-                    impl_->state_.store(Impl::State::kFaulted, std::memory_order_release);
-                }
-            }
-            impl_->snapshot_cv_.notify_all();
-            impl_->stream_cv_.notify_all();
-            throw;
+            invalidate_identity();
+            std::rethrow_exception(original);
         }
     }
 
@@ -1156,7 +1171,8 @@ namespace linkerbot::hand {
             const std::lock_guard<std::mutex> lock(impl_->mutex_);
             impl_->check_context(context, "recover");
             restore = impl_->polling_plan_;
-            expected_identity = *impl_->expected_identity_;
+            expected_identity = ::linkerbot::hand::detail::checked_value(
+                impl_->expected_identity_, "missing runtime state: impl_->expected_identity_");
             impl_->invalidate_commands("recover");
             ++impl_->generation_;
             impl_->state_.store(Impl::State::kRecovering, std::memory_order_release);
@@ -1223,27 +1239,30 @@ namespace linkerbot::hand {
             }
             try {
                 selected.stop_polling();
-            } catch (...) // Preserve the recovery failure.
-            {
+            } catch (...) {
+                continue;
             }
         }
+        const auto finish_recovery_failure = [&] {
+            const std::lock_guard<std::mutex> lock(impl_->mutex_);
+            if (impl_->generation_ == recovery_generation) {
+                impl_->identity_.reset();
+                impl_->verified_capabilities_.reset();
+                impl_->polling_plan_.reset();
+                impl_->snapshot_sequence_ = 0;
+                impl_->last_snapshot_time_.reset();
+                impl_->state_.store(Impl::State::kFaulted, std::memory_order_release);
+            }
+            impl_->snapshot_cv_.notify_all();
+            impl_->stream_cv_.notify_all();
+            std::rethrow_exception(last_error);
+        };
         try {
             selected.stop_polling();
-        } catch (...) // Preserve the recovery failure.
-        {
+        } catch (...) {
+            finish_recovery_failure();
         }
-        const std::lock_guard<std::mutex> lock(impl_->mutex_);
-        if (impl_->generation_ == recovery_generation) {
-            impl_->identity_.reset();
-            impl_->verified_capabilities_.reset();
-            impl_->polling_plan_.reset();
-            impl_->snapshot_sequence_ = 0;
-            impl_->last_snapshot_time_.reset();
-            impl_->state_.store(Impl::State::kFaulted, std::memory_order_release);
-        }
-        impl_->snapshot_cv_.notify_all();
-        impl_->stream_cv_.notify_all();
-        std::rethrow_exception(last_error);
+        finish_recovery_failure();
     }
 
     std::shared_ptr<EventQueue<HandEvent>> HandDevice::stream_handle(size_t max_size) {

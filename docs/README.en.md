@@ -1,9 +1,9 @@
 # C++ SDK Documentation
 
-[简体中文](README.md) | [English](README.en.md)
+[English](README.md) | [简体中文](README.zh-CN.md)
 
 - [English documentation](en/README.md): interface setup, connections, model tutorials, general guides, and references.
-- [Hardware acceptance and reports](hardware-acceptance/README.md) (Chinese): shared historical acceptance records.
+- [Hardware acceptance index](hardware-acceptance/README.en.md): English summaries linked to original historical evidence.
 
 ## Organization
 
