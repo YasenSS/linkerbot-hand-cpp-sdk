@@ -3,6 +3,7 @@
 #include "hand/support/optional_value.hpp"
 #include "hand/support/temp_path.hpp"
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <catch2/catch_test_macros.hpp>
 #include <future>
@@ -125,12 +126,18 @@ TEST_CASE("comm: l20 joint duplicate conflict quarantines actual request", "[com
         AngleManager manager(id, dispatcher, test_util::unique_mapping_path());
         manager.start();
         if (conflict) {
-            REQUIRE_THROWS(manager.get_blocking(100ms));
+            REQUIRE_THROWS_AS(manager.get_blocking(1s), linkerbot::hand::ProtocolError);
             REQUIRE_FALSE(manager.get_snapshot());
             REQUIRE_THROWS(manager.get_blocking(100ms));
             REQUIRE(raw->sent().size() == 5);
         } else {
-            REQUIRE_NOTHROW(manager.get_blocking(100ms));
+            // Five paced requests must fit even with coarse Windows scheduler ticks.
+            // Check the decoded payload and exact request count on successful completion.
+            const auto sample = manager.get_blocking(1s);
+            std::array<uint8_t, kJointCount> expected_raw{};
+            expected_raw.fill(30);
+            REQUIRE(sample.angle.to_array() == raw_to_percents(expected_raw));
+            REQUIRE(raw->sent().size() == 5);
         }
     }
 }
