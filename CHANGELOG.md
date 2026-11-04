@@ -4,6 +4,16 @@
 
 ## 0.3.0 (unreleased)
 
+### Build and platform compatibility
+
+- Add explicit source/prebuilt transport providers and separate CMake presets.
+- Align SDK release targets with transport: eight Ubuntu Release archives and four
+  Windows x64/ARM64 Debug/Release archives, with build identities and complete-set validation.
+- Fix unbounded runtime request, polling-stop and fault waits on Focal's older
+  libstdc++; retain finite deadlines and error propagation.
+- Pin the paired transport source to its Focal unbounded receipt-wait fix. Existing
+  transport v0.3.2 release archives remain unchanged.
+
 ### Documentation and quality tooling
 
 - Make English the default documentation with Chinese counterparts, reciprocal

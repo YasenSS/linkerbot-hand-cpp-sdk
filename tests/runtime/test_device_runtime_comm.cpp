@@ -60,6 +60,35 @@ TEST_CASE("comm: runtime registers before immediate reply and stores generation"
     const auto data = std::any_cast<linkerbot::hand::o6::AngleData>(sample.value);
     REQUIRE(data.angle.to_array().back() == 100.0f);
 }
+TEST_CASE("comm: unbounded runtime request waits allow backend completion", "[comm][runtime][regression]") {
+    for (const bool wait_for_send : {false, true}) {
+        Rig rig;
+        linkerbot::hand::runtime::TransactionPlan command;
+        command.domain = "angle";
+        Message frame;
+        frame.id = 0x28;
+        frame.dlc = 1;
+        frame.data[0] = 0x01;
+        command.frames = {frame};
+        rig.fake->arm_tx_gate();
+        const auto no_deadline = linkerbot::hand::runtime::Deadline::max();
+        auto request = rig.runtime->submit(command, no_deadline);
+        REQUIRE(rig.fake->wait_until_tx_entered(500ms));
+        auto release = std::async(std::launch::async, [&] {
+            std::this_thread::sleep_for(10ms);
+            rig.fake->release_tx_gate();
+        });
+        if (wait_for_send) {
+            REQUIRE(request.wait_sent_until(no_deadline).outcome == linkerbot::transport::SendOutcome::dispatched);
+        } else {
+            (void)request.wait();
+            REQUIRE(request.completed());
+        }
+        release.get();
+        REQUIRE(rig.fake->sent().size() == 1);
+    }
+}
+
 TEST_CASE("comm: health returns a cached zero-I/O aggregate snapshot", "[comm][runtime][health]") {
     Rig rig;
     rig.fake->clear_sent();

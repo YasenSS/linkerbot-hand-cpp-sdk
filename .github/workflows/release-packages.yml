@@ -7,6 +7,9 @@ name: Release packages
       - '.github/workflows/ci.yml'
       - 'CMakeLists.txt'
       - 'cmake/**'
+      - 'src/**'
+      - 'include/**'
+      - 'tests/**'
       - 'ci/package-targets.json'
       - 'validation/**'
   push:
