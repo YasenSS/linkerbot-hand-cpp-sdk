@@ -4,6 +4,7 @@ name: Release packages
   pull_request:
     paths:
       - '.github/workflows/release-packages.yml'
+      - '.github/workflows/ci.yml'
       - 'CMakeLists.txt'
       - 'cmake/**'
       - 'ci/package-targets.json'

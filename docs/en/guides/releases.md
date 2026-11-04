@@ -19,6 +19,12 @@ documentation and read-only command-line examples. Test executables and propriet
 are excluded. Versions remain independent: hand `0.3.0` can use transport `0.3.2`; transport must be
 no older than hand and share its minor version.
 
+
+The paired source pin includes the transport fix for unbounded receipt waits on Focal; published
+v0.3.2 archives do not contain that fix. Focal consumers directly using transport's unbounded
+`SendReceipt::wait()` or maximal deadlines should use the pinned patched sources until a transport
+release includes it. Existing v0.3.2 archive downloads and checksums are unchanged.
+
 ## Names and checksums
 
 Examples use hand version `0.3.0`; compiler versions reflect the actual build:

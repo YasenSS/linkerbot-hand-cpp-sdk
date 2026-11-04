@@ -17,6 +17,11 @@ libstdc++ ABI1 和 C++17。Windows 使用原生架构 runner 与 v143 14.44 工�
 保留只读命令行示例；不包含测试程序、厂商驱动或厂商库。
 两个项目版本独立：例如 hand `0.3.0` 可配套 transport `0.3.2`；transport 须同 minor 且不低于 hand。
 
+
+配套源码固定到包含 Focal 无限等待修复的 transport 提交；该修复不在已发布的 v0.3.2 归档中。
+直接使用 transport 的无期限 `SendReceipt::wait()` / 最大 deadline 时，Focal 用户应使用
+固定的修复后源码，等待包含修复的正式 transport 发行版。原 v0.3.2 预构建包的下载和校验方式不变。
+
 ## 命名与校验
 
 以下示例中的 hand 版本为 `0.3.0`，编译器版本以实际构建结果为准：

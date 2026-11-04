@@ -16,7 +16,7 @@ concurrency:
 env:
   COMM_REPOSITORY: ${{ vars.LINKERBOT_COMM_REPOSITORY || format('{0}/linkerbot-transport-cpp', github.repository_owner) }}
   # Keep this paired comm commit in sync with Gitea CI and README.md.
-  COMM_REF: 3cfe1dab33aedf2341b6aba1c60667413867547c
+  COMM_REF: 0ab37b179ee8c07bbd7f1e777015bd23774d27ab
 
 jobs:
   build-and-test:
