@@ -143,10 +143,12 @@ namespace linkerbot::hand::o30 {
             return bytes;
         } catch (...) {
             // Cancellation/close can make set_routes fail; retain the original error.
+            const auto original = std::current_exception();
             if (next_id) {
                 try {
                     runtime_->set_routes({{old_response, false}});
                 } catch (...) {
+                    std::rethrow_exception(original);
                 }
             }
             throw;

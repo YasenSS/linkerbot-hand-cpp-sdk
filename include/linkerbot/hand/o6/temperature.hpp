@@ -17,7 +17,7 @@ namespace linkerbot::hand::o6 {
 
         Temperature() = default;
         Temperature(float tf, float ta, float i, float m, float r, float p)
-            : thumb_flex(tf), thumb_abd(ta), index(i), middle(m), ring(r), pinky(p) {}
+            : Temperature(from_fields({tf, ta, i, m, r, p})) {}
 
         [[nodiscard]] std::array<float, kJointCount> to_array() const {
             return {thumb_flex, thumb_abd, index, middle, ring, pinky};
@@ -26,7 +26,19 @@ namespace linkerbot::hand::o6 {
         [[nodiscard]] float operator[](size_t idx) const { return to_array().at(idx); }
 
         [[nodiscard]] static Temperature from_array(const std::array<float, kJointCount> &values) {
-            return {values[0], values[1], values[2], values[3], values[4], values[5]};
+            return from_fields(values);
+        }
+
+    private:
+        static Temperature from_fields(const std::array<float, kJointCount> &values) {
+            Temperature result;
+            result.thumb_flex = values[0];
+            result.thumb_abd = values[1];
+            result.index = values[2];
+            result.middle = values[3];
+            result.ring = values[4];
+            result.pinky = values[5];
+            return result;
         }
     };
 

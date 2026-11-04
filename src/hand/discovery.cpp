@@ -151,36 +151,25 @@ namespace linkerbot::hand {
                                        std::optional<uint32_t> nominal_bitrate, std::optional<uint32_t> data_bitrate,
                                        bool supports_classic, std::optional<bool> supports_fd,
                                        std::string configuration_id)
-        : provider_(std::move(provider)), name_(std::move(name)), native_name_(name_), kind_(kind),
-          nominal_bitrate_(nominal_bitrate), data_bitrate_(data_bitrate), supports_classic_(supports_classic),
-          supports_fd_(supports_fd), configuration_id_(std::move(configuration_id)) {
-        require_non_empty(provider_, "discovery channel backend");
-        require_non_empty(name_, "discovery channel name");
-        require_non_empty(native_name_, "discovery channel native name");
-        if (!known_transport_kind(kind_)) {
-            throw ValidationError("discovery channel has an unknown transport kind");
-        }
-        if (nominal_bitrate_ && *nominal_bitrate_ == 0) {
-            throw ValidationError("discovery nominal bitrate must be positive");
-        }
-        if (data_bitrate_ && *data_bitrate_ == 0) {
-            throw ValidationError("discovery data bitrate must be positive");
-        }
-        if (kind_ == TransportKind::kCan && data_bitrate_) {
-            throw ValidationError("classic CAN discovery channel cannot have a data bitrate");
-        }
-        if (kind_ == TransportKind::kCanFd && supports_fd_ == false) {
-            throw ValidationError("CAN FD discovery channel cannot explicitly reject CAN FD");
-        }
-    }
+        : DiscoveryChannel(ConstructorTag{}, ConstructorArguments{std::move(provider), name, std::move(name), kind,
+                                                                  nominal_bitrate, data_bitrate, supports_classic,
+                                                                  supports_fd, std::move(configuration_id)}) {}
 
     DiscoveryChannel::DiscoveryChannel(std::string backend, std::string name, std::string native_name,
                                        TransportKind kind, std::optional<uint32_t> nominal_bitrate,
                                        std::optional<uint32_t> data_bitrate, bool supports_classic,
                                        std::optional<bool> supports_fd, std::string configuration_id)
-        : provider_(std::move(backend)), name_(std::move(name)), native_name_(std::move(native_name)), kind_(kind),
-          nominal_bitrate_(nominal_bitrate), data_bitrate_(data_bitrate), supports_classic_(supports_classic),
-          supports_fd_(supports_fd), configuration_id_(std::move(configuration_id)) {
+        : DiscoveryChannel(ConstructorTag{},
+                           ConstructorArguments{std::move(backend), std::move(name), std::move(native_name), kind,
+                                                nominal_bitrate, data_bitrate, supports_classic, supports_fd,
+                                                std::move(configuration_id)}) {}
+
+    DiscoveryChannel::DiscoveryChannel(ConstructorTag, ConstructorArguments arguments)
+        : provider_(std::move(arguments.backend)), name_(std::move(arguments.name)),
+          native_name_(std::move(arguments.native_name)), kind_(arguments.kind),
+          nominal_bitrate_(arguments.nominal_bitrate), data_bitrate_(arguments.data_bitrate),
+          supports_classic_(arguments.supports_classic), supports_fd_(arguments.supports_fd),
+          configuration_id_(std::move(arguments.configuration_id)) {
         require_non_empty(provider_, "discovery channel backend");
         require_non_empty(name_, "discovery channel name");
         require_non_empty(native_name_, "discovery channel native name");
@@ -221,8 +210,12 @@ namespace linkerbot::hand {
 
     DiscoveryAddress::DiscoveryAddress(std::string scheme, uint32_t request_id, uint32_t response_id, bool extended_id,
                                        std::optional<uint8_t> node_id, std::optional<uint8_t> host_id)
-        : scheme_(std::move(scheme)), request_id_(request_id), response_id_(response_id), extended_id_(extended_id),
-          node_id_(node_id), host_id_(host_id) {
+        : DiscoveryAddress(ConstructorTag{}, ConstructorArguments{std::move(scheme), request_id, response_id,
+                                                                  extended_id, node_id, host_id}) {}
+
+    DiscoveryAddress::DiscoveryAddress(ConstructorTag, ConstructorArguments arguments)
+        : scheme_(std::move(arguments.scheme)), request_id_(arguments.request_id), response_id_(arguments.response_id),
+          extended_id_(arguments.extended_id), node_id_(arguments.node_id), host_id_(arguments.host_id) {
         require_non_empty(scheme_, "discovery address scheme");
         const auto maximum = extended_id_ ? 0x1FFFFFFFU : 0x7FFU;
         if (request_id_ > maximum || response_id_ > maximum) {
@@ -320,10 +313,16 @@ namespace linkerbot::hand {
                                                    std::optional<uint32_t> data_bitrate,
                                                    std::optional<std::string> native_channel,
                                                    std::string configuration_id)
-        : provider_(std::move(provider)), channel_(std::move(channel)),
-          native_channel_(native_channel ? std::move(*native_channel) : channel_), kind_(kind),
-          factory_(std::move(factory)), nominal_bitrate_(nominal_bitrate), data_bitrate_(data_bitrate),
-          configuration_id_(std::move(configuration_id)) {
+        : DiscoveryTransportSpec(ConstructorTag{},
+                                 ConstructorArguments{std::move(provider), std::move(channel), kind, std::move(factory),
+                                                      nominal_bitrate, data_bitrate, std::move(native_channel),
+                                                      std::move(configuration_id)}) {}
+
+    DiscoveryTransportSpec::DiscoveryTransportSpec(ConstructorTag, ConstructorArguments arguments)
+        : provider_(std::move(arguments.provider)), channel_(std::move(arguments.channel)),
+          native_channel_(arguments.native_channel ? std::move(*arguments.native_channel) : channel_),
+          kind_(arguments.kind), factory_(std::move(arguments.factory)), nominal_bitrate_(arguments.nominal_bitrate),
+          data_bitrate_(arguments.data_bitrate), configuration_id_(std::move(arguments.configuration_id)) {
         require_non_empty(provider_, "discovery transport provider");
         require_non_empty(channel_, "discovery transport channel");
         require_non_empty(native_channel_, "discovery transport native channel");

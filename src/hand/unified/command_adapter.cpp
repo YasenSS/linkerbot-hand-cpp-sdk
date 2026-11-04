@@ -1,3 +1,4 @@
+#include "../detail/checked_optional.hpp"
 #include "detail/model_adapters.hpp"
 
 #include <algorithm>
@@ -16,6 +17,14 @@
 
 namespace linkerbot::hand::unified_detail {
     namespace {
+        uint32_t required_request_id(const DeviceCapabilities &capabilities) {
+            const auto &id = capabilities.transport.request_id;
+            if (!id.has_value()) {
+                throw ValidationError("command transport requires a request ID");
+            }
+            return *id;
+        }
+
         template <typename Value, size_t Size>
         [[nodiscard]] std::array<Value, Size> fixed_values(const CommandRequest &request) {
             if (request.raw_values.size() != Size) {
@@ -89,7 +98,7 @@ namespace linkerbot::hand::unified_detail {
 
         CommandOutcome l6_acknowledged_write(l6::L6 &device, uint8_t opcode, bool stall,
                                              const CommandRequest &request) {
-            const auto id = device.capabilities().transport.request_id.value();
+            const auto id = required_request_id(device.capabilities());
             const auto raw = fixed_values<uint8_t, l6::kJointCount>(request);
             auto read = stall ? l6::protocol::read_stall(id, opcode) : l6::protocol::read_telemetry(id, opcode);
             return acknowledged_write(
@@ -142,8 +151,14 @@ namespace linkerbot::hand::unified_detail {
             if (request.deadline && runtime::Clock::now() >= *request.deadline) {
                 throw TimeoutError("command feedback publication deadline expired");
             }
-            provenance->origin = protocol::Origin::command_feedback;
-            (void)core->publish(domain, make_data(o30::project_u8(slots), provenance->received_at), *provenance);
+            ::linkerbot::hand::detail::checked_value(provenance, "missing runtime state: provenance").origin =
+                protocol::Origin::command_feedback;
+            (void)core->publish(
+                domain,
+                make_data(o30::project_u8(slots),
+                          ::linkerbot::hand::detail::checked_value(provenance, "missing runtime state: provenance")
+                              .received_at),
+                ::linkerbot::hand::detail::checked_value(provenance, "missing runtime state: provenance"));
         }
     } // namespace
 
@@ -177,32 +192,32 @@ namespace linkerbot::hand::unified_detail {
             device.angle.set_angles(fixed_values<uint8_t, o6::kJointCount>(request));
             break;
         case CommandSemantic::kSpeeds: {
-            const auto id = device.capabilities().transport.request_id.value();
+            const auto id = required_request_id(device.capabilities());
             const auto raw = fixed_values<uint8_t, o6::kJointCount>(request);
             return acknowledged_write(
                 device, with_response(o6::protocol::write_speed(id, raw), o6::protocol::read_speed(id)), request);
         }
         case CommandSemantic::kAccelerations: {
-            const auto id = device.capabilities().transport.request_id.value();
+            const auto id = required_request_id(device.capabilities());
             const auto raw = fixed_values<uint8_t, o6::kJointCount>(request);
             return acknowledged_write(
                 device, with_response(o6::protocol::write_acceleration(id, raw), o6::protocol::read_acceleration(id)),
                 request);
         }
         case CommandSemantic::kCurrentLimits: {
-            const auto id = device.capabilities().transport.request_id.value();
+            const auto id = required_request_id(device.capabilities());
             const auto raw = fixed_values<uint8_t, o6::kJointCount>(request);
             return acknowledged_write(device, o6::protocol::write_current_limit(id, raw), request);
         }
         case CommandSemantic::kStallDetectionTimes: {
-            const auto id = device.capabilities().transport.request_id.value();
+            const auto id = required_request_id(device.capabilities());
             const auto raw = fixed_values<uint8_t, o6::kJointCount>(request);
             return acknowledged_write(
                 device, with_response(o6::protocol::write_stall_time(id, raw), o6::protocol::read_stall_time(id)),
                 request);
         }
         case CommandSemantic::kStallThresholds: {
-            const auto id = device.capabilities().transport.request_id.value();
+            const auto id = required_request_id(device.capabilities());
             const auto raw = fixed_values<uint8_t, o6::kJointCount>(request);
             return acknowledged_write(
                 device,
@@ -210,7 +225,7 @@ namespace linkerbot::hand::unified_detail {
                 request);
         }
         case CommandSemantic::kStallHoldCurrents: {
-            const auto id = device.capabilities().transport.request_id.value();
+            const auto id = required_request_id(device.capabilities());
             const auto raw = fixed_values<uint8_t, o6::kJointCount>(request);
             return acknowledged_write(
                 device, with_response(o6::protocol::write_stall_torque(id, raw), o6::protocol::read_stall_torque(id)),
@@ -229,14 +244,14 @@ namespace linkerbot::hand::unified_detail {
             device.angle.set_angles(fixed_values<uint8_t, l20lite::kJointCount>(request));
             break;
         case CommandSemantic::kSpeeds: {
-            const auto id = device.capabilities().transport.request_id.value();
+            const auto id = required_request_id(device.capabilities());
             const auto raw = fixed_values<uint8_t, l20lite::kJointCount>(request);
             auto plan = with_response(l20lite::protocol::write_speed(id, raw), l20lite::protocol::read_speed(id));
             plan.domain = "configured_speed";
             return acknowledged_write(device, std::move(plan), request);
         }
         case CommandSemantic::kAccelerations: {
-            const auto id = device.capabilities().transport.request_id.value();
+            const auto id = required_request_id(device.capabilities());
             const auto raw = fixed_values<uint8_t, l20lite::kJointCount>(request);
             return acknowledged_write(
                 device,
@@ -244,7 +259,7 @@ namespace linkerbot::hand::unified_detail {
                 request);
         }
         case CommandSemantic::kCurrentLimits: {
-            const auto id = device.capabilities().transport.request_id.value();
+            const auto id = required_request_id(device.capabilities());
             const auto raw = fixed_values<uint8_t, l20lite::kJointCount>(request);
             return acknowledged_write(device, l20lite::protocol::write_current_limit(id, raw), request);
         }

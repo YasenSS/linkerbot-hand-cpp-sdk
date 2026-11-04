@@ -166,7 +166,7 @@ namespace linkerbot::hand::unified_detail {
 
     ForceSample descriptor_force_sample(const o30::SensorData &data, SampleMeta meta) {
         try {
-            return hand::protocol::hop::descriptor_force_sample(data, meta);
+            return hand::protocol::hop::descriptor_force_sample(data, std::move(meta));
         } catch (const hand::ProtocolError &error) {
             throw o30::protocol::ProtocolError(error.what());
         }

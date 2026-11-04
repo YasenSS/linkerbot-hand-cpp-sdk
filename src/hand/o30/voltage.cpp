@@ -18,7 +18,7 @@ namespace linkerbot::hand::o30 {
 
     void VoltageManager::set_all(uint8_t voltage, std::chrono::milliseconds timeout_ms) {
         auto operation = client_->operation(timeout_ms);
-        detail::write_all(*client_, protocol::kMiVoltage, voltage, timeout_ms);
+        detail::write_all(*client_, {protocol::kMiVoltage, voltage}, timeout_ms);
     }
 
     VoltageData VoltageManager::get_blocking(std::chrono::milliseconds timeout_ms, ValueKind kind) {

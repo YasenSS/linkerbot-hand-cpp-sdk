@@ -297,7 +297,11 @@ namespace linkerbot::internal {
             if (waiter->error) {
                 std::rethrow_exception(waiter->error);
             }
-            return *waiter->data;
+            const auto &data = waiter->data;
+            if (!data.has_value()) {
+                throw ::linkerbot::hand::InternalError("relay woke without data or error");
+            }
+            return *data;
         }
 
         mutable std::mutex mutex_;

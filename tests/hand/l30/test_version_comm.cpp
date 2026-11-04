@@ -44,12 +44,18 @@ namespace {
         return {0x13, 0x00, 0x0A, 0xBC, 0xDE, 1, 0, 6, 2, 1, 0, 3, 4, 5, 7, hand_type, sensor_type, origin};
     }
 
-    void install_version_handlers(FakeTransport *transport, const std::vector<uint8_t> &info,
-                                  const std::vector<uint8_t> &product_code, uint8_t node_id, uint8_t hand_type) {
-        transport->on_request(kDeviceInfoId, l30_comm::payload_handler(info));
-        transport->on_request(kProductCodeId, l30_comm::payload_handler(product_code));
-        transport->on_request(kNodeIdId, l30_comm::payload_handler({node_id}));
-        transport->on_request(kHandTypeId, l30_comm::payload_handler({hand_type}));
+    struct InstallVersionHandlersArguments {
+        FakeTransport *transport;
+        const std::vector<uint8_t> &info;
+        const std::vector<uint8_t> &product_code;
+        uint8_t node_id;
+        uint8_t hand_type;
+    };
+    void install_version_handlers(const InstallVersionHandlersArguments &arguments) {
+        arguments.transport->on_request(kDeviceInfoId, l30_comm::payload_handler(arguments.info));
+        arguments.transport->on_request(kProductCodeId, l30_comm::payload_handler(arguments.product_code));
+        arguments.transport->on_request(kNodeIdId, l30_comm::payload_handler({arguments.node_id}));
+        arguments.transport->on_request(kHandTypeId, l30_comm::payload_handler({arguments.hand_type}));
     }
 
     std::vector<uint8_t> ascii_bytes(const std::string &text) { return {text.begin(), text.end()}; }
@@ -112,7 +118,7 @@ TEST_CASE("comm: L30 verified identity rejects mismatches", "[comm][l30][identit
         mismatch = true;
     }
     auto transport = std::make_unique<FakeTransport>();
-    install_version_handlers(transport.get(), info, ascii_bytes(code), l30_comm::kNodeId, kHandTypeLeft);
+    install_version_handlers({transport.get(), info, ascii_bytes(code), l30_comm::kNodeId, kHandTypeLeft});
     L30 hand(std::move(transport), l30_comm::kNodeId, l30_comm::kHostId, false);
     const auto read = [&]() { return hand.version.get_verified_device_info(kTimeout, IdentitySide::kLeft); };
     if (mismatch) {
@@ -261,7 +267,7 @@ TEST_CASE("comm: hand side read uses the standalone config query", "[comm][l30][
 TEST_CASE("comm: version reads reject non-positive timeout", "[comm][l30][version]") {
     auto transport = std::make_unique<FakeTransport>();
     auto *raw = transport.get();
-    install_version_handlers(raw, device_info_bytes(), ascii_bytes("LHT30"), 1, kHandTypeLeft);
+    install_version_handlers({raw, device_info_bytes(), ascii_bytes("LHT30"), 1, kHandTypeLeft});
 
     L30 hand(std::move(transport), l30_comm::kNodeId, l30_comm::kHostId, false);
     raw->clear_sent();

@@ -93,7 +93,7 @@ namespace linkerbot::hand::l6::hop {
         std::vector<uint8_t> roots(canonical.begin(), canonical.begin() + static_cast<std::ptrdiff_t>(width));
         roots.insert(roots.end(), canonical.begin() + static_cast<std::ptrdiff_t>(2 * width), canonical.end());
         auto first = transaction(id, mi, 5 * width, width, thumb, rts, family);
-        auto second = transaction(id, mi, 10 * width, 5 * width, roots, rts, family);
+        auto second = transaction(id, mi, 10 * width, 5 * width, roots, rts, std::move(family));
         first.frames.push_back(second.frames.front());
         first.domain = "hop/write";
         first.consume = [a = first.consume, b = second.consume, width,

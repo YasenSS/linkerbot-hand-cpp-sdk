@@ -403,17 +403,28 @@ namespace linkerbot::hand::o6::protocol {
 
     // --- config: fire-and-forget writes, no response consumption ---
 
+    namespace argument_detail {
+        // Keep on-wire identifiers, selectors and lengths in one named record.
+        struct WriteConfigSetIdArguments {
+            uint32_t id;
+            uint8_t subcommand;
+            uint8_t target;
+        };
+        inline common::TransactionPlan write_config_set_id(const WriteConfigSetIdArguments &arguments) {
+            can::Message message;
+            message.id = arguments.id;
+            message.dlc = 3;
+            message.data[0] = 0xC3;
+            message.data[1] = arguments.subcommand;
+            message.data[2] = arguments.target;
+            common::TransactionPlan plan;
+            plan.keys = {"config"};
+            plan.frames = {message};
+            return plan;
+        }
+    }
     inline common::TransactionPlan write_config_set_id(uint32_t id, uint8_t subcommand, uint8_t target) {
-        can::Message message;
-        message.id = id;
-        message.dlc = 3;
-        message.data[0] = 0xC3;
-        message.data[1] = subcommand;
-        message.data[2] = target;
-        common::TransactionPlan plan;
-        plan.keys = {"config"};
-        plan.frames = {message};
-        return plan;
+        return argument_detail::write_config_set_id({id, subcommand, target});
     }
     inline common::TransactionPlan write_config_restore_factory(uint32_t id) {
         can::Message message;

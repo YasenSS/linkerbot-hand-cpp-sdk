@@ -91,9 +91,20 @@ namespace linkerbot::hand::hardware_test {
     }
 
     class DeviceFixture {
+        struct PreparedDevice {
+            HandDeviceConfig config;
+            HandDevice::TransportFactory factory;
+        };
+        static PreparedDevice prepare(HandDeviceConfig config) {
+            auto factory = hardware_factory(config);
+            return {std::move(config), std::move(factory)};
+        }
+        explicit DeviceFixture(PreparedDevice prepared)
+            : DeviceFixture(std::move(prepared.config), std::move(prepared.factory)) {}
+
     public:
         DeviceFixture() : DeviceFixture(config_from_environment()) {}
-        explicit DeviceFixture(HandDeviceConfig config) : DeviceFixture(config, hardware_factory(config)) {}
+        explicit DeviceFixture(HandDeviceConfig config) : DeviceFixture(prepare(std::move(config))) {}
         DeviceFixture(HandDeviceConfig config, HandDevice::TransportFactory factory) : config_(std::move(config)) {
             // O30 setpoint queries share this physical channel with HandDevice.
             // Opening a second PCAN/MiniCANFD connection would conflict.

@@ -23,8 +23,7 @@ namespace linkerbot::hand::l20lite {
 
         Temperature() = default;
         Temperature(float tf, float ta, float ix, float mf, float rf, float pf, float ia, float ra, float pa, float ty)
-            : thumb_flex(tf), thumb_abd(ta), index_flex(ix), middle_flex(mf), ring_flex(rf), pinky_flex(pf),
-              index_abd(ia), ring_abd(ra), pinky_abd(pa), thumb_yaw(ty) {}
+            : Temperature(from_fields({tf, ta, ix, mf, rf, pf, ia, ra, pa, ty})) {}
 
         [[nodiscard]] std::array<float, kJointCount> to_array() const {
             return {thumb_flex, thumb_abd, index_flex, middle_flex, ring_flex,
@@ -34,8 +33,23 @@ namespace linkerbot::hand::l20lite {
         [[nodiscard]] float operator[](size_t idx) const { return to_array().at(idx); }
 
         [[nodiscard]] static Temperature from_array(const std::array<float, kJointCount> &values) {
-            return {values[0], values[1], values[2], values[3], values[4],
-                    values[5], values[6], values[7], values[8], values[9]};
+            return from_fields(values);
+        }
+
+    private:
+        static Temperature from_fields(const std::array<float, kJointCount> &values) {
+            Temperature result;
+            result.thumb_flex = values[0];
+            result.thumb_abd = values[1];
+            result.index_flex = values[2];
+            result.middle_flex = values[3];
+            result.ring_flex = values[4];
+            result.pinky_flex = values[5];
+            result.index_abd = values[6];
+            result.ring_abd = values[7];
+            result.pinky_abd = values[8];
+            result.thumb_yaw = values[9];
+            return result;
         }
     };
 

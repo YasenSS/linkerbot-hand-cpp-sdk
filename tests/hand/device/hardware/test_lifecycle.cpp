@@ -76,8 +76,8 @@ TEST_CASE("HandDevice hardware lifecycle and reopen", "[hardware][device][lifecy
     // close/open rebuilds a backend whose native counter may restart at 1.
     // Verify fresh identity and samples instead of requiring a global counter.
     const auto reopened = hand.get_snapshot();
-    REQUIRE(test_support::require_value(reopened.angles->meta.collected_at) >
-            test_support::require_value(opened.angles->meta.collected_at));
+    REQUIRE(test_support::require_value(test_support::require_value(reopened.angles).meta.collected_at) >
+            test_support::require_value(test_support::require_value(opened.angles).meta.collected_at));
     REQUIRE_FALSE(hand.get_health().polling_active);
     require_meta(hand.get_angles(500ms).meta, hand.get_health().connection_generation);
 }
@@ -113,13 +113,13 @@ TEST_CASE("HandDevice hardware recover identity baseline and polling", "[hardwar
             require_meta(test_support::require_value(after.angles).meta, after.connection_generation);
             REQUIRE(after.faults.has_value());
             require_meta(test_support::require_value(after.faults).meta, after.connection_generation);
-            REQUIRE(test_support::require_value(after.angles->meta.collected_at) >
-                    test_support::require_value(before.angles->meta.collected_at));
+            REQUIRE(test_support::require_value(test_support::require_value(after.angles).meta.collected_at) >
+                    test_support::require_value(test_support::require_value(before.angles).meta.collected_at));
             const auto next = hand.wait_for_snapshot(after, 2s);
             REQUIRE(next.angles.has_value());
             REQUIRE(next.snapshot_sequence > after.snapshot_sequence);
-            REQUIRE(test_support::require_value(next.angles->meta.collected_at) >
-                    test_support::require_value(after.angles->meta.collected_at));
+            REQUIRE(test_support::require_value(test_support::require_value(next.angles).meta.collected_at) >
+                    test_support::require_value(test_support::require_value(after.angles).meta.collected_at));
             hand.stop_polling();
             REQUIRE_FALSE(hand.get_health().polling_active);
         }

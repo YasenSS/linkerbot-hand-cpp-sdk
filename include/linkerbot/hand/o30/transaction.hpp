@@ -47,11 +47,26 @@ namespace linkerbot::hand::o30::protocol {
     // One instance belongs to exactly one on-wire operation. It has no I/O,
     // clocks, locks, global cache, or external lifecycle references.
     class RangeResponse {
+        struct ConstructorTag {};
+        struct ConstructorArguments {
+            uint32_t request_id;
+            uint8_t mi;
+            uint8_t si;
+            uint8_t length;
+            bool rts;
+            bool write_ack;
+            std::optional<uint32_t> next_id;
+        };
+        RangeResponse(ConstructorTag, ConstructorArguments arguments)
+            : response_id_(expected_response_id(arguments.request_id)), next_id_(arguments.next_id), mi_(arguments.mi),
+              si_(arguments.si), length_(arguments.length), rts_(arguments.rts), write_ack_(arguments.write_ack),
+              data_(arguments.length), covered_(arguments.length, false) {}
+
     public:
         RangeResponse(uint32_t request_id, uint8_t mi, uint8_t si, uint8_t length, bool rts, bool write_ack,
                       std::optional<uint32_t> next_id = {})
-            : response_id_(expected_response_id(request_id)), next_id_(next_id), mi_(mi), si_(si), length_(length),
-              rts_(rts), write_ack_(write_ack), data_(length), covered_(length, false) {}
+            : RangeResponse(ConstructorTag{},
+                            ConstructorArguments{request_id, mi, si, length, rts, write_ack, next_id}) {}
         hand::protocol::Progress consume(const can::Message &message) {
             using Progress = hand::protocol::Progress;
             if (message.is_extended || !message.is_fd || message.dlc > can::kMaxDataLen ||

@@ -267,8 +267,8 @@ namespace linkerbot::hand {
                     discovered_model = identity_probe::classic_model_from_product_code(*discovered_product_code);
                     if (discovered_model == Model::kUnknown) {
                         add_partial(candidates, channel, TransportKind::kCan, discovery_address,
-                                    partial_identity(discovered_model, side, address, *discovered_product_code),
-                                    factory, {"unknown_model", "classic product code has an unknown model prefix"});
+                                    partial_identity(discovered_model, side, address, discovered_product_code), factory,
+                                    {"unknown_model", "classic product code has an unknown model prefix"});
                         continue;
                     }
 

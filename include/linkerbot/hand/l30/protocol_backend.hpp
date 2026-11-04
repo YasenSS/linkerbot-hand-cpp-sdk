@@ -13,25 +13,36 @@ namespace linkerbot::hand::l30::protocol {
         return m.id == id && m.is_extended && m.is_fd && m.dlc <= m.data.size();
     }
     inline std::string response_key(uint32_t id) { return "l30.response." + std::to_string(id); }
-    inline const char *write_command_family(uint8_t parent, uint8_t subcmd) {
-        if (parent == kParentControl) {
-            switch (subcmd) {
-            case kSubPosition:
-                return "angle_targets";
-            case kSubCurrentLimit:
-                return "current_limits";
-            case kSubSpeed:
-                return "speed_targets";
-            case kSubFault:
-                return "fault_reset";
-            default:
+    namespace argument_detail {
+        // Keep on-wire identifiers, selectors and lengths in one named record.
+        struct WriteCommandFamilyArguments {
+            uint8_t parent;
+            uint8_t subcmd;
+        };
+        inline const char *write_command_family(const WriteCommandFamilyArguments &arguments) {
+            if (arguments.parent == kParentControl) {
+                switch (arguments.subcmd) {
+                case kSubPosition:
+                    return "angle_targets";
+                case kSubCurrentLimit:
+                    return "current_limits";
+                case kSubSpeed:
+                    return "speed_targets";
+                case kSubFault:
+                    return "fault_reset";
+                default:
+                    return "configuration";
+                }
+            }
+            if (arguments.parent == kParentConfig || arguments.parent == kParentPeriodic ||
+                arguments.parent == kParentTactile) {
                 return "configuration";
             }
+            return "l30_writes";
         }
-        if (parent == kParentConfig || parent == kParentPeriodic || parent == kParentTactile) {
-            return "configuration";
-        }
-        return "l30_writes";
+    }
+    inline const char *write_command_family(uint8_t parent, uint8_t subcmd) {
+        return argument_detail::write_command_family({parent, subcmd});
     }
     inline common::TransactionPlan request_plan(can::Message request, bool response = true) {
         common::TransactionPlan plan;

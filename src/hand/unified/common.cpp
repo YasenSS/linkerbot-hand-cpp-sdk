@@ -142,7 +142,6 @@ namespace linkerbot::hand::unified_detail {
         case TelemetrySemantic::kCurrents:
         case TelemetrySemantic::kTemperatures:
         case TelemetrySemantic::kFaults:
-            return true;
         case TelemetrySemantic::kForce:
             return true;
         case TelemetrySemantic::kForceFns:
@@ -151,7 +150,6 @@ namespace linkerbot::hand::unified_detail {
         case TelemetrySemantic::kForcePx:
             return model == Model::kL20Lite;
         case TelemetrySemantic::kCurrentLimits:
-            return model == Model::kL6 || model == Model::kO30;
         case TelemetrySemantic::kTorques:
             return model == Model::kL6 || model == Model::kO30;
         default:

@@ -422,11 +422,13 @@ TEST_CASE("comm: an in-flight tactile read does not block other requests", "[com
     CANDispatcher dispatcher(std::move(transport));
     Client client(dispatcher, l30_comm::kNodeId, l30_comm::kHostId);
 
+    std::exception_ptr tactile_error, enable_error;
     std::thread reader([&] {
         try {
             const auto matrix = client.read_tactile(proto::kSubTactileThumb, std::chrono::milliseconds{3000});
             tactile_matched = (matrix == l30_comm::tactile_ramp());
-        } catch (const std::exception &) {
+        } catch (...) {
+            tactile_error = std::current_exception();
         }
         tactile_finished = true;
     });
@@ -439,13 +441,20 @@ TEST_CASE("comm: an in-flight tactile read does not block other requests", "[com
             const auto ack = client.request_ack(proto::kParentControl, proto::kSubEnable,
                                                 proto::empty_request_payload(), proto::kEmptyRequestBytes, kTimeout);
             enable_acked = ack.size() == proto::kAckBytes && ack[proto::kStatusByteIndex] == proto::kStatusOk;
-        } catch (const std::exception &) {
+        } catch (...) {
+            enable_error = std::current_exception();
         }
     }
 
     raw->inject(l30_comm::tactile_frames(l30_comm::tactile_ramp(), tactile_response_id).back());
     const auto joined = wait_until([&] { return tactile_finished.load(); }, std::chrono::milliseconds{4000});
     reader.join();
+    if (tactile_error) {
+        std::rethrow_exception(tactile_error);
+    }
+    if (enable_error) {
+        std::rethrow_exception(enable_error);
+    }
 
     REQUIRE(in_flight);
     REQUIRE(enable_acked);

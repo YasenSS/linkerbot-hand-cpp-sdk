@@ -75,7 +75,7 @@ namespace linkerbot::hand::l6 {
         }
         AngleSample angles(const std::vector<uint8_t> &bytes, SampleMeta meta) {
             AngleSample result;
-            result.meta = meta;
+            result.meta = std::move(meta);
             for (const auto raw : hop::project_positions(bytes)) {
                 result.raw.push_back(raw);
                 result.percent.push_back(raw * 100.0 / 65535.0);

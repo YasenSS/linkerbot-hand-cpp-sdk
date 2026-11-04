@@ -64,8 +64,17 @@ namespace linkerbot::hand::l6 {
 
         private:
             friend class HopL6;
+            struct VectorBinding {
+                uint8_t mi;
+                bool configured;
+                const char *domain;
+                const char *family;
+            };
             VectorManager(HopL6 &owner, uint8_t mi, bool configured, const char *domain, const char *family = nullptr)
-                : owner_(&owner), mi_(mi), configured_(configured), domain_(domain), family_(family) {}
+                : VectorManager(owner, VectorBinding{mi, configured, domain, family}) {}
+            VectorManager(HopL6 &owner, const VectorBinding &binding)
+                : owner_(&owner), mi_(binding.mi), configured_(binding.configured), domain_(binding.domain),
+                  family_(binding.family) {}
             HopL6 *owner_;
             uint8_t mi_;
             bool configured_;

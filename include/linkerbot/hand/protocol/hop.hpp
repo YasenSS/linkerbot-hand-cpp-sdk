@@ -49,35 +49,50 @@ namespace linkerbot::hand::protocol::hop {
         throw ValidationError("HOP frame exceeds the CAN FD maximum");
     }
 
+    namespace argument_detail {
+        // Keep on-wire identifiers, selectors and lengths in one named record.
+        struct BuildMessageArguments {
+            uint32_t request_id;
+            uint8_t mi;
+            uint8_t si;
+            uint8_t edl;
+            const std::vector<uint8_t> &payload;
+            bool rts;
+        };
+        inline can::Message build_message(const BuildMessageArguments &arguments) {
+            static_cast<void>(expected_response_id(arguments.request_id));
+            if (arguments.edl == 0 || static_cast<size_t>(arguments.si) + arguments.edl > 256) {
+                throw ValidationError("HOP SI/EDL must address 1..255 bytes within one 256-byte object");
+            }
+            if (arguments.payload.size() > kMaxHopPayload) {
+                throw ValidationError("write payload of " + std::to_string(arguments.payload.size()) +
+                                      " bytes exceeds the single-frame HOP maximum of " +
+                                      std::to_string(kMaxHopPayload));
+            }
+            if (!arguments.payload.empty() && arguments.payload.size() != arguments.edl) {
+                throw ValidationError("write EDL " + std::to_string(static_cast<unsigned>(arguments.edl)) +
+                                      " does not match payload size " + std::to_string(arguments.payload.size()));
+            }
+
+            const auto hop_bytes = kHeaderBytes + arguments.payload.size();
+            can::Message msg{};
+            msg.id = arguments.request_id;
+            msg.is_extended = false;
+            msg.is_fd = true;
+            msg.is_brs = false;
+            msg.dlc = canfd_wire_bytes(hop_bytes);
+            msg.data[0] = ctrl_byte(arguments.mi, arguments.rts);
+            msg.data[1] = arguments.si;
+            msg.data[2] = arguments.edl;
+            for (size_t i = 0; i < arguments.payload.size(); ++i) {
+                msg.data[kHeaderBytes + i] = arguments.payload[i];
+            }
+            return msg;
+        }
+    }
     inline can::Message build_message(uint32_t request_id, uint8_t mi, uint8_t si, uint8_t edl,
                                       const std::vector<uint8_t> &payload, bool rts) {
-        static_cast<void>(expected_response_id(request_id));
-        if (edl == 0 || static_cast<size_t>(si) + edl > 256) {
-            throw ValidationError("HOP SI/EDL must address 1..255 bytes within one 256-byte object");
-        }
-        if (payload.size() > kMaxHopPayload) {
-            throw ValidationError("write payload of " + std::to_string(payload.size()) +
-                                  " bytes exceeds the single-frame HOP maximum of " + std::to_string(kMaxHopPayload));
-        }
-        if (!payload.empty() && payload.size() != edl) {
-            throw ValidationError("write EDL " + std::to_string(static_cast<unsigned>(edl)) +
-                                  " does not match payload size " + std::to_string(payload.size()));
-        }
-
-        const auto hop_bytes = kHeaderBytes + payload.size();
-        can::Message msg{};
-        msg.id = request_id;
-        msg.is_extended = false;
-        msg.is_fd = true;
-        msg.is_brs = false;
-        msg.dlc = canfd_wire_bytes(hop_bytes);
-        msg.data[0] = ctrl_byte(mi, rts);
-        msg.data[1] = si;
-        msg.data[2] = edl;
-        for (size_t i = 0; i < payload.size(); ++i) {
-            msg.data[kHeaderBytes + i] = payload[i];
-        }
-        return msg;
+        return argument_detail::build_message({request_id, mi, si, edl, payload, rts});
     }
 
     inline HopFrame parse_frame(const uint8_t *data, size_t len) {

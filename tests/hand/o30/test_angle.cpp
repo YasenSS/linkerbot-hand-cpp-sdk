@@ -210,16 +210,21 @@ namespace {
         });
     }
 
-    void check_finger_flexion_pose(const std::string &report, const std::string &label, const std::string &expected,
-                                   const std::array<float, 5> &flexions) {
+    struct CheckFingerFlexionPoseArguments {
+        const std::string &report;
+        const std::string &label;
+        const std::string &expected;
+        const std::array<float, 5> &flexions;
+    };
+    void check_finger_flexion_pose(const CheckFingerFlexionPoseArguments &arguments) {
         check_motion_session();
         auto &hand = test_util::o30_hand();
         with_restored_pose(hand, [&](const auto &original, bool &moved) {
-            test_util::InteractiveSession session(report);
+            test_util::InteractiveSession session(arguments.report);
             session.step(
-                label,
+                arguments.label,
                 [&] {
-                    const auto pose = apply_finger_flexions(Angle::from_sensor_raw(original), flexions);
+                    const auto pose = apply_finger_flexions(Angle::from_sensor_raw(original), arguments.flexions);
                     moved = true;
                     write_pose(hand, pose.to_raw());
                     const auto actual = hand.angle.get_blocking(kTimeout).angles.values;
@@ -229,7 +234,7 @@ namespace {
                         REQUIRE(std::abs(actual[i] - pose.values[i]) <= kTolerance);
                     }
                 },
-                expected);
+                arguments.expected);
             run_session(session);
         });
     }
@@ -334,9 +339,10 @@ TEST_CASE("O30 角度交互：五指逐个张开", "[o30][control][angle][flexio
 
 // 拇指伸直，食指到小指握到 70%；旋转、横滚和侧摆保持原位置。
 TEST_CASE("O30 角度交互：四指紧握，大拇指张开", "[o30][control][angle][interactive][motion][open_close][flexion]") {
-    check_finger_flexion_pose("o30_angle_four_fingers_close_thumb_open", "四指握拳（0%），拇指伸直（100%）",
-                              "食指、中指、无名指、小指弯曲握紧；大拇指伸直。旋转、横滚和侧摆保持原位置。",
-                              {100.0F, 0.0F, 0.0F, 0.0F, 0.0F});
+    check_finger_flexion_pose({"o30_angle_four_fingers_close_thumb_open",
+                               "四指握拳（0%），拇指伸直（100%）",
+                               "食指、中指、无名指、小指弯曲握紧；大拇指伸直。旋转、横滚和侧摆保持原位置。",
+                               {100.0F, 0.0F, 0.0F, 0.0F, 0.0F}});
 }
 
 // 拇指旋转、横滚和四指侧摆各看一次方向；准备位在同一步里完成，不再往返确认。

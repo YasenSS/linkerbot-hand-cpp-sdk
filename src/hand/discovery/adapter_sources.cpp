@@ -163,8 +163,9 @@ namespace linkerbot::hand {
 
         [[nodiscard]] DiscoveryEnumeration pcan_enumeration(const std::shared_ptr<PcanBinding> &binding) {
             std::optional<std::string> path;
-            if (binding->options.library_path) {
-                path = binding->options.library_path->u8string();
+            const auto &library_path = binding->options.library_path;
+            if (library_path.has_value()) {
+                path = library_path->u8string();
             }
             try {
                 binding->api = can::load_pcan_api(path);
@@ -337,7 +338,7 @@ namespace linkerbot::hand {
             enumerate = [binding](const DiscoveryConfig &) { return pcan_enumeration(binding); };
             factory = pcan_factory(binding);
         }
-        return scan_adapter("pcan", config, enumerate, factory, [&config](DiscoveryEnumeration enumeration) {
+        return scan_adapter("pcan", config, enumerate, factory, [&config](const DiscoveryEnumeration &enumeration) {
             return normalize_python_can_channels("pcan", std::move(enumeration), config.pcan.channels,
                                                  config.pcan.probe_protocols, config.pcan.nominal_bitrate,
                                                  config.pcan.data_bitrate);
@@ -449,7 +450,7 @@ namespace linkerbot::hand {
 #endif
             };
         }
-        return scan_adapter("slcan", config, enumerate, factory, [&config](DiscoveryEnumeration enumeration) {
+        return scan_adapter("slcan", config, enumerate, factory, [&config](const DiscoveryEnumeration &enumeration) {
             return normalize_python_can_channels("slcan", std::move(enumeration), config.slcan.channels,
                                                  config.slcan.probe_protocols, config.slcan.nominal_bitrate,
                                                  config.slcan.data_bitrate);
@@ -478,38 +479,39 @@ namespace linkerbot::hand {
                 return minicanfd_factory(*captured)(native, protocol);
             };
         }
-        return scan_adapter("minicanfd", config, enumerate, factory, [&config](DiscoveryEnumeration enumeration) {
-            std::vector<DiscoveryChannel> channels;
-            auto failures = enumeration.failures();
-            for (const auto &channel : enumeration.channels()) {
-                if (channel.backend() != "minicanfd") {
-                    failures.push_back(failure("minicanfd", "channel", "backend_mismatch",
-                                               "enumerated channel belongs to another backend", channel.native_name(),
-                                               "ValidationError"));
-                    continue;
-                }
-                if (!config.minicanfd.channels.empty()) {
-                    const auto native = channel.native_name();
-                    const auto selected =
-                        std::any_of(config.minicanfd.channels.begin(), config.minicanfd.channels.end(),
-                                    [&native](const MiniCANFDChannel &item) {
-                                        return native == std::to_string(item.device_index) + ':' +
-                                                             std::to_string(item.channel_index);
-                                    });
-                    if (!selected) {
+        return scan_adapter(
+            "minicanfd", config, enumerate, factory, [&config](const DiscoveryEnumeration &enumeration) {
+                std::vector<DiscoveryChannel> channels;
+                auto failures = enumeration.failures();
+                for (const auto &channel : enumeration.channels()) {
+                    if (channel.backend() != "minicanfd") {
+                        failures.push_back(failure("minicanfd", "channel", "backend_mismatch",
+                                                   "enumerated channel belongs to another backend",
+                                                   channel.native_name(), "ValidationError"));
                         continue;
                     }
+                    if (!config.minicanfd.channels.empty()) {
+                        const auto native = channel.native_name();
+                        const auto selected =
+                            std::any_of(config.minicanfd.channels.begin(), config.minicanfd.channels.end(),
+                                        [&native](const MiniCANFDChannel &item) {
+                                            return native == std::to_string(item.device_index) + ':' +
+                                                                 std::to_string(item.channel_index);
+                                        });
+                        if (!selected) {
+                            continue;
+                        }
+                    }
+                    auto name = channel.name();
+                    const std::string prefix = "minicanfd:";
+                    if (name.compare(0, prefix.size(), prefix) != 0) {
+                        name = "minicanfd:" + channel.native_name();
+                    }
+                    channels.emplace_back("minicanfd", std::move(name), channel.native_name(), TransportKind::kCanFd,
+                                          config.minicanfd.nominal_bitrate, config.minicanfd.data_bitrate, false, true,
+                                          channel.configuration_id());
                 }
-                auto name = channel.name();
-                const std::string prefix = "minicanfd:";
-                if (name.compare(0, prefix.size(), prefix) != 0) {
-                    name = "minicanfd:" + channel.native_name();
-                }
-                channels.emplace_back("minicanfd", std::move(name), channel.native_name(), TransportKind::kCanFd,
-                                      config.minicanfd.nominal_bitrate, config.minicanfd.data_bitrate, false, true,
-                                      channel.configuration_id());
-            }
-            return DiscoveryEnumeration{std::move(channels), std::move(failures)};
-        });
+                return DiscoveryEnumeration{std::move(channels), std::move(failures)};
+            });
     }
 } // namespace linkerbot::hand

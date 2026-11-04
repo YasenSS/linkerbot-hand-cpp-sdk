@@ -161,24 +161,29 @@ namespace linkerbot::hand::l30 {
         stage([&] { stop_polling(); });
         // Device-side reports are best effort on unplugged hardware. Failure
         // must not bypass local subscription, waiter or backend cleanup.
+        const auto close_local = [&] {
+            stage([&] { angle.close(); });
+            stage([&] { speed.close(); });
+            stage([&] { current.close(); });
+            stage([&] { temperature.close(); });
+            stage([&] { fault.close(); });
+            stage([&] { current_limit.relay_.close(); });
+            stage([&] { force_sensor.relay_.close(); });
+            stage([&] { client_->close(); });
+            if (owns_session_) {
+                stage([&] { session_->close(); });
+            }
+            if (first_error) {
+                std::rethrow_exception(first_error);
+            }
+        };
         try {
             report.disable_all();
         } catch (...) {
+            close_local();
+            return;
         }
-        stage([&] { angle.close(); });
-        stage([&] { speed.close(); });
-        stage([&] { current.close(); });
-        stage([&] { temperature.close(); });
-        stage([&] { fault.close(); });
-        stage([&] { current_limit.relay_.close(); });
-        stage([&] { force_sensor.relay_.close(); });
-        stage([&] { client_->close(); });
-        if (owns_session_) {
-            stage([&] { session_->close(); });
-        }
-        if (first_error) {
-            std::rethrow_exception(first_error);
-        }
+        close_local();
     }
 
     Snapshot L30::get_snapshot() const {

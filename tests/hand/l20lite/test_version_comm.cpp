@@ -26,26 +26,38 @@ namespace {
     constexpr uint8_t kMechCmd = 0xC4;
     constexpr auto kTimeout = std::chrono::milliseconds{500};
 
-    Message sn_frame(uint32_t id, uint8_t offset, const char *six) {
+    struct SnFrameArguments {
+        uint32_t id;
+        uint8_t offset;
+        const char *six;
+    };
+    Message sn_frame(const SnFrameArguments &arguments) {
         Message msg;
-        msg.id = id;
+        msg.id = arguments.id;
         msg.dlc = 8;
         msg.data[0] = kSnCmd;
-        msg.data[1] = offset;
+        msg.data[1] = arguments.offset;
         for (uint8_t i = 0; i < 6; ++i) {
-            msg.data[2 + i] = static_cast<uint8_t>(six[i]);
+            msg.data[2 + i] = static_cast<uint8_t>(arguments.six[i]);
         }
         return msg;
     }
 
-    Message version_reply(uint32_t id, uint8_t cmd, uint8_t a, uint8_t b, uint8_t c) {
+    struct VersionReplyArguments {
+        uint32_t id;
+        uint8_t cmd;
+        uint8_t a;
+        uint8_t b;
+        uint8_t c;
+    };
+    Message version_reply(const VersionReplyArguments &arguments) {
         Message reply;
-        reply.id = id;
+        reply.id = arguments.id;
         reply.dlc = 4;
-        reply.data[0] = cmd;
-        reply.data[1] = a;
-        reply.data[2] = b;
-        reply.data[3] = c;
+        reply.data[0] = arguments.cmd;
+        reply.data[1] = arguments.a;
+        reply.data[2] = arguments.b;
+        reply.data[3] = arguments.c;
         return reply;
     }
 
@@ -56,14 +68,14 @@ namespace {
             }
             switch (req.data[0]) {
             case kSnCmd:
-                return std::vector<Message>{sn_frame(id, 0, "LHT10-"), sn_frame(id, 6, "03-12-"),
-                                            sn_frame(id, 12, "L-B-1-"), sn_frame(id, 18, "A\0\0\0\0\0")};
+                return std::vector<Message>{sn_frame({id, 0, "LHT10-"}), sn_frame({id, 6, "03-12-"}),
+                                            sn_frame({id, 12, "L-B-1-"}), sn_frame({id, 18, "A\0\0\0\0\0"})};
             case kPcbCmd:
-                return std::vector<Message>{version_reply(id, kPcbCmd, 1, 2, 3)};
+                return std::vector<Message>{version_reply({id, kPcbCmd, 1, 2, 3})};
             case kFwCmd:
-                return std::vector<Message>{version_reply(id, kFwCmd, 1, 1, 2)};
+                return std::vector<Message>{version_reply({id, kFwCmd, 1, 1, 2})};
             case kMechCmd:
-                return std::vector<Message>{version_reply(id, kMechCmd, 1, 0, 0)};
+                return std::vector<Message>{version_reply({id, kMechCmd, 1, 0, 0})};
             default:
                 return std::vector<Message>{};
             }
@@ -102,18 +114,18 @@ TEST_CASE("comm: version serial number completes on three frames", "[comm][l20li
             return std::vector<Message>{};
         }
         if (req.data[0] == kSnCmd) {
-            return std::vector<Message>{sn_frame(l20lite_comm::kLeftId, 0, "ABC123"),
-                                        sn_frame(l20lite_comm::kLeftId, 6, "DEF456"),
-                                        sn_frame(l20lite_comm::kLeftId, 12, "GHI\0\0\0")};
+            return std::vector<Message>{sn_frame({l20lite_comm::kLeftId, 0, "ABC123"}),
+                                        sn_frame({l20lite_comm::kLeftId, 6, "DEF456"}),
+                                        sn_frame({l20lite_comm::kLeftId, 12, "GHI\0\0\0"})};
         }
         if (req.data[0] == kPcbCmd) {
-            return std::vector<Message>{version_reply(l20lite_comm::kLeftId, kPcbCmd, 1, 0, 0)};
+            return std::vector<Message>{version_reply({l20lite_comm::kLeftId, kPcbCmd, 1, 0, 0})};
         }
         if (req.data[0] == kFwCmd) {
-            return std::vector<Message>{version_reply(l20lite_comm::kLeftId, kFwCmd, 1, 0, 0)};
+            return std::vector<Message>{version_reply({l20lite_comm::kLeftId, kFwCmd, 1, 0, 0})};
         }
         if (req.data[0] == kMechCmd) {
-            return std::vector<Message>{version_reply(l20lite_comm::kLeftId, kMechCmd, 1, 0, 0)};
+            return std::vector<Message>{version_reply({l20lite_comm::kLeftId, kMechCmd, 1, 0, 0})};
         }
         return std::vector<Message>{};
     });

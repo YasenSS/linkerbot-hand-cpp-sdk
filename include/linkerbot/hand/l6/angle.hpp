@@ -22,10 +22,7 @@ namespace linkerbot::hand::l6 {
 
         Angle() = default;
 
-        Angle(float tf, float ta, float i, float m, float r, float p)
-            : thumb_flex(tf), thumb_abd(ta), index(i), middle(m), ring(r), pinky(p) {
-            validate();
-        }
+        Angle(float tf, float ta, float i, float m, float r, float p) : Angle(from_fields({tf, ta, i, m, r, p})) {}
 
         [[nodiscard]] std::array<float, kJointCount> to_array() const {
             return {thumb_flex, thumb_abd, index, middle, ring, pinky};
@@ -37,7 +34,21 @@ namespace linkerbot::hand::l6 {
 
         [[nodiscard]] static Angle from_array(const std::array<float, kJointCount> &values) {
             validate_angle_percents(values);
-            return {values[0], values[1], values[2], values[3], values[4], values[5]};
+
+            return from_fields(values);
+        }
+
+    private:
+        static Angle from_fields(const std::array<float, kJointCount> &values) {
+            Angle result;
+            result.thumb_flex = values[0];
+            result.thumb_abd = values[1];
+            result.index = values[2];
+            result.middle = values[3];
+            result.ring = values[4];
+            result.pinky = values[5];
+            result.validate();
+            return result;
         }
     };
 

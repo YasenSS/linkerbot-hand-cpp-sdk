@@ -69,8 +69,8 @@ TEST_CASE("HandDevice hardware physical disconnect and reconnect", "[hardware][d
     REQUIRE(after.connection_generation > before.connection_generation);
     REQUIRE(after.angles.has_value());
     require_meta(test_support::require_value(after.angles).meta, after.connection_generation);
-    REQUIRE(test_support::require_value(after.angles->meta.collected_at) >
-            test_support::require_value(before.angles->meta.collected_at));
+    REQUIRE(test_support::require_value(test_support::require_value(after.angles).meta.collected_at) >
+            test_support::require_value(test_support::require_value(before.angles).meta.collected_at));
     const auto next = hand.wait_for_snapshot(after, 2s);
     REQUIRE(next.snapshot_sequence > after.snapshot_sequence);
     hand.stop_polling();

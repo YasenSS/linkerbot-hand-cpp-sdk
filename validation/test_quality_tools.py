@@ -8,6 +8,20 @@ from cppcheck_report import command_database
 
 
 class QualityToolsTests(unittest.TestCase):
+    def test_shared_implementation_headers_remain_in_scope(self):
+        config = (Path(__file__).resolve().parents[1] / ".clang-tidy").read_text()
+        value = next(line.split(":", 1)[1].strip() for line in config.splitlines()
+                     if line.startswith("HeaderFilterRegex:"))
+        pattern = json.loads(value)
+        for path in (
+            "/repo/tests/protocol/l6/completion_vector_cases.hpp",
+            "/repo/tests/hand/l6/../../protocol/l6/completion_vector_cases.hpp",
+            "/repo/tools/restore_state.hpp",
+            "/repo/tests/hand/contracts/../../../tools/restore_state.hpp",
+        ):
+            with self.subTest(path=path):
+                self.assertRegex(path, pattern)
+
     def test_complete_findings_are_reported_not_hidden(self):
         report = {"mode": "full", "analysis_complete": True, "grade": "C", "checks": [
             {"tool": tool, "status": "findings", "analyzed": 2, "total": 2,

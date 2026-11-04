@@ -100,6 +100,20 @@ namespace linkerbot::hand {
         [[nodiscard]] const std::string &configuration_id() const noexcept;
 
     private:
+        struct ConstructorTag {};
+        struct ConstructorArguments {
+            std::string backend;
+            std::string name;
+            std::string native_name;
+            TransportKind kind;
+            std::optional<uint32_t> nominal_bitrate;
+            std::optional<uint32_t> data_bitrate;
+            bool supports_classic;
+            std::optional<bool> supports_fd;
+            std::string configuration_id;
+        };
+        DiscoveryChannel(ConstructorTag, ConstructorArguments arguments);
+
         std::string provider_;
         std::string name_;
         std::string native_name_;
@@ -124,6 +138,17 @@ namespace linkerbot::hand {
         [[nodiscard]] std::optional<uint8_t> host_id() const noexcept;
 
     private:
+        struct ConstructorTag {};
+        struct ConstructorArguments {
+            std::string scheme;
+            uint32_t request_id;
+            uint32_t response_id;
+            bool extended_id;
+            std::optional<uint8_t> node_id;
+            std::optional<uint8_t> host_id;
+        };
+        DiscoveryAddress(ConstructorTag, ConstructorArguments arguments);
+
         std::string scheme_;
         uint32_t request_id_ = 0;
         uint32_t response_id_ = 0;
@@ -218,6 +243,19 @@ namespace linkerbot::hand {
         [[nodiscard]] DiscoveryConnectionKey connection_key() const;
 
     private:
+        struct ConstructorTag {};
+        struct ConstructorArguments {
+            std::string provider;
+            std::string channel;
+            TransportKind kind;
+            HandDevice::TransportFactory factory;
+            std::optional<uint32_t> nominal_bitrate;
+            std::optional<uint32_t> data_bitrate;
+            std::optional<std::string> native_channel;
+            std::string configuration_id;
+        };
+        DiscoveryTransportSpec(ConstructorTag, ConstructorArguments arguments);
+
         std::string provider_;
         std::string channel_;
         std::string native_channel_;

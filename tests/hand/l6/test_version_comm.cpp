@@ -26,14 +26,19 @@ namespace {
     constexpr uint8_t kMechCmd = 0xC4;
     constexpr auto kTimeout = std::chrono::milliseconds{500};
 
-    Message sn_frame(uint32_t id, uint8_t key, const char *six) {
+    struct SnFrameArguments {
+        uint32_t id;
+        uint8_t key;
+        const char *six;
+    };
+    Message sn_frame(const SnFrameArguments &arguments) {
         Message msg;
-        msg.id = id;
+        msg.id = arguments.id;
         msg.dlc = 8;
         msg.data[0] = kSnCmd;
-        msg.data[1] = key;
+        msg.data[1] = arguments.key;
         for (uint8_t i = 0; i < 6; ++i) {
-            msg.data[2 + i] = static_cast<uint8_t>(six[i]);
+            msg.data[2 + i] = static_cast<uint8_t>(arguments.six[i]);
         }
         return msg;
     }
@@ -48,11 +53,11 @@ namespace {
                 // "LHL6-03-105-L-B-1" laid out as 3×6 (pad last with spaces then
                 // trimmed only if zeros; use the on-wire ASCII from real hardware).
                 if (sn_keys.size() == 3 && sn_keys[0] == 0 && sn_keys[1] == 6) {
-                    return std::vector<Message>{sn_frame(id, 0, "LHL6 -"), sn_frame(id, 6, "03-105"),
-                                                sn_frame(id, 12, "-L-B-1")};
+                    return std::vector<Message>{sn_frame({id, 0, "LHL6 -"}), sn_frame({id, 6, "03-105"}),
+                                                sn_frame({id, 12, "-L-B-1"})};
                 }
-                return std::vector<Message>{sn_frame(id, 0, "LHL6-0"), sn_frame(id, 1, "3-001-"),
-                                            sn_frame(id, 2, "L-Z-1-"), sn_frame(id, 3, "A\0\0\0\0\0")};
+                return std::vector<Message>{sn_frame({id, 0, "LHL6-0"}), sn_frame({id, 1, "3-001-"}),
+                                            sn_frame({id, 2, "L-Z-1-"}), sn_frame({id, 3, "A\0\0\0\0\0"})};
             }
             case kPcbCmd: {
                 Message reply;
@@ -128,10 +133,10 @@ TEST_CASE("comm: L6 serial accepts an unpadded final indexed fragment", "[comm][
                 if (request.data[0] != kSnCmd) {
                     return versions(request);
                 }
-                auto tail = sn_frame(right_id, 3, "1-DXYZ");
+                auto tail = sn_frame({right_id, 3, "1-DXYZ"});
                 tail.dlc = dlc;
-                return std::vector<Message>{sn_frame(right_id, 0, "LHL6-0"), sn_frame(right_id, 1, "3.3-61"),
-                                            sn_frame(right_id, 2, "5-R-B-"), tail};
+                return std::vector<Message>{sn_frame({right_id, 0, "LHL6-0"}), sn_frame({right_id, 1, "3.3-61"}),
+                                            sn_frame({right_id, 2, "5-R-B-"}), tail};
             });
             L6 hand(Side::kRight, std::move(transport), "can0", test_util::unique_mapping_path());
             const auto info = hand.version.get_device_info(kTimeout);

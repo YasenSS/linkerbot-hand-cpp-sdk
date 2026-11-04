@@ -193,6 +193,8 @@ TEST_CASE("comm: raw angle setters retain protocol bytes at both endpoints", "[c
     case 5:
         h.hand->angle.set_sparse({{9, raw}}, kTimeout);
         break;
+    default:
+        throw std::logic_error("invalid test vector selector");
     }
     REQUIRE(h.hop->writes.size() == (api == 0 ? 3 : 1));
     size_t bytes = 0;

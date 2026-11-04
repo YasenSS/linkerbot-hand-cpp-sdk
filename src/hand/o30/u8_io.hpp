@@ -29,10 +29,14 @@ namespace linkerbot::hand::o30::detail {
         client.write_mounted(mi, expand_u8(joints), timeout);
     }
 
-    inline void write_all(Client &client, uint8_t mi, uint8_t value, std::chrono::milliseconds timeout) {
+    struct UniformJointWrite {
+        uint8_t mi;
+        uint8_t value;
+    };
+    inline void write_all(Client &client, const UniformJointWrite &write, std::chrono::milliseconds timeout) {
         std::array<uint8_t, kJointCount> joints{};
-        joints.fill(value);
-        write_joints(client, mi, joints, timeout);
+        joints.fill(write.value);
+        write_joints(client, write.mi, joints, timeout);
     }
 
 } // namespace linkerbot::hand::o30::detail
