@@ -45,6 +45,7 @@ jobs:
         run: |
           python3 validation/check_docs.py
           python3 -m unittest discover -s validation -p 'test_quality_tools.py'
+          python3 -m unittest discover -s validation -p 'test_transport_provider.py'
 
       - name: Check out communication library
         uses: actions/checkout@v4

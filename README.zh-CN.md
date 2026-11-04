@@ -56,6 +56,10 @@ cmake --install build --prefix "$PWD/install"
 这会将 SDK 和配套通信库安装到当前目录的 `install/`，不需要 Catch2 或厂商开发包。
 后续命令均从 `linkerbot-hand-cpp` 源码根目录执行。
 
+也可直接使用 transport v0.3.2 的预构建 SDK，省去 transport 编译；
+使用 `cmake --preset prebuilt -DLINKERBOT_COMM_PREBUILT_PREFIX=/absolute/path/to/comm-sdk`。
+源码与预构建两种方式、下载校验及下游路径见[构建指南](docs/zh/guides/validation.md)。
+
 ### 2. 连接 CAN 总线
 
 连接适配器、供电和 CAN 接线，将接口名及速率改为实际值：

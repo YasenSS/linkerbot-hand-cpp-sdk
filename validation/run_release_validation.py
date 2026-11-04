@@ -184,7 +184,7 @@ try:
     configure('comm-configure', comm, comm_build, [*common, '-DLINKERBOT_COMM_BUILD_TESTS=ON',
                                                  '-DLINKERBOT_COMM_BUILD_EXAMPLES=OFF'])
     build('comm-build', comm_build)
-    configure('hand-configure', hand, hand_build, [*common, f'-DLINKERBOT_COMM_SOURCE_DIR={comm}',
+    configure('hand-configure', hand, hand_build, [*common, '-DLINKERBOT_COMM_PROVIDER=SOURCE', f'-DLINKERBOT_COMM_SOURCE_DIR={comm}',
                '-DLINKERBOT_COMM_BUILD_TESTS=OFF', '-DLINKERBOT_COMM_BUILD_EXAMPLES=OFF',
                '-DLINKERBOT_BUILD_TESTS=ON', '-DLINKERBOT_BUILD_EXAMPLES=ON', '-DLINKERBOT_BUILD_TOOLS=ON'])
     hand_targets = ['linkerbot-cpp-sdk', 'windows_readonly', 'l6_hop_readonly', 'tests', 'protocol-tests']
@@ -208,10 +208,10 @@ try:
         comm_prefix = work / 'comm-only-install'
         run('comm-install', ['cmake', '--install', comm_build, '--config', args.config, '--prefix', comm_prefix])
         consumer('comm-only-consumer', comm_prefix, 'comm')
-        # Explicit empty SOURCE_DIR prevents silently using the sibling checkout.
+        # PREBUILT prevents silently using the sibling source checkout.
         installed_build = work / 'hand-with-installed-comm'
         configure('installed-comm-hand-configure', hand, installed_build, [
-            *common, '-DLINKERBOT_COMM_SOURCE_DIR=', f'-DCMAKE_PREFIX_PATH={comm_prefix}',
+            *common, '-DLINKERBOT_COMM_PROVIDER=PREBUILT', f'-DLINKERBOT_COMM_PREBUILT_PREFIX={comm_prefix}',
             '-DLINKERBOT_BUILD_TESTS=OFF', '-DLINKERBOT_BUILD_EXAMPLES=ON', '-DLINKERBOT_BUILD_TOOLS=OFF'])
         build('installed-comm-hand-build', installed_build, ['linkerbot-cpp-sdk', 'windows_readonly'])
         separate_prefix = work / 'separate-hand-install'

@@ -60,6 +60,10 @@ This installs the SDK and communication library into the local `install/` direct
 Catch2 and vendor development packages are not required. Run the remaining commands from
 this repository's root directory.
 
+To reuse a prebuilt transport v0.3.2 SDK, configure with
+`cmake --preset prebuilt -DLINKERBOT_COMM_PREBUILT_PREFIX=/absolute/path/to/comm-sdk`.
+See the [build guide](docs/en/guides/validation.md) for source/prebuilt modes, archive verification and downstream paths.
+
 ### 2. Connect the CAN bus
 
 Connect the adapter, device power, and CAN wiring. Adjust the interface name and bitrate

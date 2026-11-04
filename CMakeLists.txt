@@ -38,25 +38,8 @@ find_package(Threads REQUIRED)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-# An explicit source path binds paired development checkouts. An empty path
-# consumes an installed package and does not require a sibling source tree.
-set(_linkerbot_default_comm "")
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../linkerbot-transport-cpp/CMakeLists.txt")
-    set(_linkerbot_default_comm "${CMAKE_CURRENT_SOURCE_DIR}/../linkerbot-transport-cpp")
-endif()
-set(LINKERBOT_COMM_SOURCE_DIR "${_linkerbot_default_comm}"
-    CACHE PATH "Paired comm source tree; empty selects find_package")
 option(LINKERBOT_ALLOW_DEPENDENCY_DOWNLOADS "Allow missing test dependencies to be fetched" ON)
-if(NOT TARGET linkerbot::comm)
-    if(LINKERBOT_COMM_SOURCE_DIR)
-        if(NOT EXISTS "${LINKERBOT_COMM_SOURCE_DIR}/CMakeLists.txt")
-            message(FATAL_ERROR "Invalid LINKERBOT_COMM_SOURCE_DIR: ${LINKERBOT_COMM_SOURCE_DIR}")
-        endif()
-        add_subdirectory("${LINKERBOT_COMM_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/_deps/linkerbot-transport-cpp")
-    else()
-        find_package(linkerbot-comm ${PROJECT_VERSION} CONFIG REQUIRED)
-    endif()
-endif()
+include(cmake/TransportDependency.cmake)
 
 # Check both paired sources and a target supplied by the parent project.
 get_target_property(_linkerbot_comm_version linkerbot::comm LINKERBOT_COMM_VERSION)

@@ -22,6 +22,32 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug"
             }
+        },
+        {
+            "name": "source",
+            "displayName": "Release SDK (source transport)",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/build/source",
+            "cacheVariables": {
+                "LINKERBOT_COMM_PROVIDER": "SOURCE",
+                "LINKERBOT_BUILD_TESTS": "OFF",
+                "LINKERBOT_BUILD_TOOLS": "OFF",
+                "LINKERBOT_BUILD_EXAMPLES": "OFF",
+                "LINKERBOT_ALLOW_DEPENDENCY_DOWNLOADS": "OFF"
+            }
+        },
+        {
+            "name": "prebuilt",
+            "displayName": "Release SDK (prebuilt transport)",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/build/prebuilt",
+            "cacheVariables": {
+                "LINKERBOT_COMM_PROVIDER": "PREBUILT",
+                "LINKERBOT_BUILD_TESTS": "OFF",
+                "LINKERBOT_BUILD_TOOLS": "OFF",
+                "LINKERBOT_BUILD_EXAMPLES": "OFF",
+                "LINKERBOT_ALLOW_DEPENDENCY_DOWNLOADS": "OFF"
+            }
         }
     ],
     "buildPresets": [
@@ -32,6 +58,14 @@
         {
             "name": "debug",
             "configurePreset": "debug"
+        },
+        {
+            "name": "source",
+            "configurePreset": "source"
+        },
+        {
+            "name": "prebuilt",
+            "configurePreset": "prebuilt"
         }
     ]
 }

@@ -4,11 +4,71 @@
 
 ## Select the dependency deliberately
 
-Use the full transport commit pinned in the project README and `.github/workflows/ci.yml`.
-An explicit `LINKERBOT_COMM_SOURCE_DIR` selects a source checkout. Set it to an empty
-string to use an installed `linkerbot-comm` package through `CMAKE_PREFIX_PATH`.
-Without an explicit value, CMake may select an adjacent `linkerbot-transport-cpp`
-directory. Record the actual commit and build configuration in test reports.
+`LINKERBOT_COMM_PROVIDER=AUTO` preserves existing commands. Select explicitly with:
+
+- `SOURCE`: use `LINKERBOT_COMM_SOURCE_DIR`, defaulting to the adjacent transport checkout.
+- `PREBUILT`: find an installed or extracted `linkerbot-comm`; ignore source paths.
+- `AUTO`: prefer a nonempty `LINKERBOT_COMM_PREBUILT_PREFIX`, then a source path, then package discovery.
+
+A parent-provided `linkerbot::comm` target is reused and version-checked.
+The legacy empty `LINKERBOT_COMM_SOURCE_DIR=` still selects package discovery through
+`CMAKE_PREFIX_PATH` in AUTO mode. Configure logs identify the selected dependency.
+Use separate build directories when switching dependencies to avoid stale CMake caches.
+Versions must share `0.3.x`, with transport no older than hand: hand `0.3.0` accepts transport `0.3.2`.
+For paired development, keep the source commit pinned in README and CI; record the
+actual revision and configuration in test reports.
+
+### Build from source
+
+```bash
+cmake --preset source -DLINKERBOT_COMM_SOURCE_DIR=../linkerbot-transport-cpp
+cmake --build --preset source --config Release --parallel 4
+cmake --install build/source --config Release --prefix "$PWD/install/hand"
+```
+
+Presets require CMake 3.21+. With CMake 3.16+, use
+`cmake -S . -B build/source -DCMAKE_BUILD_TYPE=Release -DLINKERBOT_COMM_PROVIDER=SOURCE`
+and supply the same dependency path and build options.
+
+### Use prebuilt transport
+
+Download a matching SDK and its adjacent `.sha256` file from
+[transport v0.3.2](https://github.com/linker-bot/linkerbot-transport-cpp/releases/tag/v0.3.2).
+Match the OS, architecture, compiler and runtime. For Ubuntu 24.04 x86_64,
+run in the download directory:
+
+```bash
+archive=linkerbot-comm-0.3.2-Linux-x86_64-ubuntu24.04-GNU13.3.0-libstdcxx-abi1-Release.tar.gz
+sha256sum --check "$archive.sha256"
+mkdir -p comm-sdk
+tar -xzf "$archive" -C comm-sdk --strip-components=1
+```
+
+From the Hand SDK root, substitute the absolute extraction path:
+
+```bash
+cmake --preset prebuilt -DLINKERBOT_COMM_PREBUILT_PREFIX=/absolute/path/to/comm-sdk
+cmake --build --preset prebuilt --config Release --parallel 4
+cmake --install build/prebuilt --config Release --prefix "$PWD/install/hand"
+```
+
+No transport checkout or rebuild is needed. The prefix must contain `include/`,
+`lib/`, etc.; do not pass an archive or its parent directory. Alternatively, omit
+the dedicated prefix and use `CMAKE_PREFIX_PATH` or `linkerbot-comm_DIR`.
+Configuration does not download transport; a missing package fails without falling back to sources.
+On Windows, extract the ZIP and pass its SDK root; match Release `/MD` or Debug `/MDd`
+and build with `--config Release` or `--config Debug`. Linux packages use libstdc++ ABI1.
+There is no macOS release archive; locally compiled installations also work in PREBUILT mode.
+Drivers and proprietary libraries remain separate requirements.
+
+Installing hand does not copy a prebuilt transport dependency. Downstream applications
+must supply both installation prefixes:
+
+```bash
+cmake -S demo -B demo/build -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH="$PWD/install/hand;/absolute/path/to/comm-sdk"
+cmake --build demo/build --config Release --parallel 4
+```
 
 ## Run offline tests
 
