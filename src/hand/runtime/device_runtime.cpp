@@ -2510,9 +2510,10 @@ void linkerbot::hand::unified_detail::RuntimeAccess::execute_command(runtime::De
     struct SendCallbacks {
         SendObserver &observer;
         FinalSend &final_send;
+        const std::function<void()> &execute;
         std::function<void()> &prepare_send;
     };
-    const auto callbacks = SendCallbacks{observer, final_send, prepare_send};
+    const auto callbacks = SendCallbacks{observer, final_send, execute, prepare_send};
     const auto owner = std::this_thread::get_id();
     auto &p = *runtime.impl_;
     std::optional<runtime::DeviceRuntime::Impl::CommandExecution> previous;
@@ -2536,7 +2537,7 @@ void linkerbot::hand::unified_detail::RuntimeAccess::execute_command(runtime::De
     };
     try {
         auto operation = runtime.operation(deadline, cancellation);
-        execute();
+        callbacks.execute();
     } catch (...) {
         restore();
         throw;

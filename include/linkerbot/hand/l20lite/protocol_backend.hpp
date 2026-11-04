@@ -118,7 +118,7 @@ namespace linkerbot::hand::l20lite::protocol {
         plan.frames = {message_a, message_b};
         plan.gap = gap;
         plan.initial_delay = gap;
-        plan.consume = make_dual_frame_decoder(id, part_a, part_b, finish);
+        plan.consume = make_dual_frame_decoder(id, std::move(part_a), std::move(part_b), std::move(finish));
         return plan;
     }
 
