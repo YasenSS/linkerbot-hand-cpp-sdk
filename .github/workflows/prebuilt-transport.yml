@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   released-sdk:
-    name: transport v0.3.2 / ${{ matrix.arch }}
+    name: transport v0.3.3 / ${{ matrix.arch }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     strategy:
@@ -33,8 +33,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          archive=linkerbot-comm-0.3.2-Linux-${{ matrix.arch }}-ubuntu24.04-GNU13.3.0-libstdcxx-abi1-Release.tar.gz
-          url=https://github.com/linker-bot/linkerbot-transport-cpp/releases/download/v0.3.2
+          archive=linkerbot-transport-0.3.3-Linux-${{ matrix.arch }}-ubuntu24.04-GNU13.3.0-libstdcxx-abi1-Release.tar.gz
+          url=https://github.com/linker-bot/linkerbot-transport-cpp/releases/download/v0.3.3
           mkdir -p "$RUNNER_TEMP/comm-download" "$RUNNER_TEMP/comm-sdk"
           cd "$RUNNER_TEMP/comm-download"
           curl --fail --location --retry 3 --remote-name "$url/$archive"

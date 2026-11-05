@@ -43,7 +43,7 @@ Use paired `0.3.x` versions; the transport version must be at least the hand SDK
 ```bash
 mkdir sdk-build && cd sdk-build
 git clone https://github.com/linker-bot/linkerbot-transport-cpp.git
-git -C linkerbot-transport-cpp checkout --detach 0ab37b179ee8c07bbd7f1e777015bd23774d27ab
+git -C linkerbot-transport-cpp checkout --detach d4b1dc15596403f301d7ca124752f81c67c340a3
 git clone https://github.com/linker-bot/linkerbot-hand-cpp-sdk.git linkerbot-hand-cpp
 cd linkerbot-hand-cpp
 
@@ -60,7 +60,7 @@ This installs the SDK and communication library into the local `install/` direct
 Catch2 and vendor development packages are not required. Run the remaining commands from
 this repository's root directory.
 
-To reuse a prebuilt transport v0.3.2 SDK, configure with
+To reuse a prebuilt transport v0.3.3 SDK, configure with
 `cmake --preset prebuilt -DLINKERBOT_COMM_PREBUILT_PREFIX=/absolute/path/to/comm-sdk`.
 See the [build guide](docs/en/guides/validation.md) for source/prebuilt modes, archive verification and downstream paths.
 

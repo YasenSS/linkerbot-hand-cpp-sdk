@@ -33,7 +33,7 @@ def identity(info):
     version = info['version']
     if not re.fullmatch(r'\d+\.\d+\.\d+', version):
         raise ValueError('Invalid package version')
-    if info['package'] not in ('linkerbot-hand-cpp', 'linkerbot-comm'):
+    if info['package'] not in ('linkerbot-hand-cpp', 'linkerbot-comm', 'linkerbot-transport'):
         raise ValueError('Unknown SDK package')
     if (info.get('schema_version'), info.get('cxx_standard'), info.get('pic'),
             info.get('instrumented'), info.get('source_dirty')) != (1, 17, True, False, False):
@@ -107,7 +107,7 @@ def collect(directory, targets_path, version, hand_sha, comm_sha):
             key = identity(hand)
             if key not in expected or key in seen or identity(comm) != key:
                 raise ValueError('Duplicate/unexpected target or mismatched transport identity')
-            if hand['package'] != 'linkerbot-hand-cpp' or comm['package'] != 'linkerbot-comm':
+            if hand['package'] != 'linkerbot-hand-cpp' or comm['package'] not in ('linkerbot-comm', 'linkerbot-transport'):
                 raise ValueError('Package identity mismatch')
             if archive.name != archive_name(hand):
                 raise ValueError('Archive filename does not match build metadata')
