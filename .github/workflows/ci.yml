@@ -100,7 +100,9 @@ jobs:
       - name: Install SDK for public header checks
         if: matrix.build_type == 'Release' && github.event_name != 'pull_request'
         working-directory: hand-cpp
-        run: cmake --install build
+        run: |
+          cmake --build build --parallel 4
+          cmake --install build
 
       - name: Check installed public headers
         if: matrix.build_type == 'Release' && github.event_name != 'pull_request'

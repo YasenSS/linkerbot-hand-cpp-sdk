@@ -200,6 +200,8 @@ try:
     hand_targets = ['linkerbot-cpp-sdk', 'windows_readonly', 'l6_hop_readonly', 'tests', 'protocol-tests']
     if not args.quick:
         hand_targets.append('example')
+    # Build all enabled installable transport modules before packaging the pair.
+    build('hand-installable-build', hand_build)
     build('hand-build', hand_build, hand_targets)
     if args.suite in ['all', 'no-drivers']:
         ctest('comm-no-drivers', comm_build, minimum=30, native=False)
