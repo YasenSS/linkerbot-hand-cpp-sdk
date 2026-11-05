@@ -20,7 +20,8 @@ are excluded. Versions remain independent: hand `0.3.0` can use transport `0.3.3
 no older than hand and share its minor version.
 
 
-The paired source pin and prebuilt transport workflow use v0.3.3, including the Focal
+The paired source pin uses v0.3.3 plus a Focal syscall fault-injection test fix;
+prebuilt downloads use the published v0.3.3 archives. Both include the Focal
 unbounded receipt-wait fix. Transport archives now use the `linkerbot-transport-` prefix.
 Hand continues to consume the supported `linkerbot-comm` CMake package and CAN target aliases.
 

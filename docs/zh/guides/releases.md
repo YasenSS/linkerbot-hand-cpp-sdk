@@ -18,7 +18,8 @@ libstdc++ ABI1 和 C++17。Windows 使用原生架构 runner 与 v143 14.44 工�
 两个项目版本独立：例如 hand `0.3.0` 可配套 transport `0.3.3`；transport 须同 minor 且不低于 hand。
 
 
-配套源码与预构建 transport 工作流使用 v0.3.3，其中包含 Focal 无限回执等待修复。
+配套源码使用 v0.3.3 加 Focal 系统调用故障注入测试修复，预构建下载使用已发布的 v0.3.3
+归档。两条路径均包含 Focal 无限回执等待修复。
 transport 归档名现以 `linkerbot-transport-` 开头；Hand 继续使用受支持的
 `linkerbot-comm` CMake 包及 CAN 目标别名。
 

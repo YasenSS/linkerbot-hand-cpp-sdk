@@ -7,6 +7,7 @@
 - 增加显式源码/预构建 transport 接入选项和独立 CMake presets。
 - 发布目标与 transport 对齐：八份 Ubuntu Release、四份 Windows x64/ARM64 Debug/Release SDK，校验构建身份与完整产物集。
 - 修正 Focal 旧版 libstdc++ 下 runtime 请求、轮询停止和故障监听的无限等待，保留有限 deadline 和异常传播语义。
+- 配套源码包含 transport 的 Focal 系统调用故障注入测试修复；原生 PCAN 夹具增加 Windows 调度余量与 FD 发现失败诊断。
 - 配套 transport 源码和预构建下载更新至 v0.3.3，包含 Focal 回执等待修复；发布校验支持新的包名元数据，继续使用受支持的 comm CMake 兼容接口。
 
 - 默认文档改为英文，保留完整中文对应页、双向导航及旧英文入口兼容副本。
