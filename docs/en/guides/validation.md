@@ -14,7 +14,7 @@ A parent-provided `linkerbot::comm` target is reused and version-checked.
 The legacy empty `LINKERBOT_COMM_SOURCE_DIR=` still selects package discovery through
 `CMAKE_PREFIX_PATH` in AUTO mode. Configure logs identify the selected dependency.
 Use separate build directories when switching dependencies to avoid stale CMake caches.
-Versions must share `0.3.x`, with transport no older than hand: hand `0.3.0` accepts transport `0.3.2`.
+Versions must share `0.3.x`, with transport no older than hand: hand `0.3.0` accepts transport `0.3.3`.
 For paired development, keep the source commit pinned in README and CI; record the
 actual revision and configuration in test reports.
 
@@ -33,12 +33,12 @@ and supply the same dependency path and build options.
 ### Use prebuilt transport
 
 Download a matching SDK and its adjacent `.sha256` file from
-[transport v0.3.2](https://github.com/linker-bot/linkerbot-transport-cpp/releases/tag/v0.3.2).
+[transport v0.3.3](https://github.com/linker-bot/linkerbot-transport-cpp/releases/tag/v0.3.3).
 Match the OS, architecture, compiler and runtime. For Ubuntu 24.04 x86_64,
 run in the download directory:
 
 ```bash
-archive=linkerbot-comm-0.3.2-Linux-x86_64-ubuntu24.04-GNU13.3.0-libstdcxx-abi1-Release.tar.gz
+archive=linkerbot-transport-0.3.3-Linux-x86_64-ubuntu24.04-GNU13.3.0-libstdcxx-abi1-Release.tar.gz
 sha256sum --check "$archive.sha256"
 mkdir -p comm-sdk
 tar -xzf "$archive" -C comm-sdk --strip-components=1

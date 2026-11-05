@@ -11,8 +11,12 @@
   Windows x64/ARM64 Debug/Release archives, with build identities and complete-set validation.
 - Fix unbounded runtime request, polling-stop and fault waits on Focal's older
   libstdc++; retain finite deadlines and error propagation.
-- Pin the paired transport source to its Focal unbounded receipt-wait fix. Existing
-  transport v0.3.2 release archives remain unchanged.
+- Update paired transport sources and prebuilt downloads to v0.3.3, including the
+  Focal receipt-wait fix. Accept its renamed package metadata in release validation;
+  retain the supported comm CMake compatibility interface.
+- Include the transport Focal syscall fault-injection test fix in the source pin.
+- Give native PCAN fixture discovery enough response time for Windows scheduling
+  and report FD discovery failures before asserting identity.
 
 ### Documentation and quality tooling
 

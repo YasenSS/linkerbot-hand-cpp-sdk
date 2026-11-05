@@ -44,15 +44,15 @@ class ReleaseMatrixTests(unittest.TestCase):
         self.targets_path = ROOT / 'ci/package-targets.json'
         self.targets = load_targets(self.targets_path)
 
-    def package(self, info):
+    def package(self, info, transport_package='linkerbot-comm'):
         prefix = self.root / 'sdk'
         if prefix.exists():
             shutil.rmtree(prefix)
         for key, library in [('hand', 'linkerbot-cpp-sdk'), ('comm', 'linkerbot-comm')]:
             doc = dict(info)
             if key == 'comm':
-                doc.update(package='linkerbot-comm', version='0.3.2')
-            share = prefix / 'share' / doc['package']
+                doc.update(package=transport_package, version='0.3.3')
+            share = prefix / 'share' / ('linkerbot-comm' if key == 'comm' else doc['package'])
             share.mkdir(parents=True)
             (share / 'build-info.json').write_text(json.dumps(doc))
             lib = prefix / 'lib'
@@ -74,11 +74,11 @@ class ReleaseMatrixTests(unittest.TestCase):
             hashlib.sha256(archive.read_bytes()).hexdigest() + '  ' + archive.name + '\n')
         return archive
 
-    def complete_set(self):
+    def complete_set(self, transport_package='linkerbot-comm'):
         for row in self.targets['linux']:
-            self.package(metadata(arch=row['arch'], distribution=row['distribution']))
+            self.package(metadata(arch=row['arch'], distribution=row['distribution']), transport_package)
         for row in self.targets['windows']:
-            self.package(metadata('Windows', row['arch'], 'Windows', row['configuration']))
+            self.package(metadata('Windows', row['arch'], 'Windows', row['configuration']), transport_package)
 
     def collect(self):
         return collect(self.assets, self.targets_path, '0.3.0', 'a' * 40, 'b' * 40)
@@ -91,6 +91,20 @@ class ReleaseMatrixTests(unittest.TestCase):
         self.assertEqual(len((self.assets / 'SHA256SUMS.txt').read_text().splitlines()), 25)
         for row in result['packages']:
             self.assertEqual(row['verified_objects'], {'hand': 1, 'comm': 1})
+
+    def test_transport_033_metadata_in_legacy_share_is_accepted(self):
+        self.complete_set(transport_package='linkerbot-transport')
+        result = self.collect()
+        self.assertEqual(len(result['packages']), 12)
+        for row in result['packages']:
+            self.assertEqual(row['transport']['package'], 'linkerbot-transport')
+            self.assertEqual(row['transport']['version'], '0.3.3')
+            self.assertEqual(row['verified_objects'], {'hand': 1, 'comm': 1})
+
+    def test_unknown_transport_package_is_rejected(self):
+        self.complete_set(transport_package='unrelated-package')
+        with self.assertRaisesRegex(ValueError, 'Unknown SDK package'):
+            self.collect()
 
     def test_missing_archive_is_rejected(self):
         self.complete_set()

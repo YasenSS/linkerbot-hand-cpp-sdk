@@ -147,9 +147,10 @@ namespace {
         }
         hand::DiscoveryConfig config(bool fd = false) const {
             hand::DiscoveryConfig result;
-            result.response_timeout = std::chrono::milliseconds(20);
+            // Native fixture I/O crosses worker threads; allow for Windows scheduling.
+            result.response_timeout = std::chrono::milliseconds(200);
             result.inter_request_delay = std::chrono::milliseconds(0);
-            result.total_timeout = std::chrono::seconds(3);
+            result.total_timeout = std::chrono::seconds(10);
             result.pcan.library_path = std::filesystem::u8path(path);
             result.pcan.channels = {fd ? "PCAN_USBBUS2" : "PCAN_USBBUS1"};
             result.pcan.probe_protocols = {fd ? hand::TransportKind::kCanFd : hand::TransportKind::kCan};
@@ -214,6 +215,14 @@ TEST_CASE("default PCAN FD source preserves native channel timing and identity",
     hand::PCANDiscoverySource source;
     auto config = fixture.config(true);
     const auto report = hand::discover_hands(config, source);
+    for (const auto &failure : report.failures()) {
+        UNSCOPED_INFO(failure.code() << ": " << failure.message());
+    }
+    for (const auto &candidate : report.candidates()) {
+        for (const auto &problem : candidate.problems()) {
+            UNSCOPED_INFO(problem.code() << ": " << problem.message());
+        }
+    }
     REQUIRE(report.verified_candidates().size() == 1);
     const auto &candidate = report.require_one();
     CHECK(candidate.model() == hand::Model::kL30);

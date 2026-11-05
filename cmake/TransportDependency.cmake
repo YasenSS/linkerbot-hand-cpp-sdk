@@ -49,15 +49,26 @@ else()
     if(LINKERBOT_COMM_PREBUILT_PREFIX)
         # Restrict discovery to the requested SDK, and reject cached package
         # directories outside it rather than silently linking a different SDK.
-        find_package(linkerbot-comm ${PROJECT_VERSION} CONFIG REQUIRED
-            PATHS "${LINKERBOT_COMM_PREBUILT_PREFIX}" NO_DEFAULT_PATH
-            NO_CMAKE_FIND_ROOT_PATH)
+        # v0.3.3's comm package forwards to linkerbot-transport. Make the
+        # requested prefix visible to that nested find_dependency as well,
+        # without changing the caller's package search path.
+        function(_linkerbot_find_prebuilt_comm)
+            list(PREPEND CMAKE_PREFIX_PATH "${LINKERBOT_COMM_PREBUILT_PREFIX}")
+            find_package(linkerbot-comm ${PROJECT_VERSION} CONFIG REQUIRED
+                PATHS "${LINKERBOT_COMM_PREBUILT_PREFIX}" NO_DEFAULT_PATH
+                NO_CMAKE_FIND_ROOT_PATH)
+        endfunction()
+        _linkerbot_find_prebuilt_comm()
         get_filename_component(_comm_requested_prefix "${LINKERBOT_COMM_PREBUILT_PREFIX}" REALPATH)
-        get_filename_component(_comm_found_dir "${linkerbot-comm_DIR}" REALPATH)
-        file(RELATIVE_PATH _comm_relative "${_comm_requested_prefix}" "${_comm_found_dir}")
-        if(IS_ABSOLUTE "${_comm_relative}" OR _comm_relative MATCHES "^\\.\\.(/|$)")
-            message(FATAL_ERROR "Cached linkerbot-comm_DIR is outside LINKERBOT_COMM_PREBUILT_PREFIX; use a fresh build directory or clear linkerbot-comm_DIR")
-        endif()
+        foreach(_comm_package linkerbot-comm linkerbot-transport)
+            if(DEFINED ${_comm_package}_DIR AND NOT "${${_comm_package}_DIR}" MATCHES "-NOTFOUND$")
+                get_filename_component(_comm_found_dir "${${_comm_package}_DIR}" REALPATH)
+                file(RELATIVE_PATH _comm_relative "${_comm_requested_prefix}" "${_comm_found_dir}")
+                if(IS_ABSOLUTE "${_comm_relative}" OR _comm_relative MATCHES "^\\.\\.(/|$)")
+                    message(FATAL_ERROR "Cached ${_comm_package}_DIR is outside LINKERBOT_COMM_PREBUILT_PREFIX; use a fresh build directory or clear ${_comm_package}_DIR")
+                endif()
+            endif()
+        endforeach()
     else()
         find_package(linkerbot-comm ${PROJECT_VERSION} CONFIG REQUIRED)
     endif()

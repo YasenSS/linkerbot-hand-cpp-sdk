@@ -95,6 +95,32 @@ include("${CMAKE_CURRENT_BINARY_DIR}/fixture-path.cmake")
                         f'-DLINKERBOT_COMM_PREBUILT_PREFIX={self.root / "other"}'],
                        'outside LINKERBOT_COMM_PREBUILT_PREFIX', False)
 
+    def forwarding_package(self):
+        canonical = self.prefix / 'lib/cmake/linkerbot-transport'
+        canonical.mkdir(parents=True)
+        (canonical / 'linkerbot-transport-config.cmake').write_text(TARGETS, encoding='utf-8')
+        (self.config / 'linkerbot-comm-config.cmake').write_text(
+            'include(CMakeFindDependencyMacro)\n'
+            'find_dependency(linkerbot-transport CONFIG)\n', encoding='utf-8')
+        return canonical
+
+    def test_prebuilt_forwarding_package_uses_requested_prefix(self):
+        self.forwarding_package()
+        self.configure(['-DLINKERBOT_COMM_PROVIDER=PREBUILT',
+                        '-DLINKERBOT_COMM_SOURCE_DIR=/missing',
+                        f'-DLINKERBOT_COMM_PREBUILT_PREFIX={self.prefix}'], 'Transport: PREBUILT')
+
+    def test_reject_cached_forwarded_package_outside_prefix(self):
+        canonical = self.forwarding_package()
+        outside = self.root / 'outside-transport'
+        outside.mkdir()
+        (outside / 'linkerbot-transport-config.cmake').write_text(
+            (canonical / 'linkerbot-transport-config.cmake').read_text(), encoding='utf-8')
+        self.configure(['-DLINKERBOT_COMM_PROVIDER=PREBUILT',
+                        f'-DLINKERBOT_COMM_PREBUILT_PREFIX={self.prefix}',
+                        f'-Dlinkerbot-transport_DIR={outside}'],
+                       'outside LINKERBOT_COMM_PREBUILT_PREFIX', False)
+
     def test_invalid_provider(self):
         self.configure(['-DLINKERBOT_COMM_PROVIDER=invalid'],
                        'Invalid LINKERBOT_COMM_PROVIDER', False)

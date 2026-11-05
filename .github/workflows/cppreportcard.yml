@@ -44,7 +44,7 @@ jobs:
             -DLINKERBOT_COMM_SOURCE_DIR="$PWD/external/linkerbot-transport-cpp" \
             -DLINKERBOT_BUILD_TESTS=ON -DLINKERBOT_BUILD_EXAMPLES=ON -DLINKERBOT_BUILD_TOOLS=ON \
             -DLINKERBOT_COMM_BUILD_TESTS=OFF -DLINKERBOT_COMM_BUILD_EXAMPLES=OFF
-          cmake --build build/report --parallel 4 --target linkerbot-cpp-sdk windows_readonly l6_hop_readonly
+          cmake --build build/report --parallel 4
           cmake --install build/report --prefix "$PWD/build/report-install"
           cmake -S validation/installed-consumer -B build/report-consumer -G Ninja \
             -DCMAKE_CXX_COMPILER=clang++-18 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
