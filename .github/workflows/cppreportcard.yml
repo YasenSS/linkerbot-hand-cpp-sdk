@@ -30,11 +30,33 @@ jobs:
           ref: ${{ steps.dependency.outputs.sha }}
           path: external/linkerbot-transport-cpp
           token: ${{ secrets.LINKERBOT_COMM_TOKEN || github.token }}
-      - name: Install build and analysis tools
+      - name: Ensure build and analysis tools are available
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential cmake ninja-build clang-18 clang-format-18 clang-tidy-18 cppcheck python3
+          missing_packages=()
+          while read -r tool package; do
+            if ! command -v "$tool" >/dev/null 2>&1; then
+              missing_packages+=("$package")
+            fi
+          done <<'TOOLS'
+          gcc build-essential
+          g++ build-essential
+          make build-essential
+          cmake cmake
+          ninja ninja-build
+          clang-18 clang-18
+          clang++-18 clang-18
+          clang-format-18 clang-format-18
+          clang-tidy-18 clang-tidy-18
+          cppcheck cppcheck
+          python3 python3
+          TOOLS
+          if [ "${#missing_packages[@]}" -gt 0 ]; then
+            echo "Installing missing packages: ${missing_packages[*]}"
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends "${missing_packages[@]}"
+          else
+            echo "All required tools are available; skipping apt."
+          fi
       - name: Configure analysis inputs
         id: inputs
         run: |
