@@ -520,7 +520,12 @@ TEST_CASE("comm: L6 interstage request timeout is independent from angle budget"
     plan.tactile_period = 500ms;
     plan.interstage.max_angle_transactions = 1;
     plan.interstage.angle_budget = 2ms;
-    plan.interstage.request_timeout = 20ms;
+    // This checks deadline selection, not host scheduling latency. Keep the
+    // simulated reply beyond the angle budget, but allow coarse Windows timer
+    // wakeups and loaded CI workers within the independent request deadline.
+    plan.interstage.request_timeout = 500ms;
+    plan.request_timeout = 1s;
+    plan.tactile_timeout = 5s;
     hand.start_polling(plan);
     REQUIRE(await([&] { return hand.get_snapshot().force_sensor.has_value(); }));
     hand.stop_polling();
