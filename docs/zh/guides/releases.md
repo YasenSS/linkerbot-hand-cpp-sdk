@@ -4,7 +4,7 @@
 
 ## 与 transport 对齐的目标
 
-Hand 发布工作流使用与 transport v0.3.3 相同的目标矩阵：
+Hand 发布工作流使用与 transport v0.3.4 相同的目标矩阵：
 
 - Ubuntu 20.04、22.04、24.04、26.04，各有 x86_64 和 aarch64（ARM64）的 Release TGZ，共八份。
 - Windows x64、ARM64，各有 Debug `/MDd` 和 Release `/MD` 的 MSVC v143 ZIP，共四份。
@@ -15,11 +15,11 @@ libstdc++ ABI1 和 C++17。Windows 使用原生架构 runner 与 v143 14.44 工�
 
 产物是开发 SDK，Hand 包包含 hand 与配套 transport 静态库、头文件、CMake 包和文档，
 保留只读命令行示例；不包含测试程序、厂商驱动或厂商库。
-两个项目版本独立：例如 hand `0.3.0` 可配套 transport `0.3.3`；transport 须同 minor 且不低于 hand。
+两个项目版本独立：例如 hand `0.3.0` 可配套 transport `0.3.4`；transport 须同 minor 且不低于 hand。
 
 
-配套源码使用 v0.3.3 加 Focal 系统调用故障注入测试修复，预构建下载使用已发布的 v0.3.3
-归档。两条路径均包含 Focal 无限回执等待修复。
+配套源码固定提交和预构建下载统一使用 v0.3.4 发行版。transport 公共结构有新增字段，
+须使用匹配的头文件和库重新编译 hand 及下游应用。本次更新不计为新增实机验收。
 transport 归档名现以 `linkerbot-transport-` 开头；Hand 继续使用受支持的
 `linkerbot-comm` CMake 包及 CAN 目标别名。
 

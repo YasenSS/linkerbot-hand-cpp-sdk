@@ -13,7 +13,7 @@
 父项目已经提供 `linkerbot::comm` 时，复用父项目的目标，并检查版本。
 显式设置旧参数 `LINKERBOT_COMM_SOURCE_DIR=` 仍可在 AUTO 下通过 `CMAKE_PREFIX_PATH`
 使用安装包。配置日志会显示实际选择的依赖；切换依赖时使用独立构建目录，避免旧 CMake 缓存。
-版本须为 `0.3.x` 且不低于 hand 版本；当前 hand `0.3.0` 可使用 transport `0.3.3`。
+版本须为 `0.3.x` 且不低于 hand 版本；当前 hand `0.3.0` 可使用 transport `0.3.4`。
 源码开发继续使用 README 与 CI 固定的提交，并在测试报告中记录实际版本和构建配置。
 
 ### 从源码构建
@@ -30,12 +30,12 @@ Preset 需要 CMake 3.21+；使用 CMake 3.16+ 时可用
 
 ### 使用预构建 transport
 
-从 [transport v0.3.3](https://github.com/linker-bot/linkerbot-transport-cpp/releases/tag/v0.3.3)
+从 [transport v0.3.4](https://github.com/linker-bot/linkerbot-transport-cpp/releases/tag/v0.3.4)
 下载匹配系统、架构、编译器与运行库的 SDK 及同名 `.sha256` 文件。以下以
 Ubuntu 24.04 x86_64 为例，在下载目录执行：
 
 ```bash
-archive=linkerbot-transport-0.3.3-Linux-x86_64-ubuntu24.04-GNU13.3.0-libstdcxx-abi1-Release.tar.gz
+archive=linkerbot-transport-0.3.4-Linux-x86_64-ubuntu24.04-GNU13.3.0-libstdcxx-abi1-Release.tar.gz
 sha256sum --check "$archive.sha256"
 mkdir -p comm-sdk
 tar -xzf "$archive" -C comm-sdk --strip-components=1
