@@ -41,6 +41,12 @@ if(Python3_Interpreter_FOUND)
     add_test(NAME release-package-audit COMMAND "${Python3_EXECUTABLE}"
         -m unittest discover -s "${CMAKE_CURRENT_SOURCE_DIR}/../validation"
         -p "test_release_*.py")
+    # This integration matrix configures fresh compiler projects. Keep its
+    # process budget separate from the fast Python package unit tests.
+    add_test(NAME package-version-compatibility COMMAND "${Python3_EXECUTABLE}"
+        -m unittest discover -s "${CMAKE_CURRENT_SOURCE_DIR}/../validation"
+        -p "test_package_compatibility.py")
+    set_tests_properties(package-version-compatibility PROPERTIES TIMEOUT 300)
     set(async_vector_options)
     if(LINKERBOT_PYTHON_SDK_DIR)
         list(APPEND async_vector_options --python-sdk "${LINKERBOT_PYTHON_SDK_DIR}")

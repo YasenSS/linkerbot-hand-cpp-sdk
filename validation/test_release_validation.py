@@ -40,7 +40,7 @@ class ValidationRoutingTests(unittest.TestCase):
                         names = [f'comm-{index}' for index in range(30)]
                     else:
                         names = ['comm', 'discovery', 'protocol-vectors', 'async-behavior-vectors',
-                                 'release-package-audit', 'windows_readonly_help', 'windows_readonly_invalid',
+                                 'release-package-audit', 'package-version-compatibility', 'windows_readonly_help', 'windows_readonly_invalid',
                                  'windows_readonly_slcan_fd', 'windows_readonly_slcan_allowlist',
                                  'windows_readonly_slcan_uart', 'windows_readonly_slcan_fd_rate',
                                  'windows_readonly_slcan_profile', 'windows_readonly_slcan_startup',
