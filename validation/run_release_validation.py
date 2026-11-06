@@ -208,7 +208,7 @@ try:
     if args.suite in ['all', 'no-drivers']:
         ctest('comm-no-drivers', comm_build, minimum=30, native=False)
         ctest('hand-no-drivers', hand_build,
-              required=['comm', 'discovery', 'protocol-vectors', 'async-behavior-vectors', 'release-package-audit',
+              required=['comm', 'discovery', 'protocol-vectors', 'async-behavior-vectors', 'release-package-audit', 'package-version-compatibility',
                         'windows_readonly_help', 'windows_readonly_invalid',
                         'windows_readonly_slcan_fd', 'windows_readonly_slcan_allowlist',
                         'windows_readonly_slcan_uart', 'windows_readonly_slcan_fd_rate',
