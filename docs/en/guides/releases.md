@@ -4,7 +4,7 @@
 
 ## Targets aligned with transport
 
-The Hand release workflow uses the transport v0.3.3 target matrix:
+The Hand release workflow uses the transport v0.3.4 target matrix:
 
 - Ubuntu 20.04, 22.04, 24.04 and 26.04, each with x86_64 and aarch64 (ARM64) Release TGZ SDKs: eight archives.
 - Windows x64 and ARM64, each with Debug `/MDd` and Release `/MD` MSVC v143 ZIP SDKs: four archives.
@@ -16,13 +16,13 @@ availability of proprietary ARM64 drivers.
 
 Hand SDK packages contain both hand and paired transport static libraries, headers, CMake packages,
 documentation and read-only command-line examples. Test executables and proprietary drivers/libraries
-are excluded. Versions remain independent: hand `0.3.0` can use transport `0.3.3`; transport must be
+are excluded. Versions remain independent: hand `0.3.0` can use transport `0.3.4`; transport must be
 no older than hand and share its minor version.
 
 
-The paired source pin uses v0.3.3 plus a Focal syscall fault-injection test fix;
-prebuilt downloads use the published v0.3.3 archives. Both include the Focal
-unbounded receipt-wait fix. Transport archives now use the `linkerbot-transport-` prefix.
+The paired source pin and prebuilt downloads use the same v0.3.4 release.
+Rebuild hand and downstream consumers with matching transport headers and libraries;
+public transport structures have grown. No new physical hardware acceptance is claimed. Transport archives now use the `linkerbot-transport-` prefix.
 Hand continues to consume the supported `linkerbot-comm` CMake package and CAN target aliases.
 
 ## Names and checksums

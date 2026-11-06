@@ -18,7 +18,7 @@ Place the two source repositories side by side. Use the same transport commit as
 
 ```powershell
 git clone https://github.com/linker-bot/linkerbot-transport-cpp.git
-git -C linkerbot-transport-cpp checkout --detach de87774d1b23d0a1fa7aaaaacb7f50ea7ffb3008
+git -C linkerbot-transport-cpp checkout --detach 0e190032d65ed0b315337b45b3779cf4f650ed68
 git clone https://github.com/linker-bot/linkerbot-hand-cpp-sdk.git linkerbot-hand-cpp
 Set-Location linkerbot-hand-cpp
 

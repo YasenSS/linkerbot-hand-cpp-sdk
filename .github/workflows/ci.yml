@@ -15,8 +15,8 @@ concurrency:
 
 env:
   COMM_REPOSITORY: ${{ vars.LINKERBOT_COMM_REPOSITORY || format('{0}/linkerbot-transport-cpp', github.repository_owner) }}
-  # Transport v0.3.3 plus the Focal syscall-test fix; keep checkout instructions in sync.
-  COMM_REF: de87774d1b23d0a1fa7aaaaacb7f50ea7ffb3008
+  # Transport v0.3.4 release commit; keep checkout instructions in sync.
+  COMM_REF: 0e190032d65ed0b315337b45b3779cf4f650ed68
 
 jobs:
   build-and-test:
