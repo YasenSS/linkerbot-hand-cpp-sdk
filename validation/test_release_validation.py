@@ -10,6 +10,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from release_package import project_version
+
 
 class ValidationRoutingTests(unittest.TestCase):
     def run_validation(self, suite='all', quick=False):
@@ -17,7 +19,9 @@ class ValidationRoutingTests(unittest.TestCase):
             root = Path(directory)
             comm = root / 'comm'
             comm.mkdir()
-            (comm / 'CMakeLists.txt').write_text('project(comm VERSION 0.3.0)', encoding='utf-8')
+            (comm / 'CMakeLists.txt').write_text(
+                f'project(comm VERSION {project_version(Path(__file__).resolve().parents[1])})',
+                encoding='utf-8')
             work = root / 'work'
             commands = []
 
