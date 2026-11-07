@@ -8,7 +8,7 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 TARGETS = '''
 add_library(linkerbot::comm INTERFACE IMPORTED GLOBAL)
-set_target_properties(linkerbot::comm PROPERTIES LINKERBOT_COMM_VERSION 0.3.2)
+set_target_properties(linkerbot::comm PROPERTIES LINKERBOT_COMM_VERSION {version})
 add_library(linkerbot::comm-compat INTERFACE IMPORTED GLOBAL)
 '''
 
@@ -20,17 +20,28 @@ class TransportProviderTests(unittest.TestCase):
         self.root = pathlib.Path(self.temp.name)
         self.source = self.root / 'transport-source'
         self.source.mkdir()
-        (self.source / 'CMakeLists.txt').write_text(TARGETS, encoding='utf-8')
+        (self.source / 'CMakeLists.txt').write_text(TARGETS.format(version='0.3.4'), encoding='utf-8')
         self.prefix = self.root / 'transport-prefix'
         self.config = self.prefix / 'lib/cmake/linkerbot-comm'
         self.config.mkdir(parents=True)
-        (self.config / 'linkerbot-comm-config.cmake').write_text(TARGETS, encoding='utf-8')
-        (self.config / 'linkerbot-comm-config-version.cmake').write_text(
-            'set(PACKAGE_VERSION 0.3.2)\nset(PACKAGE_VERSION_COMPATIBLE TRUE)\n', encoding='utf-8')
+        self.package_version('0.3.4')
+        self.configurations = 0
+
+    def package_version(self, version):
+        (self.config / 'linkerbot-comm-config.cmake').write_text(
+            TARGETS.format(version=version), encoding='utf-8')
+        script = self.root / 'version.cmake'
+        script.write_text(
+            'include(CMakePackageConfigHelpers)\n'
+            f'write_basic_package_version_file("{self.config.as_posix()}/linkerbot-comm-config-version.cmake" '
+            f'VERSION {version} COMPATIBILITY SameMinorVersion)\n', encoding='utf-8')
+        subprocess.run(['cmake', '-P', str(script)], check=True, capture_output=True, text=True)
 
     def configure(self, options, expected, success=True):
+        self.configurations += 1
+        self.build = self.root / f'build-{self.configurations}'
         result = subprocess.run([
-            'cmake', '-S', str(ROOT), '-B', str(self.root / 'build'),
+            'cmake', '-S', str(ROOT), '-B', str(self.build),
             '-DLINKERBOT_BUILD_TESTS=OFF', '-DLINKERBOT_BUILD_TOOLS=OFF',
             '-DLINKERBOT_BUILD_EXAMPLES=OFF', '-DLINKERBOT_ALLOW_DEPENDENCY_DOWNLOADS=OFF',
             *options,
@@ -41,6 +52,41 @@ class TransportProviderTests(unittest.TestCase):
     def test_explicit_source(self):
         self.configure(['-DLINKERBOT_COMM_PROVIDER=SOURCE',
                         f'-DLINKERBOT_COMM_SOURCE_DIR={self.source}'], 'Transport: SOURCE')
+
+    def test_source_version_floor(self):
+        for version in ['0.3.0', '0.3.1', '0.3.2', '0.3.3', '0.3.4', '0.3.5', '0.4.0']:
+            with self.subTest(version=version):
+                (self.source / 'CMakeLists.txt').write_text(TARGETS.format(version=version))
+                valid = version in ['0.3.4', '0.3.5']
+                self.configure(['-DLINKERBOT_COMM_PROVIDER=SOURCE',
+                                f'-DLINKERBOT_COMM_SOURCE_DIR={self.source}'],
+                               'Transport: SOURCE' if valid else 'requires linkerbot-comm', valid)
+
+    def test_prebuilt_version_floor(self):
+        for version in ['0.3.0', '0.3.1', '0.3.2', '0.3.3', '0.3.4', '0.3.5', '0.4.0']:
+            with self.subTest(version=version):
+                self.package_version(version)
+                valid = version in ['0.3.4', '0.3.5']
+                self.configure(['-DLINKERBOT_COMM_PROVIDER=PREBUILT',
+                                f'-DLINKERBOT_COMM_PREBUILT_PREFIX={self.prefix}'],
+                               'Transport: PREBUILT' if valid else 'compatible', valid)
+
+    def test_parent_target_version_floor(self):
+        for version in ['0.3.3', '0.3.4', '0.3.5', '0.4.0']:
+            with self.subTest(version=version):
+                parent = self.root / ('parent-' + version)
+                parent.mkdir()
+                (parent / 'CMakeLists.txt').write_text(
+                    'cmake_minimum_required(VERSION 3.16)\nproject(parent LANGUAGES CXX)\n'
+                    + TARGETS.format(version=version)
+                    + f'add_subdirectory("{ROOT.as_posix()}" hand)\n')
+                result = subprocess.run([
+                    'cmake', '-S', str(parent), '-B', str(parent / 'build'),
+                    '-DLINKERBOT_BUILD_TESTS=OFF', '-DLINKERBOT_BUILD_TOOLS=OFF',
+                    '-DLINKERBOT_BUILD_EXAMPLES=OFF', '-DLINKERBOT_ALLOW_DEPENDENCY_DOWNLOADS=OFF',
+                ], capture_output=True, text=True)
+                self.assertEqual(result.returncode == 0, version in ['0.3.4', '0.3.5'],
+                                 result.stdout + result.stderr)
 
     @unittest.skipUnless(os.name == 'nt', 'Windows path syntax')
     def test_untyped_windows_source_path(self):
@@ -55,7 +101,7 @@ include("${CMAKE_CURRENT_BINARY_DIR}/fixture-path.cmake")
         self.configure(['-DLINKERBOT_COMM_PROVIDER=SOURCE',
                         f'-DLINKERBOT_COMM_SOURCE_DIR={self.source}'],
                        'Transport: SOURCE')
-        generated = (self.root / 'build/_deps/linkerbot-transport-cpp/fixture-path.cmake').read_text()
+        generated = (self.build / '_deps/linkerbot-transport-cpp/fixture-path.cmake').read_text()
         self.assertNotIn('\\', generated)
 
     def test_legacy_source(self):
@@ -98,7 +144,7 @@ include("${CMAKE_CURRENT_BINARY_DIR}/fixture-path.cmake")
     def forwarding_package(self):
         canonical = self.prefix / 'lib/cmake/linkerbot-transport'
         canonical.mkdir(parents=True)
-        (canonical / 'linkerbot-transport-config.cmake').write_text(TARGETS, encoding='utf-8')
+        (canonical / 'linkerbot-transport-config.cmake').write_text(TARGETS.format(version='0.3.4'), encoding='utf-8')
         (self.config / 'linkerbot-comm-config.cmake').write_text(
             'include(CMakeFindDependencyMacro)\n'
             'find_dependency(linkerbot-transport CONFIG)\n', encoding='utf-8')

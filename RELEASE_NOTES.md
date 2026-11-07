@@ -1,5 +1,15 @@
 # Release notes
 
+## 0.3.3
+
+- Require transport 0.3.4 or newer in the 0.3 minor line for source builds, parent-provided targets, prebuilt selection and installed CMake consumers. Keep the version floor in one CMake definition, independent of the hand patch version. Existing same-minor compatibility and the requirement not to use a transport patch older than hand are retained.
+- Apply the same floor to release validation and package collection. Add source/prebuilt/parent-target rejection tests and installed-package minimum, older-patch and newer-patch regressions using the exported package template.
+- Retain existing C++ API signatures, runtime defaults, protocol behavior and scheduling. The supported legacy transport package and target aliases remain available.
+
+Rebuild hand and downstream applications with matching transport headers and libraries. The release bundles transport v0.3.4 (`0e190032d65ed0b315337b45b3779cf4f650ed68`); do not mix the new headers with earlier objects or libraries. Binary ABI compatibility with earlier transport SDKs is not promised.
+
+Native SDK builds, offline regressions, installed consumers, sanitizers and static analysis do not establish new physical-device acceptance. No new hardware/firmware/driver combination, physical timing or device soak is qualified. Vendor drivers are not bundled. Existing hardware records retain their original scope.
+
 ## 0.3.2
 
 - Run the compiler-configuration compatibility matrix as a separate required CTest item, with its own process budget; retain the fast package audit and device-test limits.
