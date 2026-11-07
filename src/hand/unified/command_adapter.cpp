@@ -1,4 +1,5 @@
 #include "../detail/checked_optional.hpp"
+#include "detail/classic_response.hpp"
 #include "detail/model_adapters.hpp"
 
 #include <algorithm>
@@ -106,6 +107,42 @@ namespace linkerbot::hand::unified_detail {
                 request);
         }
 
+        CommandOutcome l6_raw_write(l6::L6 &device, const CommandRequest &request, uint8_t opcode, const char *domain) {
+            const auto id = required_request_id(device.capabilities());
+            auto plan = l6::protocol::raw_control_transaction(id, opcode, domain,
+                                                              fixed_values<uint8_t, l6::kJointCount>(request));
+            return acknowledged_write(device, strict_classic_vector(std::move(plan), {id, opcode, l6::kJointCount}),
+                                      request);
+        }
+
+        template <typename Device> CommandOutcome confirmed_save(Device &device, std::chrono::milliseconds timeout) {
+            const auto id = required_request_id(device.capabilities());
+            protocol::TransactionPlan plan;
+            can::Message frame{};
+            frame.format = can::FrameFormat::kClassic;
+            frame.id = id;
+            frame.dlc = 8;
+            std::fill_n(frame.data.begin(), 8, uint8_t{0xCF});
+            plan.frames = {frame};
+            plan.domain = "config.save_confirmed";
+            plan.keys = {"config.save"};
+            plan.command_family = "discrete_operations";
+            plan.late_guard = std::chrono::milliseconds{20};
+            plan.poison_on_timeout = false;
+            plan.consume = [id](const can::Message &message) {
+                if (message.id != id || message.is_fd || message.is_extended || message.dlc == 0 ||
+                    message.data[0] != 0xCF) {
+                    return protocol::Progress::unmatched();
+                }
+                if (message.dlc != 2 || message.data[1] != 1) {
+                    throw ProtocolError("save-parameters response was not CF 01");
+                }
+                return protocol::Progress::complete(true);
+            };
+            (void)device.runtime()->execute(std::move(plan), runtime::deadline_after(timeout));
+            return {1, true};
+        }
+
         void require_timeout(const CommandRequest &request) {
             if (request.timeout.count() <= 0) {
                 throw ValidationError("command timeout must be positive");
@@ -165,6 +202,22 @@ namespace linkerbot::hand::unified_detail {
     CommandOutcome submit_command(l6::L6 &device, const CommandRequest &request) {
         require_timeout(request);
         switch (request.semantic) {
+        case CommandSemantic::kPositionKp:
+            return l6_raw_write(device, request, l6::kPositionKpOpcode, "position_kp");
+        case CommandSemantic::kPositionKd:
+            return l6_raw_write(device, request, l6::kPositionKdOpcode, "position_kd");
+        case CommandSemantic::kTorqueKd:
+            return l6_raw_write(device, request, l6::kTorqueKdOpcode, "torque_kd");
+        case CommandSemantic::kLimitCompensations:
+            return l6_raw_write(device, request, l6::kLimitCompensationOpcode, "limit_compensations");
+        case CommandSemantic::kTorques: {
+            const auto id = required_request_id(device.capabilities());
+            const auto raw = fixed_values<uint8_t, l6::kJointCount>(request);
+            auto plan = with_response(l6::protocol::command(id, l6::kTorqueOpcode, {raw.begin(), raw.end()}),
+                                      l6::protocol::read_telemetry(id, l6::kTorqueOpcode));
+            return acknowledged_write(
+                device, strict_classic_vector(std::move(plan), {id, l6::kTorqueOpcode, l6::kJointCount}), request);
+        }
         case CommandSemantic::kAngles:
             device.angle.set_angles(fixed_values<uint8_t, l6::kJointCount>(request));
             break;
@@ -369,11 +422,13 @@ namespace linkerbot::hand::unified_detail {
         return {3, true};
     }
 
-    CommandOutcome operate_device(l6::L6 &device, DeviceOperation operation, std::chrono::milliseconds) {
+    CommandOutcome operate_device(l6::L6 &device, DeviceOperation operation, std::chrono::milliseconds timeout) {
         switch (operation) {
         case DeviceOperation::kClearFaults:
             device.fault.clear_faults();
             return {1, false};
+        case DeviceOperation::kSaveParametersConfirmed:
+            return confirmed_save(device, timeout);
         case DeviceOperation::kSaveParameters:
             device.config.save();
             return {1, false};
@@ -382,7 +437,10 @@ namespace linkerbot::hand::unified_detail {
         }
     }
 
-    CommandOutcome operate_device(o6::O6 &device, DeviceOperation operation, std::chrono::milliseconds) {
+    CommandOutcome operate_device(o6::O6 &device, DeviceOperation operation, std::chrono::milliseconds timeout) {
+        if (operation == DeviceOperation::kSaveParametersConfirmed) {
+            return confirmed_save(device, timeout);
+        }
         if (operation == DeviceOperation::kSaveParameters) {
             device.config.save();
             return {1, false};
@@ -404,6 +462,9 @@ namespace linkerbot::hand::unified_detail {
 
     CommandOutcome operate_device(l30::L30 &device, DeviceOperation operation, std::chrono::milliseconds timeout) {
         switch (operation) {
+        case DeviceOperation::kCalibrate:
+            device.control.calibrate(timeout);
+            return {3, true};
         case DeviceOperation::kEnable:
             device.control.enable(timeout);
             return {1, true};

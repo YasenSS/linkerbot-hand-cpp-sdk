@@ -5,8 +5,54 @@
 
 namespace linkerbot::hand {
     DeviceCapabilities declared_capabilities(const HandDeviceConfig &config) {
+        if (config.o30_layout != O30Layout::kMountedV36 && config.o30_layout != O30Layout::kPythonV25) {
+            throw ValidationError("unknown O30 layout");
+        }
+        if (config.o30_layout == O30Layout::kPythonV25 && config.model != Model::kO30) {
+            throw ValidationError("V25 layout is only valid for O30");
+        }
         if (config.l6_protocol == L6Protocol::kClassic) {
-            return declared_capabilities(config.model, config.side);
+            auto result = declared_capabilities(config.model, config.side);
+            if (config.o30_layout == O30Layout::kPythonV25) {
+                if (config.model != Model::kO30) {
+                    throw ValidationError("V25 layout is only valid for O30");
+                }
+                if (config.side != HandSide::kLeft && config.side != HandSide::kRight) {
+                    throw ValidationError("O30 V25 requires an explicit side");
+                }
+                const auto request_id = config.address.value_or(config.side == HandSide::kLeft ? 2U : 1U);
+                if (request_id > 0x3FE) {
+                    throw ValidationError("O30 V25 request ID must be 0..0x3FE");
+                }
+                result.transport.request_id = request_id;
+                result.transport.response_id = request_id | 0x400U;
+                using namespace capabilities_detail;
+                const auto names = channels(result.joints);
+                const auto u8 = u8_range();
+                for (const auto semantic : {CommandSemantic::kTorqueLimits, CommandSemantic::kMotionTimes}) {
+                    result.commands.push_back(command(semantic, names, u8, "u8_v25_object", "count", std::nullopt,
+                                                      Confidence::kUnknown, AckSupport::kRequired));
+                }
+                for (const auto semantic : {TelemetrySemantic::kTorqueLimits, TelemetrySemantic::kMotionTimes}) {
+                    auto channel = telemetry(semantic, names, ReadMode::kQuery, "u8_v25_object", {20}, u8, "count",
+                                             std::nullopt, Confidence::kUnknown, false);
+                    channel.freshness_ms = 3000;
+                    result.telemetry.push_back(std::move(channel));
+                }
+                // Mounted revisions use different wire indices. Do not carry
+                // their index notes into an explicitly selected V25 profile.
+                for (auto &command : result.commands) {
+                    command.raw_scale_note = "compact V25 write; ACK is not independent configuration readback";
+                }
+                for (auto &channel : result.telemetry) {
+                    if (channel.semantic != TelemetrySemantic::kForce) {
+                        channel.raw_scale_note = channel.device_measured
+                                                     ? "compact V25 actual value"
+                                                     : "compact V25 configured value; queried independently";
+                    }
+                }
+            }
+            return result;
         }
         if (config.model != Model::kL6 || config.l6_protocol != L6Protocol::kHopV004) {
             throw ValidationError("L6 HOP protocol is only valid for L6");
