@@ -18,7 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-24.04
+          - runner: [self-hosted, Linux, X64]
             arch: x86_64
           - runner: ubuntu-24.04-arm
             arch: aarch64
@@ -27,6 +27,31 @@ jobs:
       CXX: g++-13
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Ensure build tools are available
+        run: |
+          missing_packages=()
+          while read -r tool package; do
+            if ! command -v "$tool" >/dev/null 2>&1; then
+              missing_packages+=("$package")
+            fi
+          done <<'TOOLS'
+          cmake cmake
+          ninja ninja-build
+          gcc-13 gcc-13
+          g++-13 g++-13
+          python3 python3
+          curl curl
+          TOOLS
+          if [ ! -s /etc/ssl/certs/ca-certificates.crt ]; then
+            missing_packages+=(ca-certificates)
+          fi
+          if [ "${#missing_packages[@]}" -gt 0 ]; then
+            echo "Installing missing packages: ${missing_packages[*]}"
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends "${missing_packages[@]}"
+          else
+            echo "All required tools are available; skipping apt."
+          fi
       - name: Check transport selection without downloads
         run: python3 -m unittest discover -s validation -p 'test_transport_provider.py'
       - name: Download and verify released transport SDK

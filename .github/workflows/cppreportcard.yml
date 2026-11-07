@@ -15,8 +15,8 @@ concurrency:
 
 jobs:
   report:
-    name: Full SDK report (ubuntu-24.04-arm)
-    runs-on: ubuntu-24.04-arm
+    name: Full SDK report (self-hosted Linux x64)
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -30,11 +30,33 @@ jobs:
           ref: ${{ steps.dependency.outputs.sha }}
           path: external/linkerbot-transport-cpp
           token: ${{ secrets.LINKERBOT_COMM_TOKEN || github.token }}
-      - name: Install build and analysis tools
+      - name: Ensure build and analysis tools are available
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential cmake ninja-build clang-18 clang-format-18 clang-tidy-18 cppcheck python3
+          missing_packages=()
+          while read -r tool package; do
+            if ! command -v "$tool" >/dev/null 2>&1; then
+              missing_packages+=("$package")
+            fi
+          done <<'TOOLS'
+          gcc build-essential
+          g++ build-essential
+          make build-essential
+          cmake cmake
+          ninja ninja-build
+          clang-18 clang-18
+          clang++-18 clang-18
+          clang-format-18 clang-format-18
+          clang-tidy-18 clang-tidy-18
+          cppcheck cppcheck
+          python3 python3
+          TOOLS
+          if [ "${#missing_packages[@]}" -gt 0 ]; then
+            echo "Installing missing packages: ${missing_packages[*]}"
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends "${missing_packages[@]}"
+          else
+            echo "All required tools are available; skipping apt."
+          fi
       - name: Configure analysis inputs
         id: inputs
         run: |
@@ -75,7 +97,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: cppreportcard-ubuntu-24.04-arm
+          name: cppreportcard-linux-x64
           include-hidden-files: true
           if-no-files-found: warn
           path: |
