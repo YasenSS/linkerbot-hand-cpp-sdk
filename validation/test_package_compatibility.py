@@ -22,7 +22,11 @@ class PackageCompatibilityTests(unittest.TestCase):
             hand.mkdir(parents=True)
             comm.mkdir(parents=True)
             (hand / 'linkerbot-hand-targets.cmake').write_text('')
-            (comm / 'linkerbot-comm-config.cmake').write_text('')
+            (comm / 'linkerbot-comm-config.cmake').write_text(
+                'if(NOT TARGET linkerbot::comm)\n'
+                'add_library(linkerbot::comm INTERFACE IMPORTED)\n'
+                f'set_target_properties(linkerbot::comm PROPERTIES LINKERBOT_COMM_VERSION {minimum})\n'
+                'endif()\n')
             generate = root / 'versions.cmake'
             generate.write_text(
                 'include(CMakePackageConfigHelpers)\n'
@@ -40,7 +44,8 @@ class PackageCompatibilityTests(unittest.TestCase):
                 str(ROOT / 'validation/check_package_compatibility.cmake'),
             ], cwd=root, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            for name in ['matching', 'minimum', 'older-patch', 'newer-patch', 'newer-minor', 'older-minor', 'missing-comm',
+            for name in ['matching', 'minimum', 'older-patch', 'installed-parent-matching', 'installed-parent-older',
+                         'installed-parent-newer-patch', 'installed-parent-newer-minor', 'newer-patch', 'newer-minor', 'older-minor', 'missing-comm',
                          'source-matching', 'source-older-patch', 'source-newer-patch', 'source-newer-minor', 'source-older-minor']:
                 self.assertIn(f'{name}: expected configure result observed', result.stdout)
 

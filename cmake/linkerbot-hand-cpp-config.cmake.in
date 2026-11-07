@@ -2,5 +2,19 @@
 include(CMakeFindDependencyMacro)
 find_dependency(Threads)
 find_dependency(linkerbot-comm @LINKERBOT_TRANSPORT_REQUIRED_VERSION@ CONFIG)
+# A compatible package file must not hide an older target loaded by a parent.
+get_target_property(_hand_transport_version linkerbot::comm LINKERBOT_COMM_VERSION)
+string(REGEX MATCH "^[0-9]+[.][0-9]+" _hand_transport_line "${_hand_transport_version}")
+string(REGEX MATCH "^[0-9]+[.][0-9]+" _hand_required_line "@LINKERBOT_TRANSPORT_REQUIRED_VERSION@")
+if(NOT _hand_transport_line STREQUAL _hand_required_line
+   OR _hand_transport_version VERSION_LESS "@LINKERBOT_TRANSPORT_REQUIRED_VERSION@")
+    set(linkerbot-hand-cpp_FOUND FALSE)
+    set(linkerbot-hand-cpp_NOT_FOUND_MESSAGE
+        "Requires transport @LINKERBOT_TRANSPORT_REQUIRED_VERSION@ or newer in the same minor line; found target '${_hand_transport_version}'")
+    return()
+endif()
+unset(_hand_transport_version)
+unset(_hand_transport_line)
+unset(_hand_required_line)
 include("${CMAKE_CURRENT_LIST_DIR}/linkerbot-hand-targets.cmake")
 check_required_components(linkerbot-hand-cpp)
