@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(linkerbot-hand-cpp
-    VERSION 0.3.2
+    VERSION 0.3.3
     DESCRIPTION "LinkerBot dexterous hand C++ SDK"
     LANGUAGES CXX
 )
@@ -39,16 +39,17 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 option(LINKERBOT_ALLOW_DEPENDENCY_DOWNLOADS "Allow missing test dependencies to be fetched" ON)
+include(cmake/TransportVersion.cmake)
 include(cmake/TransportDependency.cmake)
 
 # Check both paired sources and a target supplied by the parent project.
 get_target_property(_linkerbot_comm_version linkerbot::comm LINKERBOT_COMM_VERSION)
 string(REGEX MATCH "^[0-9]+\\.[0-9]+" _linkerbot_comm_line "${_linkerbot_comm_version}")
 if(NOT _linkerbot_comm_line STREQUAL "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"
-   OR _linkerbot_comm_version VERSION_LESS PROJECT_VERSION)
+   OR _linkerbot_comm_version VERSION_LESS LINKERBOT_TRANSPORT_REQUIRED_VERSION)
     message(FATAL_ERROR
         "linkerbot-hand-cpp ${PROJECT_VERSION} requires linkerbot-comm "
-        "${PROJECT_VERSION} or newer in the same minor line; found '${_linkerbot_comm_version}'. "
+        "${LINKERBOT_TRANSPORT_REQUIRED_VERSION} or newer in the same minor line; found '${_linkerbot_comm_version}'. "
         "Update the paired comm checkout or installed package.")
 endif()
 

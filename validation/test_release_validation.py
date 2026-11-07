@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from release_package import project_version
+from release_package import minimum_transport_version
 
 
 class ValidationRoutingTests(unittest.TestCase):
@@ -20,7 +20,7 @@ class ValidationRoutingTests(unittest.TestCase):
             comm = root / 'comm'
             comm.mkdir()
             (comm / 'CMakeLists.txt').write_text(
-                f'project(comm VERSION {project_version(Path(__file__).resolve().parents[1])})',
+                f'project(comm VERSION {minimum_transport_version(Path(__file__).resolve().parents[1])})',
                 encoding='utf-8')
             work = root / 'work'
             commands = []

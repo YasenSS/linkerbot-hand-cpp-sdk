@@ -51,7 +51,7 @@ class ReleaseMatrixTests(unittest.TestCase):
         for key, library in [('hand', 'linkerbot-cpp-sdk'), ('comm', 'linkerbot-comm')]:
             doc = dict(info)
             if key == 'comm':
-                doc.update(package=transport_package, version='0.3.3')
+                doc.update(package=transport_package, version='0.3.4')
             share = prefix / 'share' / ('linkerbot-comm' if key == 'comm' else doc['package'])
             share.mkdir(parents=True)
             (share / 'build-info.json').write_text(json.dumps(doc))
@@ -98,7 +98,7 @@ class ReleaseMatrixTests(unittest.TestCase):
         self.assertEqual(len(result['packages']), 12)
         for row in result['packages']:
             self.assertEqual(row['transport']['package'], 'linkerbot-transport')
-            self.assertEqual(row['transport']['version'], '0.3.3')
+            self.assertEqual(row['transport']['version'], '0.3.4')
             self.assertEqual(row['verified_objects'], {'hand': 1, 'comm': 1})
 
     def test_unknown_transport_package_is_rejected(self):
@@ -150,12 +150,15 @@ class ReleaseMatrixTests(unittest.TestCase):
                 identity(info)
 
     def test_hand_and_transport_versions_are_independent_but_compatible(self):
-        compatible_versions('0.3.0', '0.3.2')
+        compatible_versions('0.3.3', '0.3.4')
+        compatible_versions('0.3.3', '0.3.5')
         for comm in ['0.2.9', '0.4.0']:
             with self.assertRaisesRegex(ValueError, 'same minor'):
                 compatible_versions('0.3.0', comm)
         with self.assertRaises(ValueError):
-            compatible_versions('0.3.2', '0.3.1')
+            compatible_versions('0.3.3', '0.3.3')
+        with self.assertRaises(ValueError):
+            compatible_versions('0.3.6', '0.3.5')
 
 
 if __name__ == '__main__':

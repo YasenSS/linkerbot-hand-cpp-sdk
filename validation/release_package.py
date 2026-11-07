@@ -16,6 +16,14 @@ def project_version(source):
     return match[1]
 
 
+def minimum_transport_version(source):
+    contents = (source / 'cmake/TransportVersion.cmake').read_text(encoding='utf-8')
+    match = re.search(r'set\(LINKERBOT_TRANSPORT_MIN_VERSION (\d+\.\d+\.\d+)\)', contents)
+    if not match:
+        raise RuntimeError(f'Cannot read transport minimum version: {source}')
+    return match[1]
+
+
 def unpack_archive(archive, destination):
     """Verify checksum and extract one package root without links or traversal."""
     checksum = archive.with_name(archive.name + '.sha256')

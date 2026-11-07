@@ -60,6 +60,9 @@ This installs the SDK and communication library into the local `install/` direct
 Catch2 and vendor development packages are not required. Run the remaining commands from
 this repository's root directory.
 
+Hand SDK 0.3.3 requires transport 0.3.4 or newer in the 0.3 minor line,
+for source builds, prebuilt packages and installed consumers.
+
 To reuse a prebuilt transport v0.3.4 SDK, configure with
 `cmake --preset prebuilt -DLINKERBOT_COMM_PREBUILT_PREFIX=/absolute/path/to/comm-sdk`.
 See the [build guide](docs/en/guides/validation.md) for source/prebuilt modes, archive verification and downstream paths.

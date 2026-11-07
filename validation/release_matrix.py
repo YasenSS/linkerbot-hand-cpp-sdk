@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 from archive_objects import archive_machines, pe_machine, ELF_MACHINES, COFF_MACHINES
-from release_package import unpack_archive
+from release_package import minimum_transport_version, unpack_archive
 
 
 def load_targets(path):
@@ -87,8 +87,9 @@ def verify_objects(prefix, info, library):
 
 def compatible_versions(hand, comm):
     h, c = tuple(map(int, hand.split('.'))), tuple(map(int, comm.split('.')))
-    if h[:2] != c[:2] or c < h:
-        raise ValueError('Transport must be at least the hand version in the same minor line')
+    minimum = tuple(map(int, minimum_transport_version(Path(__file__).resolve().parents[1]).split('.')))
+    if h[:2] != c[:2] or c < max(h, minimum):
+        raise ValueError('Transport must meet the SDK minimum and hand version in the same minor line')
 
 
 def collect(directory, targets_path, version, hand_sha, comm_sha):

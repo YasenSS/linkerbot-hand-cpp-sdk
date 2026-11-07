@@ -14,7 +14,8 @@ A parent-provided `linkerbot::comm` target is reused and version-checked.
 The legacy empty `LINKERBOT_COMM_SOURCE_DIR=` still selects package discovery through
 `CMAKE_PREFIX_PATH` in AUTO mode. Configure logs identify the selected dependency.
 Use separate build directories when switching dependencies to avoid stale CMake caches.
-Versions must share `0.3.x`, with transport no older than hand: hand `0.3.0` accepts transport `0.3.4`.
+Hand 0.3.3 requires transport 0.3.4 or newer in the 0.3 minor line. Source,
+prebuilt and installed-consumer checks reject older patches and other minor lines.
 For paired development, keep the source commit pinned in README and CI; record the
 actual revision and configuration in test reports.
 

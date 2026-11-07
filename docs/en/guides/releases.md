@@ -16,8 +16,8 @@ availability of proprietary ARM64 drivers.
 
 Hand SDK packages contain both hand and paired transport static libraries, headers, CMake packages,
 documentation and read-only command-line examples. Test executables and proprietary drivers/libraries
-are excluded. Versions remain independent: hand `0.3.0` can use transport `0.3.4`; transport must be
-no older than hand and share its minor version.
+are excluded. Versions remain independent. Hand 0.3.3 requires transport 0.3.4 or newer in
+the 0.3 minor line in source, prebuilt and installed-consumer builds.
 
 
 The paired source pin and prebuilt downloads use the same v0.3.4 release.

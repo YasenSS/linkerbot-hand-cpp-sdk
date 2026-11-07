@@ -54,7 +54,7 @@ else()
         # without changing the caller's package search path.
         function(_linkerbot_find_prebuilt_comm)
             list(PREPEND CMAKE_PREFIX_PATH "${LINKERBOT_COMM_PREBUILT_PREFIX}")
-            find_package(linkerbot-comm ${PROJECT_VERSION} CONFIG REQUIRED
+            find_package(linkerbot-comm ${LINKERBOT_TRANSPORT_REQUIRED_VERSION} CONFIG REQUIRED
                 PATHS "${LINKERBOT_COMM_PREBUILT_PREFIX}" NO_DEFAULT_PATH
                 NO_CMAKE_FIND_ROOT_PATH)
         endfunction()
@@ -70,7 +70,7 @@ else()
             endif()
         endforeach()
     else()
-        find_package(linkerbot-comm ${PROJECT_VERSION} CONFIG REQUIRED)
+        find_package(linkerbot-comm ${LINKERBOT_TRANSPORT_REQUIRED_VERSION} CONFIG REQUIRED)
     endif()
     message(STATUS "Transport: PREBUILT (${linkerbot-comm_DIR})")
 endif()
