@@ -36,10 +36,20 @@ add_executable(async-command-probe EXCLUDE_FROM_ALL ../validation/async_command_
 target_link_libraries(async-command-probe PRIVATE linkerbot::cpp-sdk)
 add_executable(python-migration-probe EXCLUDE_FROM_ALL ../validation/python_migration_probe.cpp)
 target_link_libraries(python-migration-probe PRIVATE linkerbot::cpp-sdk)
-add_dependencies(tests async-command-probe python-migration-probe)
+add_executable(python-health-probe EXCLUDE_FROM_ALL ../validation/python_health_probe.cpp)
+target_link_libraries(python-health-probe PRIVATE linkerbot::cpp-sdk)
+add_dependencies(tests async-command-probe python-migration-probe python-health-probe)
 find_package(Python3 COMPONENTS Interpreter QUIET)
 set(LINKERBOT_PYTHON_SDK_DIR "" CACHE PATH "Optional Python SDK source checkout for cross-language async vectors")
 if(Python3_Interpreter_FOUND)
+    set(health_reference_options)
+    if(LINKERBOT_PYTHON_SDK_DIR)
+        list(APPEND health_reference_options --python-sdk "${LINKERBOT_PYTHON_SDK_DIR}")
+    endif()
+    add_test(NAME python-health-vectors COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../validation/check_python_health.py"
+        --cpp-probe "$<TARGET_FILE:python-health-probe>" ${health_reference_options})
+    set_tests_properties(python-health-vectors PROPERTIES TIMEOUT 60)
     add_test(NAME release-package-audit COMMAND "${Python3_EXECUTABLE}"
         -m unittest discover -s "${CMAKE_CURRENT_SOURCE_DIR}/../validation"
         -p "test_release_*.py")
@@ -74,7 +84,20 @@ endif()
 
 # Hardware-in-the-loop cases live under [l6]/[o6]/[l20lite]/[l20]/[l30]/[o30] and need a real CAN interface.
 # Default ctest only runs FakeTransport integration tests.
-add_test(NAME comm COMMAND tests "[comm]" --durations yes)
+# Keep bounded per-process acceptance without combining every Python-policy
+# regression with the remaining communication suite. The filters partition [comm];
+# no case is skipped and transaction deadlines remain unchanged.
+set(python_policy_filter "")
+set(comm_filter "[comm]")
+foreach(batch RANGE 1 5)
+    if(python_policy_filter)
+        string(APPEND python_policy_filter ",")
+    endif()
+    string(APPEND python_policy_filter "[comm][python-phase${batch}]")
+    string(APPEND comm_filter "~[python-phase${batch}]")
+endforeach()
+add_test(NAME comm COMMAND tests "${comm_filter}" --durations yes)
+add_test(NAME python-policy-regressions COMMAND tests "${python_policy_filter}" --durations yes)
 # Discovery contract and adapter tests are offline: injected enumerators and
 # FakeTransport cover platform sources without opening host CAN hardware.
 add_test(NAME discovery COMMAND tests "[discovery]" --durations yes)
