@@ -1,12 +1,19 @@
 #pragma once
 
 #include <linkerbot/hand/runtime/device_runtime.hpp>
+#include <map>
 
 namespace linkerbot::hand::unified_detail {
     // Internal hook: preserve native polling plans/metrics and receivers while
     // making their entire composite read share the unified execution arbiter.
     class RuntimeAccess {
     public:
+        using PublicationHandler = std::function<void(const std::string &, const runtime::Sample &)>;
+        // SDK-internal sink; runs under the runtime lock and must not reenter it.
+        static void set_publication_handler(runtime::DeviceRuntime &, PublicationHandler);
+        // Pin all native Channel/cache reads on this thread to one immutable view.
+        static void with_snapshot_view(const runtime::DeviceRuntime &, const std::map<std::string, runtime::Sample> &,
+                                       const std::function<void()> &);
         using PollingGate = std::function<std::shared_ptr<void>(runtime::CancellationToken)>;
         static void set_polling_gate(runtime::DeviceRuntime &runtime, PollingGate gate);
         static void wait_endpoint_quiet(runtime::DeviceRuntime &runtime, std::chrono::milliseconds quiet,
@@ -24,6 +31,8 @@ namespace linkerbot::hand::unified_detail {
         static void stop_endpoint(runtime::DeviceRuntime &runtime);
         static void resume_endpoint(runtime::DeviceRuntime &runtime);
         static void flush_sends(runtime::DeviceRuntime &runtime);
+        static void wait_command_feedback(runtime::DeviceRuntime &runtime,
+                                          const std::function<bool()> &generation_valid);
         static void drain_sends(runtime::DeviceRuntime &runtime, runtime::Deadline deadline);
         static bool uses_response_windows(const runtime::DeviceRuntime &runtime);
         using FinalSend = std::function<bool(const runtime::TransactionPlan &)>;
