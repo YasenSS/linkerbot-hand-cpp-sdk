@@ -40,6 +40,9 @@ namespace linkerbot::hand::unified_detail {
     class DeviceBackend {
     public:
         virtual ~DeviceBackend() = default;
+        using AngleReady = std::function<std::optional<runtime::Deadline>()>;
+        using RunAngle = std::function<bool(const std::shared_ptr<void> &)>;
+        virtual void set_angle_dispatch(AngleReady, RunAngle) {}
         virtual void stop_admission() {}
         virtual void resume_admission() {}
         virtual DeviceCapabilities observed_capabilities(DeviceCapabilities value) const { return value; }

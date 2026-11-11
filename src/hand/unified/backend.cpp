@@ -3,6 +3,7 @@
 #include "detail/connection_initializer.hpp"
 #include "detail/force.hpp"
 #include "detail/o30_v25.hpp"
+#include "detail/python_stage_scheduling.hpp"
 #include "detail/python_state.hpp"
 #include "detail/python_transactions.hpp"
 #include "detail/read_coordinator.hpp"
@@ -97,6 +98,11 @@ namespace linkerbot::hand::unified_detail {
                     guard->wait(runtime::Deadline::max(), token);
                     return lease;
                 });
+            }
+
+            void set_angle_dispatch(AngleReady ready, RunAngle run) override {
+                angle_ready_ = std::move(ready);
+                run_angle_ = std::move(run);
             }
 
             ~ModelBackend() override {
@@ -641,9 +647,20 @@ namespace linkerbot::hand::unified_detail {
                     task.period = std::chrono::milliseconds{1};
                     task.next = [state = python_] { return state->next_poll(); };
                     task.run = [this](runtime::CancellationToken token) {
-                        const auto ticket = python_->take_poll();
-                        if (!ticket || token.cancelled()) {
-                            return;
+                        std::optional<PythonState::PollTicket> ticket;
+                        {
+                            // Transfer a due sampling intent atomically with respect
+                            // to tactile boundary dispatch. Never wait for I/O here.
+                            const std::lock_guard<std::mutex> lock(poll_dispatch_mutex_);
+                            ticket = python_->take_poll();
+                            if (!ticket || token.cancelled()) {
+                                return;
+                            }
+                            const auto valid = read_generation();
+                            reads_->request_poll(
+                                static_cast<unsigned>(ticket->semantic), scheduled_read(ticket->semantic, valid),
+                                [state = python_, selected = *ticket] { return state->poll_needed(selected); },
+                                prepare_read(valid));
                         }
                         try {
                             (void)coordinated_read(
@@ -794,6 +811,90 @@ namespace linkerbot::hand::unified_detail {
             }
 
         private:
+            using ReadValue = std::variant<TelemetrySample, DeviceIdentity>;
+            typename ReadCoordinator<ReadValue>::Prepare prepare_read(const std::function<bool()> &valid) {
+                return [this, valid](const std::function<bool()> &demand) {
+                    return execution_gate_->acquire(false, runtime::Deadline::max(), {},
+                                                    [valid, demand] { return valid() && demand(); });
+                };
+            }
+            typename ReadCoordinator<ReadValue>::Execute scheduled_read(TelemetrySemantic semantic,
+                                                                        const std::function<bool()> &valid) {
+                return [this, semantic, valid](const std::shared_ptr<void> &lane) -> ReadValue {
+                    ReadValue result;
+                    auto capture = std::make_shared<std::atomic<uint64_t>>(0);
+                    const auto before = RuntimeAccess::error_revision(*device_->runtime());
+                    with_python_read_windows(
+                        [&] {
+                            result = python_read(semantic, reads_->claimed_by_poll(), valid, lane, capture, before);
+                        },
+                        valid, capture);
+                    return result;
+                };
+            }
+            void service_angle_boundary(const std::function<bool()> &valid, const std::shared_ptr<void> &lane) {
+                const auto key = static_cast<unsigned>(TelemetrySemantic::kAngles);
+                const auto next_stage = python_next_tactile_stage(config_.model);
+                unsigned dispatched = 0;
+                while (dispatched < kMaxInterstageAngleTransactions) {
+                    if (!valid() || device_->runtime()->runtime_health().state != runtime::DeviceState::ready) {
+                        throw ClosedError("read generation ended at tactile boundary");
+                    }
+                    const auto deadline = runtime::Deadline{
+                        runtime::Clock::duration{execution_deadline_.load(std::memory_order_acquire)}};
+                    const auto now = runtime::Clock::now();
+                    if (!python_stage_has_budget(now, deadline, next_stage)) {
+                        return;
+                    }
+                    const auto command_at = angle_ready_ ? angle_ready_() : std::nullopt;
+                    const bool command_ready = command_at && *command_at <= now;
+                    bool feedback_first = false;
+                    {
+                        const std::lock_guard<std::mutex> lock(poll_dispatch_mutex_);
+                        feedback_first =
+                            command_ready && python_->angle_command_fulfills_due(reads_->has_pending_poll(key));
+                        if (feedback_first) {
+                            reads_->cancel_pending_poll(key);
+                        } else if (const auto ticket = python_->take_poll(TelemetrySemantic::kAngles)) {
+                            reads_->request_poll(
+                                key, scheduled_read(TelemetrySemantic::kAngles, valid),
+                                [state = python_, ticket = *ticket] { return state->poll_needed(ticket); },
+                                prepare_read(valid));
+                        }
+                    }
+                    if (feedback_first && run_angle_(lane)) {
+                        prefer_angle_read_ = true;
+                        ++dispatched;
+                        continue;
+                    }
+                    const bool read_ready = reads_->has_pending(key);
+                    if (read_ready && (!command_ready || prefer_angle_read_) && reads_->serve_pending(key, lane)) {
+                        prefer_angle_read_ = false;
+                        ++dispatched;
+                        continue;
+                    }
+                    if (command_ready && run_angle_(lane)) {
+                        prefer_angle_read_ = true;
+                        ++dispatched;
+                        continue;
+                    }
+                    if (read_ready && reads_->serve_pending(key, lane)) {
+                        prefer_angle_read_ = false;
+                        ++dispatched;
+                        continue;
+                    }
+                    // Wait only for an already queued target due before the next
+                    // stage would finish. The horizon never moves with wakeups.
+                    const auto horizon = std::min(deadline, now + next_stage);
+                    if (!command_at || *command_at > horizon) {
+                        return;
+                    }
+                    device_->runtime()->wait_until(*command_at);
+                }
+                if (!valid() || device_->runtime()->runtime_health().state != runtime::DeviceState::ready) {
+                    throw ClosedError("read generation ended during angle work");
+                }
+            }
             TelemetrySample python_read(TelemetrySemantic semantic, bool polling, const std::function<bool()> &valid,
                                         const std::shared_ptr<void> &lane, const RuntimeAccess::ErrorCapture &capture,
                                         uint64_t before) {
@@ -801,8 +902,23 @@ namespace linkerbot::hand::unified_detail {
                     throw UnsupportedFirmwareError("optional telemetry is disabled for this generation");
                 }
                 const auto sent = device_->runtime()->runtime_health().sent_frames;
+                const auto poll_revision = python_->poll_revision();
                 try {
-                    (void)read_direct(semantic, config_.transaction_timeout, valid, lane);
+                    if (semantic == TelemetrySemantic::kForce && config_.model != Model::kL30) {
+                        bool first_o30_stage = true;
+                        RuntimeAccess::with_stage_boundaries(
+                            *device_->runtime(),
+                            [&] {
+                                if (config_.model == Model::kO30 && first_o30_stage) {
+                                    first_o30_stage = false;
+                                    return;
+                                }
+                                service_angle_boundary(valid, lane);
+                            },
+                            [&] { (void)read_direct(semantic, config_.transaction_timeout, valid, lane); });
+                    } else {
+                        (void)read_direct(semantic, config_.transaction_timeout, valid, lane);
+                    }
                     auto result = telemetry_sample(snapshot(config_.model, config_.side, capabilities_), semantic);
                     if (auto *force = std::get_if<ForceSample>(&result)) {
                         force->fields.erase(
@@ -829,12 +945,12 @@ namespace linkerbot::hand::unified_detail {
                     if (const auto *force = std::get_if<ForceSample>(&result)) {
                         python_->observe_force(*force);
                     }
-                    python_->read_succeeded(semantic, polling);
+                    python_->read_succeeded(semantic, polling, poll_revision);
                     return result;
                 } catch (const HandError &error) {
                     try {
                         python_->read_failed(semantic, device_->runtime()->runtime_health().sent_frames > sent, error,
-                                             polling);
+                                             polling, poll_revision);
                     } catch (const UnsupportedFirmwareError &downgraded) {
                         RuntimeAccess::promote_error(*device_->runtime(), capture->load(std::memory_order_acquire),
                                                      downgraded, before);
@@ -843,7 +959,6 @@ namespace linkerbot::hand::unified_detail {
                     throw;
                 }
             }
-            using ReadValue = std::variant<TelemetrySample, DeviceIdentity>;
             std::function<bool()> read_generation() {
                 const auto epoch = read_epoch_.load(std::memory_order_acquire);
                 return [this, epoch] {
@@ -871,6 +986,10 @@ namespace linkerbot::hand::unified_detail {
                     runtime::Deadline{runtime::Clock::duration{execution_deadline_.load(std::memory_order_acquire)}},
                     valid, identity, python_->health_metrics());
             }
+            std::mutex poll_dispatch_mutex_;
+            AngleReady angle_ready_;
+            RunAngle run_angle_;
+            bool prefer_angle_read_ = false;
             HandDeviceConfig config_;
             DeviceCapabilities capabilities_;
             std::unique_ptr<Device> device_;
