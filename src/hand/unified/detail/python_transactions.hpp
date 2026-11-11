@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <linkerbot/hand/api/config.hpp>
+#include <linkerbot/hand/o6/protocol_backend.hpp>
 #include <linkerbot/hand/runtime/device_runtime.hpp>
 
 namespace linkerbot::hand::unified_detail {
@@ -55,6 +56,16 @@ namespace linkerbot::hand::unified_detail {
     // classic_management}.py and each model's tactile/identity transactions.
     inline protocol::TransactionPlan python_transaction(protocol::TransactionPlan plan,
                                                         const HandDeviceConfig &config) {
+        if (config.model == Model::kO6 && !plan.consume && plan.command_family == "angle" && plan.frames.size() == 1 &&
+            plan.frames.front().data[0] == 1 && plan.frames.front().dlc == 7) {
+            // The native O6 setter is dispatch-only. The explicit Python policy
+            // collects its declared current-state feedback, including interstage writes.
+            std::array<uint8_t, 6> raw{};
+            std::copy_n(plan.frames.front().data.begin() + 1, raw.size(), raw.begin());
+            plan.consume = o6::protocol::command_angle_feedback(plan.frames.front().id, raw).consume;
+            plan.optional_response_window = std::chrono::milliseconds{50};
+            plan.supersede_optional_feedback = true;
+        }
         if (!plan.consume) {
             return plan;
         }

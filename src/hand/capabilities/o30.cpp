@@ -36,7 +36,7 @@ namespace linkerbot::hand::capabilities_detail {
             profile.operations.read_device_info = true;
             profile.joints = joints;
             profile.commands = {
-                angle_command(joints, encoding, AckSupport::kRequired, false),
+                angle_command(joints, encoding, AckSupport::kRequired, true),
                 command(CommandSemantic::kSpeeds, names, u8, encoding, "count", std::nullopt, Confidence::kUnknown,
                         AckSupport::kRequired),
                 command(CommandSemantic::kAccelerations, names, u8, encoding, "count", std::nullopt,
