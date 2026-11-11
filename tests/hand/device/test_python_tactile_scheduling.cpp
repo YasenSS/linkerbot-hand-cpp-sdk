@@ -142,7 +142,7 @@ namespace {
             script->angle_writes = 0;
             script->finger_requests = 0;
         }
-        Device(Model model, RuntimeBehavior behavior = RuntimeBehavior::kPython)
+        explicit Device(Model model, RuntimeBehavior behavior = RuntimeBehavior::kPython)
             : Device(configuration(model, behavior)) {}
         static HandDeviceConfig configuration(Model model, RuntimeBehavior behavior) {
             auto config = validation::config();
@@ -164,12 +164,22 @@ namespace {
         return true;
     }
     ChannelMetrics angle_metrics(const HandHealth &health) {
-        for (const auto &channel : health.channels) {
-            if (channel.channel == "angles") {
-                return channel;
-            }
+        const auto found = std::find_if(health.channels.begin(), health.channels.end(),
+                                        [](const auto &channel) { return channel.channel == "angles"; });
+        if (found != health.channels.end()) {
+            return *found;
         }
         throw std::runtime_error("angle health channel missing");
+    }
+    bool closed_read(std::future<ForceSample> &result) {
+        try {
+            (void)result.get();
+        } catch (const ClosedError &) {
+            return true;
+        } catch (const DeviceNotReadyError &) {
+            return true;
+        }
+        return false;
     }
     void inject_finger(Device &device, uint8_t opcode) {
         Message request{};
@@ -619,12 +629,7 @@ TEST_CASE("Close during tactile or nested angle responses fences later stages an
         const auto before_close = device.script->finger_requests.load();
         auto pending = device.hand.set_angles(std::vector<int32_t>(6, 30));
         device.hand.close();
-        try {
-            (void)force.get();
-            FAIL("closed staged read unexpectedly completed");
-        } catch (const ClosedError &) {
-        } catch (const DeviceNotReadyError &) {
-        }
+        REQUIRE(closed_read(force));
         REQUIRE(pending.wait_for(1s));
         REQUIRE(pending.stage() == CommandStage::kFailed);
         REQUIRE(device.script->finger_requests == before_close);
@@ -657,12 +662,7 @@ TEST_CASE("Close drains every frame of a claimed nested angle batch without comp
     close.get();
     REQUIRE(claimed);
     REQUIRE(closing);
-    try {
-        (void)force.get();
-        FAIL("closed staged read unexpectedly completed");
-    } catch (const ClosedError &) {
-    } catch (const DeviceNotReadyError &) {
-    }
+    REQUIRE(closed_read(force));
     REQUIRE(command.wait_for(1s));
     REQUIRE(command.stage() == CommandStage::kDispatched);
     REQUIRE(command.sent_frames() == 5);

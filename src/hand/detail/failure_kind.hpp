@@ -20,6 +20,7 @@ namespace linkerbot::hand::detail {
             throw;
         } catch (...) {
             // The inner operation has already retained its ordinary failure.
+            return;
         }
     }
     enum class FailureKind { timeout, lifecycle, closed, other };
