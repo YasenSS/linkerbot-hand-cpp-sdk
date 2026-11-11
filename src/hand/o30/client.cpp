@@ -1,3 +1,4 @@
+#include "../unified/detail/runtime_access.hpp"
 #include <linkerbot/can/errors.hpp>
 #include <linkerbot/hand/errors.hpp>
 #include <linkerbot/hand/o30/client.hpp>
@@ -118,6 +119,9 @@ namespace linkerbot::hand::o30 {
         }
         auto call = calls_.hold();
         auto operation = runtime_->operation(deadline);
+        if (mi >= protocol::kMiSensorInfo && mi <= protocol::kMiSensorCh1 + 2) {
+            unified_detail::RuntimeAccess::stage_boundary(*runtime_);
+        }
         const auto old_response = response_id_.load();
         if (next_id && protocol::expected_response_id(*next_id) != old_response) {
             runtime_->set_routes({{old_response, false}, {protocol::expected_response_id(*next_id), false}});

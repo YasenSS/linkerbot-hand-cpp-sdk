@@ -352,6 +352,7 @@ namespace linkerbot::hand::runtime {
             unified_detail::RuntimeAccess::TimingCapture timing;
         };
         thread_local std::map<const DeviceRuntime *, ResponsePolicy> response_policies;
+        thread_local std::map<const DeviceRuntime *, unified_detail::RuntimeAccess::StageBoundary> stage_boundaries;
     }
     struct Request::State {
         mutable std::mutex mutex;
@@ -3028,5 +3029,34 @@ void linkerbot::hand::unified_detail::RuntimeAccess::logical_transaction_succeed
     const std::lock_guard<std::mutex> lock(device.impl_->mutex);
     if (device.impl_->last_success_error_revision == device.impl_->error_revision) {
         device.impl_->consecutive_errors = 0;
+    }
+}
+
+void linkerbot::hand::unified_detail::RuntimeAccess::with_stage_boundaries(runtime::DeviceRuntime &device,
+                                                                           StageBoundary boundary,
+                                                                           const std::function<void()> &execute) {
+    auto previous = runtime::stage_boundaries.extract(&device);
+    const auto restore = [&] {
+        runtime::stage_boundaries.erase(&device);
+        if (!previous.empty()) {
+            runtime::stage_boundaries.insert(std::move(previous));
+        }
+    };
+    try {
+        runtime::stage_boundaries.emplace(&device, std::move(boundary));
+        execute();
+    } catch (...) {
+        restore();
+        throw;
+    }
+    restore();
+}
+
+void linkerbot::hand::unified_detail::RuntimeAccess::stage_boundary(runtime::DeviceRuntime &device) {
+    const auto found = runtime::stage_boundaries.find(&device);
+    if (found != runtime::stage_boundaries.end()) {
+        // Nested angle work cannot recursively open another tactile boundary.
+        auto boundary = found->second;
+        with_stage_boundaries(device, [] {}, boundary);
     }
 }

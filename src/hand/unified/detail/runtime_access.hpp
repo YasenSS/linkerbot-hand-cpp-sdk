@@ -43,6 +43,9 @@ namespace linkerbot::hand::unified_detail {
         static void set_polling_gate(runtime::DeviceRuntime &runtime, PollingGate gate);
         static void wait_endpoint_quiet(runtime::DeviceRuntime &runtime, std::chrono::milliseconds quiet,
                                         runtime::Deadline deadline, const std::function<bool()> &cancelled);
+        using StageBoundary = std::function<void()>;
+        static void with_stage_boundaries(runtime::DeviceRuntime &, StageBoundary, const std::function<void()> &);
+        static void stage_boundary(runtime::DeviceRuntime &);
         using PlanTransform = std::function<runtime::TransactionPlan(runtime::TransactionPlan)>;
         static void with_response_windows(runtime::DeviceRuntime &runtime, PlanTransform transform,
                                           const std::function<void()> &execute,
