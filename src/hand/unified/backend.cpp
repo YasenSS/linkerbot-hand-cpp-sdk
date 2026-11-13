@@ -520,6 +520,10 @@ namespace linkerbot::hand::unified_detail {
                 }
             }
 
+            [[nodiscard]] uint64_t connection_generation() const override {
+                return device_->runtime()->runtime_health().device_generation;
+            }
+
             [[nodiscard]] HandHealth health() const override {
                 auto health = device_->health();
                 auto current = snapshot(Model::kUnknown, HandSide::kUnknown, capabilities_);

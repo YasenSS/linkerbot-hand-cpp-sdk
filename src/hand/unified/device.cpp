@@ -610,7 +610,7 @@ namespace linkerbot::hand {
             }
             auto lease = begin_io(context, operation);
             auto sample = complete_io(context, operation, [&] { return context.backend->read(semantic, timeout); });
-            auto generation = context.backend->health().connection_generation;
+            auto generation = context.backend->connection_generation();
             finish_io(context, operation);
             if (config_.runtime_behavior == RuntimeBehavior::kPython) {
                 const std::lock_guard<std::mutex> lock(mutex_);
