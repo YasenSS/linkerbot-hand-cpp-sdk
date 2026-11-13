@@ -2,6 +2,13 @@
 
 [中文](../../zh/guides/releases.md) · [Documentation index](../README.md)
 
+## 0.3.12 scheduling update
+
+Version 0.3.12 adds angle scheduling at safe tactile-stage boundaries under the
+explicit Python runtime policy while retaining Native defaults and existing C++ APIs.
+The [release notes](../../../RELEASE_NOTES.md#0312) describe compatibility, recorded
+validation, O6/L20/O30 hardware results and the untested shared-Session/fault timing scope.
+
 ## Targets aligned with transport
 
 The Hand release workflow uses the transport v0.3.4 target matrix:
@@ -16,22 +23,24 @@ availability of proprietary ARM64 drivers.
 
 Hand SDK packages contain both hand and paired transport static libraries, headers, CMake packages,
 documentation and read-only command-line examples. Test executables and proprietary drivers/libraries
-are excluded. Versions remain independent. Hand 0.3.11 requires transport 0.3.4 or newer in
+are excluded. Versions remain independent. Hand 0.3.12 requires transport 0.3.4 or newer in
 the 0.3 minor line in source, prebuilt and installed-consumer builds.
 
 
 The paired source pin and prebuilt downloads use the same v0.3.4 release.
 Rebuild hand and downstream consumers with matching transport headers and libraries;
-public transport structures have grown. No new physical hardware acceptance is claimed. Transport archives now use the `linkerbot-transport-` prefix.
+public transport structures have grown. Dependency pairing itself adds no hardware
+acceptance; the 0.3.12 scheduling evidence has the limited scope linked above.
+Transport archives now use the `linkerbot-transport-` prefix.
 Hand continues to consume the supported `linkerbot-comm` CMake package and CAN target aliases.
 
 ## Names and checksums
 
-Examples use hand version `0.3.0`; compiler versions reflect the actual build:
+Examples use hand version `0.3.12`; compiler versions reflect the actual build:
 
 ```text
-linkerbot-hand-cpp-0.3.0-Linux-aarch64-ubuntu24.04-GNU13.3.0-libstdcxx-abi1-Release.tar.gz
-linkerbot-hand-cpp-0.3.0-Windows-ARM64-msvc143-19.44.35229.0-Debug-MDd.zip
+linkerbot-hand-cpp-0.3.12-Linux-aarch64-ubuntu24.04-GNU13.3.0-libstdcxx-abi1-Release.tar.gz
+linkerbot-hand-cpp-0.3.12-Windows-ARM64-msvc143-19.44.35229.0-Debug-MDd.zip
 ```
 
 Each archive has an adjacent `.sha256` file. The complete set also contains `release-manifest.json`

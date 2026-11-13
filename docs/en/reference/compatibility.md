@@ -1,12 +1,35 @@
 # Platform and hardware validation scope
 
-The unreleased 0.3.0 API has removed O30 motion-time and torque-limit read/write APIs, model entry points, samples, events, and snapshot fields.
-Remove old calls and rebuild; actual torque reads and current-limit reads/writes remain available, with surviving public enum values unchanged.
-Historical hardware acceptance refers to the SDK revision recorded in each report, not the API inventory after these removals.
+[中文](../../zh/reference/compatibility.md) · [Documentation index](../README.md)
 
-L6 position Kp, position Kd, and torque Kd are available only through native `l6::L6` Managers.
-The corresponding unified read/write methods, samples, snapshot fields, events, and capabilities have been removed. Migrate to the Managers'
-`set_values()`, `get_blocking()`, and `get_snapshot()` and rebuild. Native protocol and raw-value semantics remain unchanged.
+## 0.3.12 compatibility and scheduling validation
+
+Existing public C++ APIs and Native defaults remain available. The tactile-stage
+scheduler requires explicit `RuntimeBehavior::kPython`; the
+[Python behavior baseline](../guides/python-behavior-baseline.md#tactile-stage-angle-scheduling-0312)
+records supported protocols and scheduling rules. Hand 0.3.12 requires transport
+0.3.4 or newer in the 0.3 minor line. Rebuild consumers with matching headers and libraries.
+
+L6 position Kp/Kd and torque Kd are available through both the unified API and
+native Managers. O30 unified torque-limit and motion-time methods require explicit
+`O30Layout::kPythonV25`; native Managers retain the mounted V36 layout. See the
+[API guide](../guides/usage.md#features-unified-through-handdevice) for entry points. Earlier 0.3.0
+API-removal notes do not describe the current interface inventory.
+
+O6 left, L20 right and O30 right (explicit V25) passed query-only,
+command-feedback-only, adaptive, five-minute saturation and Native-control scheduling
+groups on Ubuntu 24.04 x86_64 / SocketCAN / Release. Firmware, adapters, tested
+revisions and per-device results are recorded in the
+[0.3.12 release notes](../../../RELEASE_NOTES.md#0312).
+No new L6/L20Lite scheduling hardware acceptance or physical shared-Session,
+close/recovery and injected abnormal-reply timing acceptance is claimed. Offline
+regressions cover these lifecycle and isolation rules independently. The scheduling
+runs do not establish frequency maxima or dynamic motion accuracy.
+
+## Historical common-feature hardware baseline
+
+Historical hardware acceptance applies to the SDK revision and configuration recorded
+in each report. It does not automatically validate changes in later releases.
 
 The `0.3.0` validation baseline is Ubuntu 24.04 x86_64 / GCC 13 / C++17 and Windows 11 x64 /
 Visual Studio 2022 / MSVC v143 14.44 / C++17. Other operating systems, architectures, toolchains, and driver versions
