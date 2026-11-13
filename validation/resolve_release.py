@@ -16,7 +16,7 @@ SHA = r'[0-9a-f]{40}'
 
 def ci_transport_sha(source):
     pins = []
-    for relative in ['.gitea/workflows/ci.yml', '.github/workflows/ci.yml']:
+    for relative in ['.gitea/workflows/ci.yml', '.github/workflows/sanitizers.yml']:
         path = source / relative
         if relative.startswith('.gitea/') and not path.exists():
             continue

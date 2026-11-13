@@ -46,7 +46,7 @@ class ReleaseTriggerTests(unittest.TestCase):
     def test_ci_pin_drift_and_missing_pins_are_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            paths = [root / host / 'workflows/ci.yml' for host in ['.gitea', '.github']]
+            paths = [root / '.gitea/workflows/ci.yml', root / '.github/workflows/sanitizers.yml']
             for path in paths:
                 path.parent.mkdir(parents=True)
                 path.write_text('env:\n  COMM_REF: ' + 'a' * 40 + '\n')
@@ -61,7 +61,7 @@ class ReleaseTriggerTests(unittest.TestCase):
     def test_github_only_repository_resolves_dependency_pin(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            path = root / '.github/workflows/ci.yml'
+            path = root / '.github/workflows/sanitizers.yml'
             path.parent.mkdir(parents=True)
             path.write_text('env:\n  COMM_REF: ' + 'a' * 40 + '\n')
             self.assertEqual(ci_transport_sha(root), 'a' * 40)
