@@ -3032,8 +3032,8 @@ void linkerbot::hand::unified_detail::RuntimeAccess::logical_transaction_succeed
     }
 }
 
-void linkerbot::hand::unified_detail::RuntimeAccess::with_stage_boundaries(runtime::DeviceRuntime &device,
-                                                                           StageBoundary boundary,
+void linkerbot::hand::unified_detail::RuntimeAccess::with_stage_boundaries(StageBoundary boundary,
+                                                                           runtime::DeviceRuntime &device,
                                                                            const std::function<void()> &execute) {
     auto previous = runtime::stage_boundaries.extract(&device);
     const auto restore = [&] {
@@ -3057,6 +3057,26 @@ void linkerbot::hand::unified_detail::RuntimeAccess::stage_boundary(runtime::Dev
     if (found != runtime::stage_boundaries.end()) {
         // Nested angle work cannot recursively open another tactile boundary.
         auto boundary = found->second;
-        with_stage_boundaries(device, [] {}, boundary);
+        with_stage_boundaries([] {}, device, boundary);
     }
+}
+
+void linkerbot::hand::unified_detail::RuntimeAccess::fault_nested_transaction(runtime::DeviceRuntime &device,
+                                                                              std::exception_ptr error) {
+    auto &p = *device.impl_;
+    const std::lock_guard<std::mutex> lock(p.mutex);
+    if (p.health.state != runtime::DeviceState::ready) {
+        return;
+    }
+    // Match a fatal polling failure even if the boundary, rather than the
+    // poll worker, claimed the query. Never fault the shared physical Session.
+    p.health.state = runtime::DeviceState::faulted;
+    p.polling_cancel.cancel();
+    p.polling_request_cancel.cancel();
+    p.invalidate_locked();
+    const auto pending = p.pending;
+    for (const auto &request : pending) {
+        p.finish_locked(request, error, true);
+    }
+    p.cv.notify_all();
 }

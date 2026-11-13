@@ -7,6 +7,7 @@
 #include "hand/o30/comm_helpers.hpp"
 #include "hand/support/optional_value.hpp"
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <condition_variable>
 #include <future>
 #include <linkerbot/hand/l30/l30.hpp>
@@ -209,6 +210,23 @@ namespace {
     }
 }
 
+TEST_CASE("Python L20 Lite angle writes correlate complete optional feedback",
+          "[comm][python-phase5][tactile-scheduling]") {
+    auto config = Device::configuration(Model::kL20Lite, RuntimeBehavior::kPython);
+    auto write = l20lite::protocol::write_angle(0x28, {});
+    REQUIRE_FALSE(write.consume); // Native stays dispatch-only.
+    write.command_family = "angle";
+    auto plan = unified_detail::python_transaction(std::move(write), config);
+    REQUIRE(plan.consume);
+    REQUIRE(plan.optional_response_window == config.response_timeout);
+    REQUIRE(plan.supersede_optional_feedback);
+    auto first = plan.consume(plan.frames.front());
+    REQUIRE(first.kind == protocol::ProgressKind::pending);
+    auto complete = plan.consume(plan.frames.back());
+    REQUIRE(complete.kind == protocol::ProgressKind::complete);
+    REQUIRE(complete.origin == protocol::Origin::command_feedback);
+}
+
 TEST_CASE("Python tactile boundaries service complete angle batches under all feedback policies",
           "[comm][python-phase5][tactile-scheduling]") {
     for (const auto model : {Model::kL6, Model::kO6, Model::kL20Lite, Model::kL20}) {
@@ -263,15 +281,20 @@ TEST_CASE("Python continuous angle polls are bounded to four transactions per fi
     REQUIRE(sample.tactile.size() == 5);
     const auto sent = device.transport->sent();
     const auto interstage = between_first_fingers(sent);
-    REQUIRE(interstage.size() == 4);
+    REQUIRE_FALSE(interstage.empty());
+    REQUIRE(interstage.size() <= unified_detail::kMaxInterstageAngleTransactions);
     for (uint8_t opcode = 0xB1; opcode < 0xB5; ++opcode) {
         const auto first =
             std::find_if(sent.begin(), sent.end(), [opcode](const auto &m) { return m.data[0] == opcode; });
         const auto next = std::find_if(first, sent.end(), [opcode](const auto &m) { return m.data[0] == opcode + 1; });
         REQUIRE(first != sent.end());
         REQUIRE(next != sent.end());
-        // Each new complete finger resets the cap, not each new poll demand.
-        REQUIRE(std::distance(first, next) == 5);
+        // Poll and boundary threads share due intents. A poll taken just before
+        // the preceding reply can be satisfied by that reply, so continuous
+        // polling need not leave four pending intents at every boundary. The
+        // continuously replaced target test below separately saturates the cap.
+        REQUIRE(std::distance(first, next) >= 1);
+        REQUIRE(std::distance(first, next) <= 1 + unified_detail::kMaxInterstageAngleTransactions);
     }
     REQUIRE(
         std::all_of(interstage.begin(), interstage.end(), [](const auto &m) { return m.data[0] == 1 && m.dlc == 1; }));
@@ -542,7 +565,7 @@ TEST_CASE("Nested angle feedback failures retain real dispatch and count only su
         REQUIRE(after.transaction_latency.count == before.transaction_latency.count + 1);
 
         REQUIRE(after.recent_error);
-        REQUIRE(after.recent_error->context.channel == "angle");
+        REQUIRE(test_support::require_value(after.recent_error).context.channel == "angle");
         REQUIRE(command.stage() == CommandStage::kDispatched);
         REQUIRE(command.sent_frames() == 1);
         REQUIRE(command.send_results().size() == 1);
@@ -558,6 +581,7 @@ TEST_CASE("Nested angle physical send failure aborts the tactile batch without r
           "[comm][python-phase5][tactile-scheduling]") {
     Device device(Model::kL6);
     const auto previous = device.hand.get_force(3s);
+    (void)device.hand.get_cached_snapshot();
     const auto before = device.hand.get_health();
     device.script->gate = true;
     device.script->feedback_mode = 3;
@@ -572,8 +596,11 @@ TEST_CASE("Nested angle physical send failure aborts the tactile batch without r
     REQUIRE(command.stage() == CommandStage::kFailed);
     REQUIRE(command.send_results().size() == 1);
     REQUIRE(device.script->finger_requests == fingers);
-    REQUIRE(test_support::require_value(device.hand.get_cached_snapshot().force).meta.sequence ==
-            previous.meta.sequence);
+    const auto retained = test_support::require_value(device.hand.get_cached_snapshot().force);
+    REQUIRE(retained.raw == previous.raw);
+    REQUIRE_FALSE(retained.meta.valid);
+    REQUIRE(retained.meta.sequence == 0); // Unavailable metadata, retained evidence.
+
     REQUIRE(device.hand.get_health().transaction_latency.count == before.transaction_latency.count);
 }
 
@@ -597,8 +624,8 @@ TEST_CASE("Each tactile stage retains its own response window after an angle que
     REQUIRE(angle_metrics(health).timeouts == 1);
     REQUIRE(angle_metrics(health).completed_reads == 0);
     REQUIRE(health.recent_error);
-    REQUIRE(health.recent_error->code == ErrorCode::kTimeout);
-    REQUIRE(health.recent_error->context.channel == "angle");
+    REQUIRE(test_support::require_value(health.recent_error).code == ErrorCode::kTimeout);
+    REQUIRE(test_support::require_value(health.recent_error).context.channel == "angle");
 }
 
 TEST_CASE("Close during tactile or nested angle responses fences later stages and supports reopen",
@@ -798,8 +825,9 @@ TEST_CASE("Continuously replaced angle targets cannot bypass the boundary cap un
     }
 }
 
-TEST_CASE("A nested tactile angle wait releases the shared Session sender and isolates peer close",
+TEST_CASE("A nested tactile angle wait isolates close and transport failure on a shared Session",
           "[comm][python-phase5][tactile-scheduling]") {
+    const bool fail_send = GENERATE(false, true);
     auto fake = std::make_unique<linkerbot::can::FakeTransport>();
     auto *raw = fake.get();
     auto script = std::make_shared<Script>(Model::kL6);
@@ -823,6 +851,11 @@ TEST_CASE("A nested tactile angle wait releases the shared Session sender and is
     script->angle_queries = 0;
     script->held_finger = 0xB1;
     script->hold_angle = true;
+    if (fail_send) {
+        script->on_angle = [](const Message &) {
+            throw linkerbot::can::TransportIOError("device-local nested send failure");
+        };
+    }
     const auto count = script->finger_requests.load();
     auto force = std::async(std::launch::async, [&] { return left.get_force(3s); });
     REQUIRE(observed([&] { return script->finger_requests > count; }));
@@ -839,8 +872,13 @@ TEST_CASE("A nested tactile angle wait releases the shared Session sender and is
     const auto peer = right.get_angles(1s);
     const auto generation = peer.meta.connection_generation;
     const auto sequence = peer.meta.sequence;
-    left.close();
-    REQUIRE_THROWS_AS(force.get(), HandError);
+    if (fail_send) {
+        REQUIRE_THROWS_AS(force.get(), TransportError);
+        left.stop_polling();
+    } else {
+        left.close();
+        REQUIRE_THROWS_AS(force.get(), HandError);
+    }
     REQUIRE(right.is_open());
     REQUIRE(session->health().open);
     const auto next = right.get_angles(1s);
@@ -848,6 +886,7 @@ TEST_CASE("A nested tactile angle wait releases the shared Session sender and is
     REQUIRE(next.meta.connection_generation == generation);
     REQUIRE(next.meta.sequence == sequence + 1);
     REQUIRE(right.get_health().consecutive_errors == 0);
+    left.close();
     right.close();
     session->close();
 }
@@ -862,8 +901,8 @@ TEST_CASE("L30 complete tactile frames do not introduce a Python yield contract"
     }
     l30::L30 hand(std::move(fake), l30_comm::kNodeId, l30_comm::kHostId, false);
     unsigned boundaries = 0;
-    unified_detail::RuntimeAccess::with_stage_boundaries(
-        *hand.runtime(), [&] { ++boundaries; }, [&] { (void)hand.force_sensor.get_blocking(500ms); });
+    unified_detail::RuntimeAccess::with_stage_boundaries([&] { ++boundaries; }, *hand.runtime(),
+                                                         [&] { (void)hand.force_sensor.get_blocking(500ms); });
     REQUIRE(boundaries == 0);
     REQUIRE(hand.force_sensor.get_snapshot().has_value());
 }
@@ -953,7 +992,11 @@ TEST_CASE("Nested query transport failure terminates its enclosing tactile opera
     REQUIRE(cached.raw == previous.raw);
     REQUIRE_FALSE(cached.meta.valid);
     REQUIRE(device.script->finger_requests == 6); // Five cached fingers, then only the failed round's first finger.
-    REQUIRE(device.hand.get_health().recent_error->context.channel == "angle");
+    REQUIRE(test_support::require_value(device.hand.get_health().recent_error).context.channel == "angle");
+    device.script->on_angle = {};
+    device.hand.recover_for(2s);
+    REQUIRE(device.hand.get_force(2s).tactile.size() == 5);
+    REQUIRE(test_support::require_value(device.hand.get_cached_snapshot().force).meta.valid);
 }
 
 TEST_CASE("Repeated tactile traffic allows other reads and continuously renewed motion to progress",

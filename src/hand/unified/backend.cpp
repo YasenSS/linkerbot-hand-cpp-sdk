@@ -911,14 +911,20 @@ namespace linkerbot::hand::unified_detail {
                     if (semantic == TelemetrySemantic::kForce && config_.model != Model::kL30) {
                         bool first_o30_stage = true;
                         RuntimeAccess::with_stage_boundaries(
-                            *device_->runtime(),
                             [&] {
                                 if (config_.model == Model::kO30 && first_o30_stage) {
                                     first_o30_stage = false;
                                     return;
                                 }
-                                service_angle_boundary(valid, lane);
+                                try {
+                                    service_angle_boundary(valid, lane);
+                                } catch (const TransportError &) {
+                                    RuntimeAccess::fault_nested_transaction(*device_->runtime(),
+                                                                            std::current_exception());
+                                    throw;
+                                }
                             },
+                            *device_->runtime(),
                             [&] { (void)read_direct(semantic, config_.transaction_timeout, valid, lane); });
                     } else {
                         (void)read_direct(semantic, config_.transaction_timeout, valid, lane);
