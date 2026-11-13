@@ -1,4 +1,5 @@
 #include "linkerbot/hand/o6/force_sensor.hpp"
+#include "../unified/detail/runtime_access.hpp"
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -124,6 +125,9 @@ namespace linkerbot::hand::o6 {
         auto operation = runtime_->operation("o6.tactile.batch", deadline);
         std::array<ForceSensorData, 5> values{};
         for (size_t index = 0; index < kFingerNames.size(); ++index) {
+            if (index != 0) {
+                unified_detail::RuntimeAccess::stage_boundary(*runtime_);
+            }
             const auto remaining = runtime::remaining(deadline);
             if (remaining.count() <= 0) {
                 throw internal::DataRelayTimeout("O6 tactile batch deadline expired");

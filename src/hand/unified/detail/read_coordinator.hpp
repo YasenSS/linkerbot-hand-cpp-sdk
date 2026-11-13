@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../detail/checked_optional.hpp"
+#include "../../detail/failure_kind.hpp"
 #include <algorithm>
 #include <chrono>
 #include <condition_variable>
@@ -129,6 +130,101 @@ namespace linkerbot::hand::unified_detail {
             }
             return ::linkerbot::hand::detail::checked_value(entry->value, "read completed without a value");
         }
+        // Only the coordinator worker may service queued reads reentrantly, while
+        // retaining its outer device lease. No extra worker or send queue exists.
+        void request_poll(unsigned key, Execute execute, std::function<bool()> demand, Prepare prepare = {}) {
+            const std::lock_guard<std::mutex> lock(mutex_);
+            if (!accepting_ || !demand()) {
+                return;
+            }
+            auto found = entries_.find(key);
+            if (found == entries_.end()) {
+                auto entry = std::make_shared<Entry>();
+                entry->execute = std::move(execute);
+                entry->prepare = std::move(prepare);
+                entry->generation = generation_;
+                queue_.push_back({key, entry});
+                try {
+                    found = entries_.emplace(key, entry).first;
+                } catch (...) {
+                    queue_.pop_back();
+                    throw;
+                }
+            }
+            found->second->requested_by_poll = true;
+            found->second->poll_demand = std::move(demand);
+            found->second->poll_cancel = {};
+            changed_.notify_all();
+        }
+        bool has_pending_poll(unsigned key) {
+            const std::lock_guard<std::mutex> lock(mutex_);
+            const auto found = entries_.find(key);
+            return found != entries_.end() && !found->second->claimed && found->second->requested_by_poll &&
+                   !found->second->poll_cancel.cancelled() &&
+                   (!found->second->poll_demand || found->second->poll_demand());
+        }
+        void cancel_pending_poll(unsigned key) {
+            const std::lock_guard<std::mutex> lock(mutex_);
+            const auto found = entries_.find(key);
+            if (found != entries_.end() && !found->second->claimed) {
+                // Active readers remain attached even when feedback satisfies a poll.
+                found->second->requested_by_poll = false;
+                changed_.notify_all();
+            }
+        }
+        bool has_pending(unsigned key) {
+            const std::lock_guard<std::mutex> lock(mutex_);
+            const auto found = entries_.find(key);
+            return found != entries_.end() && !found->second->claimed && demand_locked(*found->second);
+        }
+        bool serve_pending(unsigned key, const std::shared_ptr<void> &lane) {
+            std::unique_lock<std::mutex> lock(mutex_);
+            const auto found = entries_.find(key);
+            if (found == entries_.end() || found->second->claimed || !demand_locked(*found->second)) {
+                return false;
+            }
+            auto entry = found->second;
+            entry->claimed = true;
+            const auto previous_poll = current_poll_;
+            const auto previous_active_poll = active_poll_;
+            current_poll_ = entry->requested_by_poll && !entry->poll_cancel.cancelled() &&
+                            (!entry->poll_demand || entry->poll_demand());
+            active_poll_ = active_poll_ || current_poll_;
+            for (auto it = queue_.begin(); it != queue_.end(); ++it) {
+                if (it->second == entry) {
+                    queue_.erase(it);
+                    break;
+                }
+            }
+            lock.unlock();
+            std::optional<Value> value;
+            std::exception_ptr error;
+            try {
+                value.emplace(entry->execute(lane));
+            } catch (...) {
+                error = std::current_exception();
+            }
+            lock.lock();
+            if (!entry->done) {
+                try {
+                    entry->value = std::move(value);
+                    entry->error = error;
+                } catch (...) {
+                    entry->error = std::current_exception();
+                }
+                entry->completed_at = Clock::now();
+                entry->done = true;
+            }
+            if (const auto it = entries_.find(key); it != entries_.end() && it->second == entry) {
+                entries_.erase(it);
+            }
+            current_poll_ = previous_poll;
+            active_poll_ = previous_active_poll;
+            changed_.notify_all();
+            lock.unlock();
+            ::linkerbot::hand::detail::rethrow_nested_connection_failure(error);
+            return true;
+        }
         // Must precede runtime cancellation/draining. No late result can complete
         // a waiter from an invalidated generation.
         void invalidate() {
@@ -162,7 +258,7 @@ namespace linkerbot::hand::unified_detail {
         }
         bool claimed_by_poll() {
             const std::lock_guard<std::mutex> lock(mutex_);
-            return active_poll_;
+            return current_poll_;
         }
         size_t waiter_count() {
             const std::lock_guard<std::mutex> lock(mutex_);
@@ -266,6 +362,7 @@ namespace linkerbot::hand::unified_detail {
                         }
                         active_poll_ = entry->requested_by_poll && !entry->poll_cancel.cancelled() &&
                                        (!entry->poll_demand || entry->poll_demand());
+                        current_poll_ = active_poll_;
                         entry->claimed = true;
                     }
                     value.emplace(entry->execute(lease));
@@ -291,6 +388,7 @@ namespace linkerbot::hand::unified_detail {
                 }
                 active_ = false;
                 active_poll_ = false;
+                current_poll_ = false;
                 changed_.notify_all();
             }
         }
@@ -305,6 +403,7 @@ namespace linkerbot::hand::unified_detail {
         bool accepting_ = true;
         bool active_ = false;
         bool active_poll_ = false;
+        bool current_poll_ = false;
         bool stopping_ = false;
         std::thread worker_;
     };

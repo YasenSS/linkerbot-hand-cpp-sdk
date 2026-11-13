@@ -352,6 +352,7 @@ namespace linkerbot::hand::runtime {
             unified_detail::RuntimeAccess::TimingCapture timing;
         };
         thread_local std::map<const DeviceRuntime *, ResponsePolicy> response_policies;
+        thread_local std::map<const DeviceRuntime *, unified_detail::RuntimeAccess::StageBoundary> stage_boundaries;
     }
     struct Request::State {
         mutable std::mutex mutex;
@@ -3029,4 +3030,53 @@ void linkerbot::hand::unified_detail::RuntimeAccess::logical_transaction_succeed
     if (device.impl_->last_success_error_revision == device.impl_->error_revision) {
         device.impl_->consecutive_errors = 0;
     }
+}
+
+void linkerbot::hand::unified_detail::RuntimeAccess::with_stage_boundaries(StageBoundary boundary,
+                                                                           runtime::DeviceRuntime &device,
+                                                                           const std::function<void()> &execute) {
+    auto previous = runtime::stage_boundaries.extract(&device);
+    const auto restore = [&] {
+        runtime::stage_boundaries.erase(&device);
+        if (!previous.empty()) {
+            runtime::stage_boundaries.insert(std::move(previous));
+        }
+    };
+    try {
+        runtime::stage_boundaries.emplace(&device, std::move(boundary));
+        execute();
+    } catch (...) {
+        restore();
+        throw;
+    }
+    restore();
+}
+
+void linkerbot::hand::unified_detail::RuntimeAccess::stage_boundary(runtime::DeviceRuntime &device) {
+    const auto found = runtime::stage_boundaries.find(&device);
+    if (found != runtime::stage_boundaries.end()) {
+        // Nested angle work cannot recursively open another tactile boundary.
+        auto boundary = found->second;
+        with_stage_boundaries([] {}, device, boundary);
+    }
+}
+
+void linkerbot::hand::unified_detail::RuntimeAccess::fault_nested_transaction(runtime::DeviceRuntime &device,
+                                                                              std::exception_ptr error) {
+    auto &p = *device.impl_;
+    const std::lock_guard<std::mutex> lock(p.mutex);
+    if (p.health.state != runtime::DeviceState::ready) {
+        return;
+    }
+    // Match a fatal polling failure even if the boundary, rather than the
+    // poll worker, claimed the query. Never fault the shared physical Session.
+    p.health.state = runtime::DeviceState::faulted;
+    p.polling_cancel.cancel();
+    p.polling_request_cancel.cancel();
+    p.invalidate_locked();
+    const auto pending = p.pending;
+    for (const auto &request : pending) {
+        p.finish_locked(request, error, true);
+    }
+    p.cv.notify_all();
 }

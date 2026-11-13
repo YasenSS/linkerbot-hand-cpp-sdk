@@ -40,6 +40,9 @@ namespace linkerbot::hand::unified_detail {
     class DeviceBackend {
     public:
         virtual ~DeviceBackend() = default;
+        using AngleReady = std::function<std::optional<runtime::Deadline>()>;
+        using RunAngle = std::function<bool(const std::shared_ptr<void> &)>;
+        virtual void set_angle_dispatch(AngleReady, RunAngle) {}
         virtual void stop_admission() {}
         virtual void resume_admission() {}
         virtual DeviceCapabilities observed_capabilities(DeviceCapabilities value) const { return value; }
@@ -65,6 +68,8 @@ namespace linkerbot::hand::unified_detail {
         [[nodiscard]] virtual HandSnapshot snapshot(Model model, HandSide side,
                                                     const DeviceCapabilities &capabilities) const = 0;
         [[nodiscard]] virtual HandHealth health() const = 0;
+        // Read completion needs only the epoch, not a full diagnostic snapshot.
+        [[nodiscard]] virtual uint64_t connection_generation() const { return health().connection_generation; }
         [[nodiscard]] virtual DeviceIdentity verify_identity(HandSide side, std::chrono::milliseconds timeout) = 0;
         virtual TelemetrySample initialize_read(TelemetrySemantic semantic, std::chrono::milliseconds timeout) {
             return read(semantic, timeout);

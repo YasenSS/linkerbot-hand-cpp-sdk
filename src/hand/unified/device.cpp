@@ -305,8 +305,12 @@ namespace linkerbot::hand {
 
         [[nodiscard]] std::unique_ptr<unified_detail::DeviceBackend> create_backend() {
             if (python_health_) {
-                return unified_detail::make_backend_with_python_health(config_, transport_factory_, shared_session_,
-                                                                       python_health_);
+                auto backend = unified_detail::make_backend_with_python_health(config_, transport_factory_,
+                                                                               shared_session_, python_health_);
+                backend->set_angle_dispatch(
+                    [this] { return scheduler_->pending_angle_at(); },
+                    [this](const std::shared_ptr<void> &lane) { return scheduler_->run_angle(lane); });
+                return backend;
             }
             return unified_detail::make_backend(config_, transport_factory_, shared_session_);
         }
@@ -606,7 +610,7 @@ namespace linkerbot::hand {
             }
             auto lease = begin_io(context, operation);
             auto sample = complete_io(context, operation, [&] { return context.backend->read(semantic, timeout); });
-            auto generation = context.backend->health().connection_generation;
+            auto generation = context.backend->connection_generation();
             finish_io(context, operation);
             if (config_.runtime_behavior == RuntimeBehavior::kPython) {
                 const std::lock_guard<std::mutex> lock(mutex_);

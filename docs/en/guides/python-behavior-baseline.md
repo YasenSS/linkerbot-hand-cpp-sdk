@@ -1,10 +1,107 @@
 # Python behavior baseline
 
+[中文](../../zh/guides/python-behavior-baseline.md) · [Documentation index](../README.md)
+
 The reference source is `linkerbot-hand-python-sdk` commit
 `3a63e723b9a0046e9a60a58339b9f064ef5b70fd` (source version 2.0.0).
 This document records native SDK preparation for a future Python migration.
-It does not claim that a Python binding, a hand/arm migration, or hardware
-acceptance has been completed. O20 is outside this change.
+A Python binding and hand/arm integration remain outside this change, as does O20.
+The 0.3.12 scheduling update has limited hardware evidence documented in the
+[release notes](../../../RELEASE_NOTES.md#0312); earlier batches retain their original validation scope.
+
+## Tactile-stage angle scheduling (0.3.12)
+
+This update builds on v0.3.11 and the pinned Python actor/transaction-runner behavior.
+Only explicit `RuntimeBehavior::kPython` enables the new stage scheduler. Existing
+public C++ APIs, enum values and Native defaults remain available. The minimum and
+paired transport remain v0.3.4. Rebuild the SDK and downstream consumers with matching
+headers and libraries. This is a behavior comparison, not complete cross-language equivalence.
+
+### Protocol boundaries
+
+| Model / protocol | Eligible boundary | Must remain uninterrupted |
+| --- | --- | --- |
+| L6 / O6 Classic | After a complete finger response, before the next finger request; four boundaries per acquisition | All rows of the current finger, including duplicate/conflict validation |
+| L20Lite / L20 Classic | The same complete-finger boundary; Python reads fingers sequentially and publishes only the complete hand | Current finger assembly and each multi-frame angle batch; Native retains its existing request pattern |
+| O30 HOP 0.0.4, explicit `O30Layout::kPythonV25` | After a complete sensor-selection echo, metadata read or sensor-data range, when a subsequent tactile stage exists | Every reply fragment covering the current HOP request; no insertion before the first request or after the final stage |
+| L30 | No new yield boundary: the pinned Python tactile transaction does not enable yielding | Existing tactile operation |
+| L6 HOP / O30 Mounted V36 | Not supported by the explicit Python policy; existing validation rejects these combinations | No new scheduling contract |
+
+An idle gap between frames is not a safe boundary. Missing rows, conflicting payloads
+and incomplete HOP ranges cannot trigger angle insertion or publish a partial hand.
+Classic L6/L20Lite/L20 require 12 rows of 6 values per finger; O6 requires 10 rows of 4.
+
+### Feedback, ordering and bounds
+
+| Angle polling policy | Behavior at an eligible boundary |
+| --- | --- |
+| `kQueryOnly` | Serve due queries; command feedback does not postpone the query deadline |
+| `kCommandFeedbackOnly` | Use verified actual-state command feedback; do not create a poll query or resend a target to obtain feedback |
+| `kAdaptive` | Reuse sufficiently fresh actual-state command feedback, otherwise serve the due query |
+
+Explicit angle getters remain active demand under every polling policy. Only feedback
+declared to contain measured state can satisfy polling; target echoes and successful
+physical sends are not measurements. O30 V25 declares its complete angle write response
+as actual state; the Mounted V36 declaration is unchanged.
+
+Each eligible boundary permits at most **four logical angle transactions**, including
+ordinary failed attempts. A multi-frame angle batch counts once and remains atomic.
+New arrivals and target replacement do not reset the count; the next boundary does.
+Pending commands retain the existing latest-target replacement and receipt semantics.
+
+An eligible command may run first when its actual-state feedback can satisfy pending
+or due polling demand under the selected policy. Otherwise, simultaneously ready
+commands and queries alternate, retaining the preference across boundaries. Queries
+join the existing ReadCoordinator and coalesce with active readers. Removing poll-only
+demand does not cancel those readers. A boundary may wait for an already-queued command
+due within the next stage's estimate; its wait horizon does not grow with new arrivals.
+
+The next-stage estimates are L6 11 ms, O6 2.4 ms, L20Lite/L20 4 ms and O30 3 ms.
+For a finite recovery execution deadline, insertion requires strictly more remaining
+time than that estimate; equality or insufficient time continues tactile work. The
+deadline is never restarted. Ordinary getter caller waits remain independent of the
+shared operation; each protocol stage retains its response window starting after
+physical dispatch. Estimates are admission checks, not worst-case timing guarantees.
+
+The four-transaction bound lets tactile work progress during continuous angle demand.
+The existing execution gate continues to arbitrate between complete operations so
+other reads and commands can progress. Stage work borrows the current device's logical
+execution lease, without recursively acquiring it. All sends use the existing Session
+writer; no additional send queue or physical writer is added. Waiting for replies does
+not hold the physical send lock. This does not establish a hard real-time latency bound.
+
+### Failure, lifecycle and device isolation
+
+An inner angle protocol error or response timeout completes that inner task with its
+own failure; tactile work can continue while the connection remains valid, matching
+the Python reference. A transport error, closure or invalid connection generation
+stops later stages and fails the outer operation. A failed acquisition never replaces
+the previous complete tactile evidence with partial data; closed/faulted retained
+snapshots still follow the existing unavailable-metadata contract.
+
+Missing or malformed optional command feedback does not rewrite a real physical
+`Dispatched` result as an unsent command. Logical success/latency accounting remains
+separate from dispatch and does not count an unsuccessful inner task as successful.
+Caller wait timeouts do not cancel shared work or duplicate completion statistics.
+
+Stopping polling removes poll intent while preserving coalesced active readers.
+Replacing a plan fences old-plan counters without discarding a successful underlying
+sample. Close stops later stage admission and releases waiters while retaining the
+real result of an already-claimed physical batch. Recovery/reopen invalidates old work,
+does not replay motion targets, and resumes scheduling only after initialization.
+
+Devices passed the same Session retain separate scheduling, cancellation, reply routes,
+caches and statistics. Closing one HandDevice does not close an externally supplied
+Session or cancel a peer's work. Physical Session recovery remains channel-wide and
+must follow the existing shared-generation contract; it is not promised to be invisible
+to peers. Separate SocketCAN interfaces are not automatically combined into one Session.
+Classic protocols without transaction identifiers retain same-opcode late-reply ambiguity.
+
+Offline coverage in [the scheduling regressions](../../../tests/hand/device/test_python_tactile_scheduling.cpp)
+exercises the applicable models, all policies, incomplete stages, insertion bounds,
+continuous demand, nested failures, timeouts, stop/replace, close/reopen, recovery,
+shared-Session isolation and Native controls. Recorded validation and hardware coverage
+are described in the [release notes](../../../RELEASE_NOTES.md#0312).
 
 ## Added native capabilities
 
@@ -72,8 +169,9 @@ Still required before replacing the accepted Python implementation:
 - Multi-device hand/arm integration demonstrating one shared channel Runtime
   and independent device lifecycles. The current change does not integrate SDKs.
 - Hardware acceptance on the deployed OS, adapter/driver, CAN backend, firmware
-  and channel topology. No new hardware validation is claimed here, including
-  persistence, calibration, torque-mode transitions and V25 device behavior.
+  and channel topology. The initial capability batches did not add hardware acceptance
+  for persistence, calibration or torque-mode transitions; the 0.3.12 scheduling
+  checks above do not establish those behaviors.
 
 V25 requires an explicit side. Default request IDs are right `0x001` and left `0x002`, matching Python; `address` explicitly overrides them. The native mounted default is unchanged.
 

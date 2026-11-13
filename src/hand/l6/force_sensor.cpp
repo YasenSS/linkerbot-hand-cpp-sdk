@@ -1,3 +1,4 @@
+#include "../unified/detail/runtime_access.hpp"
 #include <array>
 #include <linkerbot/hand/errors.hpp>
 #include <linkerbot/hand/l6/force_sensor_manager.hpp>
@@ -145,6 +146,9 @@ namespace linkerbot::hand::l6 {
         try {
             for (size_t i = 0; i < fingers.size(); ++i) {
                 token.throw_if_cancelled();
+                if (i != 0) {
+                    unified_detail::RuntimeAccess::stage_boundary(*core);
+                }
                 if (before_finger) {
                     before_finger(i, deadline);
                 }

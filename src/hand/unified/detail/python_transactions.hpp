@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <array>
 #include <linkerbot/hand/api/config.hpp>
+#include <linkerbot/hand/l20lite/protocol_backend.hpp>
+#include <linkerbot/hand/o6/protocol_backend.hpp>
 #include <linkerbot/hand/runtime/device_runtime.hpp>
 
 namespace linkerbot::hand::unified_detail {
@@ -55,6 +57,29 @@ namespace linkerbot::hand::unified_detail {
     // classic_management}.py and each model's tactile/identity transactions.
     inline protocol::TransactionPlan python_transaction(protocol::TransactionPlan plan,
                                                         const HandDeviceConfig &config) {
+        if (config.model == Model::kO6 && !plan.consume && plan.command_family == "angle" && plan.frames.size() == 1 &&
+            plan.frames.front().data[0] == 1 && plan.frames.front().dlc == 7) {
+            // The native O6 setter is dispatch-only. The explicit Python policy
+            // collects its declared current-state feedback, including interstage writes.
+            std::array<uint8_t, 6> raw{};
+            std::copy_n(plan.frames.front().data.begin() + 1, raw.size(), raw.begin());
+            plan.consume = o6::protocol::command_angle_feedback(plan.frames.front().id, raw).consume;
+            plan.optional_response_window = std::chrono::milliseconds{50};
+            plan.supersede_optional_feedback = true;
+        }
+        if (config.model == Model::kL20Lite && !plan.consume && plan.command_family == "angle" &&
+            plan.frames.size() == 2 && plan.frames.front().data[0] == 1 && plan.frames.front().dlc == 7) {
+            // Correlate both banks before returning to adaptive polling. An
+            // unsolicited observer alone can publish after the next poll was admitted.
+            auto decode = l20lite::protocol::read_angle(plan.frames.front().id).consume;
+            plan.consume = [decode = std::move(decode)](const can::Message &message) mutable {
+                auto progress = decode(message);
+                progress.origin = protocol::Origin::command_feedback;
+                return progress;
+            };
+            plan.optional_response_window = std::chrono::milliseconds{100};
+            plan.supersede_optional_feedback = true;
+        }
         if (!plan.consume) {
             return plan;
         }

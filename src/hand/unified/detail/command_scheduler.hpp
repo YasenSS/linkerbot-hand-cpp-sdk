@@ -35,6 +35,9 @@ namespace linkerbot::hand::unified_detail {
         // Production retains steady_clock and timed CV waits. This seam controls
         // queue expiry/throttling, not native protocol response clocks.
         void notify_clock_advanced();
+        // Called only while the backend owns the device lane at a safe boundary.
+        std::optional<Clock::time_point> pending_angle_at();
+        bool run_angle(const std::shared_ptr<void> &lane);
 
     private:
         struct ConstructorTag {};
@@ -67,6 +70,7 @@ namespace linkerbot::hand::unified_detail {
         size_t pending_size() const;
         void removed(Job &job, bool dropped);
         void run();
+        std::exception_ptr execute_active(std::unique_lock<std::mutex> &lock, Clock::time_point started);
         void watch_deadlines();
 
         const Clock::duration interval_;
