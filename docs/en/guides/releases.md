@@ -9,12 +9,12 @@ explicit Python runtime policy while retaining Native defaults and existing C++ 
 The [release notes](../../../RELEASE_NOTES.md#0312) describe compatibility, recorded
 validation, O6/L20/O30 hardware results and the untested shared-Session/fault timing scope.
 
-## Targets aligned with transport
+## Current workflow targets
 
-The Hand release workflow uses the transport v0.3.4 target matrix:
+The current Hand release workflow builds the following targets. Previously published assets remain unchanged:
 
 - Ubuntu 20.04, 22.04, 24.04 and 26.04, each with x86_64 and aarch64 (ARM64) Release TGZ SDKs: eight archives.
-- Windows x64 and ARM64, each with Debug `/MDd` and Release `/MD` MSVC v143 ZIP SDKs: four archives.
+- Windows x64 and ARM64, each with Release `/MD` MSVC v143 ZIP SDKs: two archives.
 
 Linux builds run in native architecture containers for each distribution, recording the image digest,
 using its default GCC, libstdc++ ABI1 and C++17. Windows builds use native runners and v143 14.44.
@@ -22,8 +22,8 @@ Container checks do not certify native kernels or hardware; ARM64 SDK validation
 availability of proprietary ARM64 drivers.
 
 Windows CI uses Ninja with the native MSVC v143 14.44 environment to compile up to
-four source files concurrently. CI opts into sccache and embeds Debug
-compiler symbols (`/Z7`) while retaining `/MDd` and linker debug information.
+four source files concurrently. CI opts into sccache. Debug ZIP packages are no longer
+built by the release workflow; local Debug builds remain supported.
 GitHub Actions caches compiler outputs and a shared, pinned Catch2 3.8.1 installation;
 transport and hand tests use the same installation. Caches are separated by target
 architecture, configuration and compiler/Windows SDK identity. Catch2 additionally
@@ -51,12 +51,12 @@ Examples use hand version `0.3.12`; compiler versions reflect the actual build:
 
 ```text
 linkerbot-hand-cpp-0.3.12-Linux-aarch64-ubuntu24.04-GNU13.3.0-libstdcxx-abi1-Release.tar.gz
-linkerbot-hand-cpp-0.3.12-Windows-ARM64-msvc143-19.44.35229.0-Debug-MDd.zip
+linkerbot-hand-cpp-0.3.12-Windows-ARM64-msvc143-19.44.35229.0-Release-MD.zip
 ```
 
 Each archive has an adjacent `.sha256` file. The complete set also contains `release-manifest.json`
-and `SHA256SUMS.txt`: 26 files in total. The manifest records both source SHAs, build identities,
-archive sizes and verified object counts. Collection requires all twelve distinct targets and checks
+and `SHA256SUMS.txt`: 22 files in total. The manifest records both source SHAs, build identities,
+archive sizes and verified object counts. Collection requires all ten distinct targets and checks
 filenames, metadata and every static-library object's actual machine type. Missing archives, checksum
 mismatches, wrong architectures/CRT settings and source identity mismatches fail collection.
 
@@ -66,8 +66,8 @@ and upload Actions artifacts. PR artifacts describe the tested merge commit.
 To attach the complete set to a GitHub Release, manually run **Release packages** on an existing
 matching `v<version>` tag, supply the full transport SHA and version, and enable `create_draft`.
 The exact tagged hand commit must already have a successful main-push or manually dispatched
-**C++ Report Card** run under the A+ gate. All twelve builds and collection must pass first.
-The optional job creates a new **draft** with all 26 files and downloads them to verify their bytes.
+**C++ Report Card** run under the A+ gate. All ten builds and collection must pass first.
+The optional job creates a new **draft** with all 22 files and downloads them to verify their bytes.
 It rejects branch dispatches, moved/mismatched tags and existing releases; it never replaces assets.
 Default runs only upload Actions artifacts. Publishing the draft remains a separate maintainer action.
 Refer to actual attachments on [Releases](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/releases)

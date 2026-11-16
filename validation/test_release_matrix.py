@@ -83,19 +83,19 @@ class ReleaseMatrixTests(unittest.TestCase):
     def collect(self):
         return collect(self.assets, self.targets_path, '0.3.0', 'a' * 40, 'b' * 40)
 
-    def test_exact_twelve_packages_produce_twenty_six_assets(self):
+    def test_exact_ten_packages_produce_twenty_two_assets(self):
         self.complete_set()
         result = self.collect()
-        self.assertEqual(len(result['packages']), 12)
-        self.assertEqual(len(list(self.assets.iterdir())), 26)
-        self.assertEqual(len((self.assets / 'SHA256SUMS.txt').read_text().splitlines()), 25)
+        self.assertEqual(len(result['packages']), 10)
+        self.assertEqual(len(list(self.assets.iterdir())), 22)
+        self.assertEqual(len((self.assets / 'SHA256SUMS.txt').read_text().splitlines()), 21)
         for row in result['packages']:
             self.assertEqual(row['verified_objects'], {'hand': 1, 'comm': 1})
 
     def test_transport_033_metadata_in_legacy_share_is_accepted(self):
         self.complete_set(transport_package='linkerbot-transport')
         result = self.collect()
-        self.assertEqual(len(result['packages']), 12)
+        self.assertEqual(len(result['packages']), 10)
         for row in result['packages']:
             self.assertEqual(row['transport']['package'], 'linkerbot-transport')
             self.assertEqual(row['transport']['version'], '0.3.4')
@@ -109,7 +109,7 @@ class ReleaseMatrixTests(unittest.TestCase):
     def test_missing_archive_is_rejected(self):
         self.complete_set()
         next(self.assets.glob('*.zip')).unlink()
-        with self.assertRaisesRegex(ValueError, 'exactly twelve'):
+        with self.assertRaisesRegex(ValueError, 'exactly 10'):
             self.collect()
 
     def test_renamed_archive_cannot_claim_another_target(self):
@@ -133,6 +133,13 @@ class ReleaseMatrixTests(unittest.TestCase):
         path = self.root / 'targets.json'
         path.write_text(json.dumps(self.targets))
         with self.assertRaisesRegex(ValueError, 'eight'):
+            load_targets(path)
+
+    def test_debug_windows_target_is_not_in_the_release_matrix(self):
+        self.targets['windows'].append(dict(self.targets['windows'][0], configuration='Debug', runtime='MDd'))
+        path = self.root / 'targets.json'
+        path.write_text(json.dumps(self.targets))
+        with self.assertRaisesRegex(ValueError, 'two Windows Release'):
             load_targets(path)
 
     def test_wrong_member_machine_is_rejected(self):

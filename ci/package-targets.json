@@ -53,20 +53,8 @@
   "windows": [
     {
       "arch": "x64",
-      "configuration": "Debug",
-      "runtime": "MDd",
-      "toolset": "143"
-    },
-    {
-      "arch": "x64",
       "configuration": "Release",
       "runtime": "MD",
-      "toolset": "143"
-    },
-    {
-      "arch": "ARM64",
-      "configuration": "Debug",
-      "runtime": "MDd",
       "toolset": "143"
     },
     {

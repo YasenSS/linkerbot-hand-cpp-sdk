@@ -7,20 +7,20 @@
 0.3.12 在显式 Python 运行时策略下增加触觉安全阶段边界的角度调度，保留 Native 默认行为及现有 C++ API。
 [发行说明](../../../RELEASE_NOTES.md#0312)记录兼容性、验证结果、O6/L20/O30 实机证据及共享 Session、故障时序等未测范围。
 
-## 与 transport 对齐的目标
+## 当前工作流目标
 
-Hand 发布工作流使用与 transport v0.3.4 相同的目标矩阵：
+当前 Hand 发布工作流构建以下目标；已发布的历史附件保持不变：
 
 - Ubuntu 20.04、22.04、24.04、26.04，各有 x86_64 和 aarch64（ARM64）的 Release TGZ，共八份。
-- Windows x64、ARM64，各有 Debug `/MDd` 和 Release `/MD` 的 MSVC v143 ZIP，共四份。
+- Windows x64、ARM64，各有 Release `/MD` 的 MSVC v143 ZIP，共两份。
 
 Linux 在对应发行版的原生架构容器内构建，并记录镜像 digest；使用发行版默认 GCC、
 libstdc++ ABI1 和 C++17。Windows 使用原生架构 runner 与 v143 14.44 工具集。
 容器验证不代表原生内核或硬件验收；ARM64 SDK 通过不代表厂商提供了 ARM64 驱动。
 
 Windows CI 使用 Ninja 和原生 MSVC v143 14.44 环境，最多并行编译四个源文件。
-CI 显式启用 sccache，并将 Debug 编译调试信息嵌入对象文件（`/Z7`），
-保留 `/MDd` 和链接调试信息。GitHub Actions 缓存编译结果，以及固定为 Catch2 3.8.1 的
+CI 显式启用 sccache；发布工作流不再构建 Debug ZIP，本地仍支持 Debug 构建。
+GitHub Actions 缓存编译结果，以及固定为 Catch2 3.8.1 的
 公共安装目录，供 transport 和 hand 测试共同使用。缓存按目标架构、构建配置和
 编译器/Windows SDK 身份隔离；Catch2 还区分 CMake 版本和准备脚本。
 缓存未命中时正常构建；缓存复用不跳过测试、打包审计或源码/架构检查。
@@ -42,12 +42,12 @@ transport 归档名现以 `linkerbot-transport-` 开头；Hand 继续使用受�
 
 ```text
 linkerbot-hand-cpp-0.3.12-Linux-aarch64-ubuntu24.04-GNU13.3.0-libstdcxx-abi1-Release.tar.gz
-linkerbot-hand-cpp-0.3.12-Windows-ARM64-msvc143-19.44.35229.0-Debug-MDd.zip
+linkerbot-hand-cpp-0.3.12-Windows-ARM64-msvc143-19.44.35229.0-Release-MD.zip
 ```
 
 每份归档旁有 `.sha256`；完整集合另有 `release-manifest.json` 和 `SHA256SUMS.txt`，
-共 26 个文件。清单记录 hand/transport 源码 SHA、构建身份、文件大小与对象检查数量。
-收集步骤要求十二个目标完整且不重复，核对文件名、元数据和每个静态库对象的实际架构，
+共 22 个文件。清单记录 hand/transport 源码 SHA、构建身份、文件大小与对象检查数量。
+收集步骤要求十个目标完整且不重复，核对文件名、元数据和每个静态库对象的实际架构，
 拒绝缺包、校验不符、跨架构对象、错误 CRT 和不同源码来源。
 
 构建/发布文件的 PR 变更、版本标签或手动 dispatch 会触发验证并上传 Actions 附件。
@@ -56,7 +56,7 @@ PR 产物记录测试用合并提交。
 如需将完整集合附加到 GitHub Release，在已有且匹配的 `v<version>` 标签上手动运行
 **Release packages**，填写完整 transport SHA 和版本，并启用 `create_draft`。
 标签对应的 hand 提交须已有通过 A+ 门禁的主分支推送或手动触发的 **C++ Report Card** 运行。
-十二个平台构建及集合校验全部通过后，可选任务才会创建含 26 个文件的 **Release 草稿**，
+十个平台构建及集合校验全部通过后，可选任务才会创建含 22 个文件的 **Release 草稿**，
 并下载核对上传字节。分支触发、移动或不匹配的标签、已有 Release 均被拒绝，不覆盖附件。
 默认运行只上传 Actions 附件；正式发布草稿由维护者另行操作。
 下载可用性以 [Releases](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/releases) 的实际附件为准。

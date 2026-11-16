@@ -244,7 +244,7 @@ jobs:
             ${{ runner.temp }}/release/packages/hand/*.sha256
 
   collect:
-    name: Verify complete twelve-package release set
+    name: Verify complete ten-package release set
     needs: [targets, linux, windows]
     runs-on: ubuntu-24.04
     steps:
@@ -264,9 +264,9 @@ jobs:
         run: |
           python3 validation/release_matrix.py release-assets \
             --version "$VERSION" --hand-sha "$HAND_SHA" --comm-sha "$COMM_SHA"
-          cd release-assets
-          sha256sum --check SHA256SUMS.txt
-          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 26
+          (cd release-assets && sha256sum --check SHA256SUMS.txt)
+          expected=$(python3 -c 'import sys; sys.path.insert(0,"validation"); from release_matrix import load_targets; t=load_targets("ci/package-targets.json"); print(2*(len(t["linux"])+len(t["windows"]))+2)')
+          test "$(find release-assets -maxdepth 1 -type f | wc -l)" -eq "$expected"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-assets
