@@ -2,6 +2,11 @@
 
 [English](../../en/guides/releases.md) · [文档索引](../README.md)
 
+## 0.3.12 阶段调度更新
+
+0.3.12 在显式 Python 运行时策略下增加触觉安全阶段边界的角度调度，保留 Native 默认行为及现有 C++ API。
+[发行说明](../../../RELEASE_NOTES.md#0312)记录兼容性、验证结果、O6/L20/O30 实机证据及共享 Session、故障时序等未测范围。
+
 ## 与 transport 对齐的目标
 
 Hand 发布工作流使用与 transport v0.3.4 相同的目标矩阵：
@@ -15,21 +20,21 @@ libstdc++ ABI1 和 C++17。Windows 使用原生架构 runner 与 v143 14.44 工�
 
 产物是开发 SDK，Hand 包包含 hand 与配套 transport 静态库、头文件、CMake 包和文档，
 保留只读命令行示例；不包含测试程序、厂商驱动或厂商库。
-两个项目版本独立。hand 0.3.11 的源码、预构建及安装消费者均要求 transport 0.3.x 且不低于 0.3.4。
+两个项目版本独立。hand 0.3.12 的源码、预构建及安装消费者均要求 transport 0.3.x 且不低于 0.3.4。
 
 
 配套源码固定提交和预构建下载统一使用 v0.3.4 发行版。transport 公共结构有新增字段，
-须使用匹配的头文件和库重新编译 hand 及下游应用。本次更新不计为新增实机验收。
+须使用匹配的头文件和库重新编译 hand 及下游应用。依赖配对本身不计为新增实机验收；0.3.12 阶段调度测试仅覆盖上文链接中记录的范围。
 transport 归档名现以 `linkerbot-transport-` 开头；Hand 继续使用受支持的
 `linkerbot-comm` CMake 包及 CAN 目标别名。
 
 ## 命名与校验
 
-以下示例中的 hand 版本为 `0.3.0`，编译器版本以实际构建结果为准：
+以下示例中的 hand 版本为 `0.3.12`，编译器版本以实际构建结果为准：
 
 ```text
-linkerbot-hand-cpp-0.3.0-Linux-aarch64-ubuntu24.04-GNU13.3.0-libstdcxx-abi1-Release.tar.gz
-linkerbot-hand-cpp-0.3.0-Windows-ARM64-msvc143-19.44.35229.0-Debug-MDd.zip
+linkerbot-hand-cpp-0.3.12-Linux-aarch64-ubuntu24.04-GNU13.3.0-libstdcxx-abi1-Release.tar.gz
+linkerbot-hand-cpp-0.3.12-Windows-ARM64-msvc143-19.44.35229.0-Debug-MDd.zip
 ```
 
 每份归档旁有 `.sha256`；完整集合另有 `release-manifest.json` 和 `SHA256SUMS.txt`，

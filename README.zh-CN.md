@@ -34,8 +34,8 @@ L6 默认使用 Classic CAN；支持 CAN FD 的设备可显式选择[可选 HOP 
 
 ### 1. 获取并构建
 
-两个仓库放在同一级目录。transport 使用与当前 CI 一致的提交；两库须配套使用
-`0.3.x`，transport 版本不得低于 hand 版本。
+两个仓库放在同一级目录。transport 使用与当前 CI 一致的提交；两库版本独立，
+hand 0.3.12 要求 transport `0.3.x` 且不低于 0.3.4。
 
 ```bash
 mkdir sdk-build && cd sdk-build
@@ -56,7 +56,7 @@ cmake --install build --prefix "$PWD/install"
 这会将 SDK 和配套通信库安装到当前目录的 `install/`，不需要 Catch2 或厂商开发包。
 后续命令均从 `linkerbot-hand-cpp` 源码根目录执行。
 
-hand SDK 0.3.4 的源码、预构建及安装消费者均要求 transport 0.3.x 且不低于 0.3.4。
+hand SDK 0.3.12 的源码、预构建及安装消费者均要求 transport 0.3.x 且不低于 0.3.4。
 
 也可直接使用 transport v0.3.4 的预构建 SDK，省去 transport 编译；
 使用 `cmake --preset prebuilt -DLINKERBOT_COMM_PREBUILT_PREFIX=/absolute/path/to/comm-sdk`。

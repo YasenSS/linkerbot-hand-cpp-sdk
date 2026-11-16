@@ -33,8 +33,9 @@ namespace linkerbot::hand::unified_detail {
         }
 
     }
-    PythonState::PythonState(const HandDeviceConfig &config)
-        : config_(config), base_capabilities_(declared_capabilities(config)) {
+    PythonState::PythonState(const HandDeviceConfig &config, Now now)
+        : now_(now ? std::move(now) : Now{runtime::Clock::now}), config_(config),
+          base_capabilities_(declared_capabilities(config)) {
         const auto caps = declared_capabilities(config);
         for (const auto &channel : caps.telemetry) {
             domains_.emplace(domain(channel.semantic), channel.semantic);
@@ -127,6 +128,13 @@ namespace linkerbot::hand::unified_detail {
         if (found == domains_.end() && !identity) {
             return;
         }
+        if (found != domains_.end() && found->second == S::kAngles &&
+            sample.origin == protocol::Origin::command_feedback) {
+            const auto *command = base_capabilities_.command(CommandSemantic::kAngles);
+            if (!command || !command->returns_current_state) {
+                return; // A target echo is not a measurement or sampling evidence.
+            }
+        }
         // Keep only complete, declared channels. Partial assembler domains and
         // externally published names cannot grow the retained view.
         current_.samples[name] = sample;
@@ -153,7 +161,7 @@ namespace linkerbot::hand::unified_detail {
                     ++state.commands;
                     if (state.channel.angle_feedback != AngleFeedbackPolicy::kQueryOnly) {
                         ++state.feedback;
-                        state.next = std::max(state.next, runtime::Clock::now() + state.channel.interval);
+                        state.next = std::max(state.next, now_() + state.channel.interval);
                     }
                 }
             }
@@ -237,11 +245,18 @@ namespace linkerbot::hand::unified_detail {
         }
         visible_locked(false);
     }
-    void PythonState::read_succeeded(S semantic, bool polling) {
+    uint64_t PythonState::poll_revision() const {
+        const std::lock_guard<std::mutex> lock(mutex_);
+        return plan_sequence_;
+    }
+    void PythonState::read_succeeded(S semantic, bool polling, std::optional<uint64_t> revision) {
         const std::lock_guard<std::mutex> lock(mutex_);
         if (optional(semantic)) {
             failures_.erase(semantic);
             verified_.insert(semantic);
+        }
+        if (revision && *revision != plan_sequence_) {
+            return; // Completion from an earlier plan cannot enter the new window.
         }
         if (auto poll = polls_.find(semantic); poll != polls_.end()) {
             ++poll->second.reads;
@@ -249,15 +264,15 @@ namespace linkerbot::hand::unified_detail {
                   poll->second.channel.angle_feedback == AngleFeedbackPolicy::kCommandFeedbackOnly)) {
                 ++poll->second.feedback;
                 if (!polling) {
-                    poll->second.next =
-                        std::max(poll->second.next, runtime::Clock::now() + poll->second.channel.interval);
+                    poll->second.next = std::max(poll->second.next, now_() + poll->second.channel.interval);
                 }
             }
         }
     }
-    void PythonState::read_failed(S semantic, bool sent, const HandError &error, bool polling) {
+    void PythonState::read_failed(S semantic, bool sent, const HandError &error, bool polling,
+                                  std::optional<uint64_t> revision) {
         const std::lock_guard<std::mutex> lock(mutex_);
-        if (polling) {
+        if (polling && (!revision || *revision == plan_sequence_)) {
             if (auto poll = polls_.find(semantic); poll != polls_.end()) {
                 ++poll->second.timeouts;
             }
@@ -309,7 +324,7 @@ namespace linkerbot::hand::unified_detail {
         }
         auto retained = plan;
         std::map<S, Poll> next;
-        const auto now = runtime::Clock::now();
+        const auto now = now_();
         for (const auto &channel : resolved.queries) {
             next.emplace(channel.semantic,
                          Poll{channel,
@@ -343,12 +358,20 @@ namespace linkerbot::hand::unified_detail {
         }
         return result;
     }
-    std::optional<PythonState::PollTicket> PythonState::take_poll() {
+    bool PythonState::angle_command_fulfills_due(bool pending_poll) const {
         const std::lock_guard<std::mutex> lock(mutex_);
-        const auto now = runtime::Clock::now();
+        const auto found = polls_.find(S::kAngles);
+        const auto *command = base_capabilities_.command(CommandSemantic::kAngles);
+        return command && command->returns_current_state && !stopped_ && found != polls_.end() &&
+               found->second.enabled && found->second.channel.angle_feedback != AngleFeedbackPolicy::kQueryOnly &&
+               (pending_poll || found->second.next <= now_());
+    }
+    std::optional<PythonState::PollTicket> PythonState::take_poll(std::optional<S> only) {
+        const std::lock_guard<std::mutex> lock(mutex_);
+        const auto now = now_();
         auto selected = polls_.end();
         for (auto it = polls_.begin(); it != polls_.end(); ++it) {
-            if (it->second.enabled && it->second.next <= now &&
+            if ((!only || it->first == *only) && it->second.enabled && it->second.next <= now &&
                 (selected == polls_.end() || it->second.next < selected->second.next)) {
                 selected = it;
             }
@@ -373,7 +396,7 @@ namespace linkerbot::hand::unified_detail {
     }
     void PythonState::project_health(HandHealth &health) const {
         const std::lock_guard<std::mutex> lock(mutex_);
-        const auto now = runtime::Clock::now();
+        const auto now = now_();
         const auto caps = capabilities_locked(base_capabilities_);
         health.channels.clear();
         health.force_fields.clear();
@@ -450,14 +473,14 @@ namespace linkerbot::hand::unified_detail {
                 sample->meta = found->second;
                 sample->meta.origin = origin;
                 sample->meta.within_declared_range = range;
-                complete_freshness(sample->meta, caps.telemetry_channel(semantic), runtime::Clock::now());
+                complete_freshness(sample->meta, caps.telemetry_channel(semantic), now_());
             }
         });
         if (const auto identity = view.samples.find("python/identity"); identity != view.samples.end()) {
             snapshot.device_info = std::any_cast<DeviceIdentity>(identity->second.value);
             // Identity owns its logical sequence, independently of native queries.
             snapshot.device_info->meta.connection_generation = identity->second.device_generation;
-            complete_freshness(snapshot.device_info->meta, nullptr, runtime::Clock::now());
+            complete_freshness(snapshot.device_info->meta, nullptr, now_());
         }
         std::vector<std::pair<S, runtime::Sample>> scalars;
         for (const auto semantic : {S::kForceFns, S::kForceFts, S::kForceFds, S::kForcePx}) {
@@ -509,7 +532,7 @@ namespace linkerbot::hand::unified_detail {
                 }
             }
             complete_force_meta(*snapshot.force, snapshot.force->meta.connection_generation, caps);
-            complete_freshness(snapshot.force->meta, caps.telemetry_channel(S::kForce), runtime::Clock::now());
+            complete_freshness(snapshot.force->meta, caps.telemetry_channel(S::kForce), now_());
         }
     }
 }
