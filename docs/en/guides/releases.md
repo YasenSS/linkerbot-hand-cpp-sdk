@@ -52,6 +52,28 @@ acceptance; the 0.3.12 scheduling evidence has the limited scope linked above.
 Transport archives now use the `linkerbot-transport-` prefix.
 Hand continues to consume the supported `linkerbot-comm` CMake package and CAN target aliases.
 
+## Verify cache benefits
+
+Re-run a completed Release job on the same source and PR to compare a cold cache
+with a restored cache. Check the cache-restoration logs, Catch2 preparation time,
+compiler hit/miss counts and per-step durations in the diagnostic artifacts.
+Keep the full tests and package checks enabled. Compare job execution time
+separately from runner queue time; a new PR may have a different cache scope.
+Changes to the toolchain or cache preparation scripts can intentionally cause a cold run.
+
+For source commit `c7ba44a`, [Release packages run 43827841694](https://github.com/YasenSS/linkerbot-hand-cpp-sdk/actions/runs/43827841694)
+recorded the following native Windows Release comparisons:
+
+| Architecture | Cold job | Warm job | Compiler cache hits | Warm cache errors |
+| --- | --- | --- | --- | --- |
+| x64 | 19 min 34 s | 5 min 49 s | 771 / 793 (97.23%) | 0 |
+| ARM64 | 18 min 50 s | 7 min 29 s | 771 / 793 (97.23%) | 0 |
+
+Both warm jobs reused the installed Catch2 and passed the complete acceptance.
+These are same-source, same-PR measurements on hosted runners, not guaranteed timings
+for changed sources or other runner/toolchain versions. Linux workflow timings must be
+measured independently; the Windows comparison does not establish Linux speedups.
+
 ## Names and checksums
 
 Examples use hand version `0.3.12`; compiler versions reflect the actual build:
