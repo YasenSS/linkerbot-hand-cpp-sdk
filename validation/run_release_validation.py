@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 from build_support import add_build_arguments, cmake_options, validation_options
@@ -62,12 +63,16 @@ def save():
 
 def run(name, command, cwd=None):
     print(f'[{args.config}/{args.suite}] {name}', flush=True)
+    started = time.monotonic()
     logfile = evidence / (name + '.log')
     with logfile.open('w', encoding='utf-8') as output:
         output.write(json.dumps([str(x) for x in command], ensure_ascii=False) + '\n')
         output.flush()
         process = subprocess.run([str(x) for x in command], cwd=cwd, stdout=output, stderr=subprocess.STDOUT)
-    report['steps'].append({'step': name, 'exit': process.returncode, 'log': logfile.name})
+    elapsed = round(time.monotonic() - started, 3)
+    report['steps'].append({'step': name, 'exit': process.returncode, 'log': logfile.name,
+                            'seconds': elapsed})
+    print(f'[{args.config}/{args.suite}] {name}: {elapsed:.3f}s', flush=True)
     save()
     if process.returncode:
         print(logfile.read_text(encoding='utf-8', errors='replace')[-12000:])

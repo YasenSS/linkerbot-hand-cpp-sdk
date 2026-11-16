@@ -21,6 +21,17 @@ using its default GCC, libstdc++ ABI1 and C++17. Windows builds use native runne
 Container checks do not certify native kernels or hardware; ARM64 SDK validation does not establish
 availability of proprietary ARM64 drivers.
 
+Windows CI uses Ninja with the native MSVC v143 14.44 environment to compile up to
+four source files concurrently. CI opts into sccache and embeds Debug
+compiler symbols (`/Z7`) while retaining `/MDd` and linker debug information.
+GitHub Actions caches compiler outputs and a shared, pinned Catch2 3.8.1 installation;
+transport and hand tests use the same installation. Caches are separated by target
+architecture, configuration and compiler/Windows SDK identity. Catch2 additionally
+keys on CMake and preparation scripts. Cold caches build normally; cache reuse does
+not skip tests, package audits or source/architecture checks. Diagnostic artifacts
+include compiler cache statistics and per-step validation durations. No additional
+repository secrets or external cache service are required.
+
 Hand SDK packages contain both hand and paired transport static libraries, headers, CMake packages,
 documentation and read-only command-line examples. Test executables and proprietary drivers/libraries
 are excluded. Versions remain independent. Hand 0.3.12 requires transport 0.3.4 or newer in
