@@ -1,5 +1,83 @@
 # Release notes
 
+## 0.3.12
+
+This patch extends the explicit Python runtime policy with angle scheduling at safe
+tactile-stage boundaries and removes full health-report construction from unified
+telemetry read completion. It builds on v0.3.11.
+
+### Behavior and compatibility
+
+- Under explicit `RuntimeBehavior::kPython`, service angle commands and queries between complete tactile protocol stages. Classic L6/O6/L20Lite/L20 yield between complete fingers; O30 HOP 0.0.4 with explicit V25 yields between complete sensor transactions. Never insert into incomplete rows, reply fragments or a multi-frame angle batch. L30 retains its no-yield behavior; L6 HOP and O30 Mounted V36 remain unsupported by this policy.
+- Apply query-only, command-feedback-only and adaptive polling rules to the inserted work. Preserve active reads, read coalescing, latest-target replacement, actual-state feedback validation and plan-specific counters.
+- Limit each boundary to four logical angle transactions. Alternate ready commands and queries except when eligible command feedback can satisfy polling demand. Preserve a fixed wait horizon, finite recovery deadlines and each stage's response window. The bound and existing operation arbitration provide progress under continuous demand, not hard real-time guarantees.
+- Keep inner protocol/response failures local while the connection remains valid. Transport failure, close or invalid connection generation aborts later stages. Preserve complete cached evidence, real dispatch results, bounded shutdown, old-work isolation and no motion replay after recovery. Add nested lifecycle and shared-Session isolation regressions.
+- After unified telemetry reads, obtain the runtime connection generation without constructing a full health report. Explicit `get_health()` still computes the complete diagnostic report; statistics collection and generation handling remain in place. This optimization also applies to the existing Native read path.
+
+Public C++ APIs, enum values and Native scheduling/defaults remain compatible. All
+physical sends use the existing Session writer; no send queue is added. O20, Python
+bindings, automatic reconnect and hand/arm integration are outside this update.
+The minimum and paired transport remain v0.3.4
+(`0e190032d65ed0b315337b45b3779cf4f650ed68`). Rebuild the SDK and consumers with matching
+headers and libraries. Details are in the [Python behavior baseline](docs/en/guides/python-behavior-baseline.md#tactile-stage-angle-scheduling-0312).
+
+### Recorded local validation
+
+| Evidence | Recorded result / revision scope |
+| --- | --- |
+| Tactile-stage regressions | 24 cases, 453 assertions passed on the source later committed as `05bc5b0`; covers the applicable models, all policies, bounds, fairness, failures, lifecycle and shared-Session isolation |
+| Regression after the generation-read optimization | Release CTest 20/20 and Debug ASan+UBSan 10/10 passed on `05bc5b0` plus the patch now committed as `74aeceb` |
+| macOS arm64 / AppleClang 21 / C++17 release validation | SOURCE/PREBUILT, installed/extracted consumers, public headers, documentation examples and ZIP audits passed before the performance patch; this is not final release-matrix evidence |
+| O6 performance diagnosis | Before/after 10-second tight-loop reads: unified Native 965.03 to 1512.64 Hz; explicit Python 909.42 to 1448.92 Hz. These are diagnosis points, not sustained frequency limits |
+
+These records describe the tested implementation revisions and local configurations.
+They do not certify other platforms or the final release artifacts. The
+[release guide](docs/en/guides/releases.md) describes the Report Card and twelve-target
+package gates; CI and artifact verification provide release-level evidence.
+
+### Hardware scope, 2026-11-12 to 2026-11-13
+
+All three devices were tested separately on Ubuntu 24.04 x86_64, Linux SocketCAN,
+Release builds and transport v0.3.4. Control commands repeated the initial measured
+pose; no movement trajectory or mechanical tracking accuracy was tested.
+
+| Device | Identity and connection | Tactile sample | Saturation result |
+| --- | --- | --- | --- |
+| O6 left | ID `0x28`; firmware V1.3.2, hardware V0.0.3; PCAN USB / `pcan_usb`, Classic 1 Mbps | Five 10×4 matrices, 200 bytes | 300.02 s, 12,349 complete acquisitions, maximum four inserted angle transactions per boundary |
+| L20 right | ID `0x27`; firmware V3.0.6, hardware V4.0.1; PCAN USB / `pcan_usb`, Classic 1 Mbps | Five 12×6 matrices, 360 bytes | 300.057 s, 2,126 complete acquisitions, maximum four inserted transactions; each angle batch contains five frames |
+| O30 right, V25 in all modes | Request/reply `0x001` / `0x401`; firmware 1.1.0, hardware V0.9.0, HOP 0.0.4; `gs_usb`, FD 1/5 Mbps without BRS | Five TSSP_JZG sensors, each 72 bytes with a 10×7 tactile matrix | 300.141 s, 733 complete acquisitions, maximum four inserted angle transactions per boundary |
+
+Each device also passed query-only, command-feedback-only and adaptive groups of
+30 seconds each, plus a 30-second Native control. Each of those groups completed
+300 tactile acquisitions. Command-feedback-only generated no independent angle
+queries; adaptive resumed queries after commands stopped. Native inserted no angle
+sends within a tactile acquisition. Python framing/completion checks, tactile
+integrity and continuing progress passed, with zero recorded API errors, protocol
+violations or capture drops. Native retains dispatch semantics; Python's single
+outstanding angle-response rule was not imposed on it.
+
+**The five O30 scheduling hardware groups passed.** The tested path reads each
+72-byte sensor payload through separate range requests; every observed HOP request
+received one reply frame. Separate offline regressions cover multi-reply reassembly,
+including a 72-byte object returned as 61+11 bytes, out-of-order fragments and
+conflicting duplicates. Multi-reply reassembly coverage is offline; the physical
+firmware exercised single-frame replies for each individual range request.
+
+O6 used clean `05bc5b07bce9cebd937c9f791b6e6c3ec2f305f2`. L20/O30 used that commit
+plus the generation-read patch, SHA256
+`dfdd98b1384e0a3ad762ce717b5f5941f1f8a7ecf18e65f79df545f414fa51b4`.
+The patch has been checked byte-for-byte against the `05bc5b0..74aeceb` diff, so those
+two runs exercised the implementation now committed as `74aeceb`. They were not new
+runs of a release tag or PR merge commit. Detailed reports, programs and raw evidence
+remain in the development workspace's separate `benchmark/` archive (`results/`,
+`l20-stage/` and `o30-stage/`); this repository contains the scope summary, not the captures.
+
+Hardware validation limits:
+
+- No new L6/L20Lite scheduling hardware acceptance; L6 identity discovery alone is not scheduling acceptance.
+- No physical shared-Session multi-device acceptance, multi-device sustained run, close/recovery or injected malformed/missing/late-response timing tests. The current two-hand setup uses separate CAN interfaces. Offline regressions do not substitute for these hardware cases.
+- Host receive timestamps are not hardware timestamps. These scheduling runs establish neither frequency maxima, dynamic motion accuracy, other firmware/driver combinations nor Windows hardware behavior. Active raw SocketCAN benchmarking was excluded; observation was passive.
+
 ## 0.3.11
 
 - Under the explicit Python runtime policy, L20 speed, current-limit and fault-clear writes end at physical dispatch without retaining Native optional reply decoders or read-key reservations. Subsequent reads do not wait for an unused reply window.

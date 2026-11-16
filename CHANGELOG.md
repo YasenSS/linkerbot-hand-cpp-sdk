@@ -2,6 +2,14 @@
 
 [English](CHANGELOG.md) | [简体中文](CHANGELOG.zh-CN.md)
 
+## 0.3.12
+
+- Schedule angle commands and queries at complete tactile-stage boundaries under explicit `RuntimeBehavior::kPython`, covering Classic L6/O6/L20Lite/L20 and O30 HOP V25. L30 retains its existing no-yield behavior.
+- Align query-only, command-feedback-only and adaptive sampling; preserve active-reader coalescing and pending-target replacement. Limit each boundary to four logical angle transactions, alternate ready work and retain finite execution deadlines.
+- Add regressions for incomplete stages, continuous load, nested failures, timeouts, polling changes, close/reopen, recovery and shared-Session isolation. Preserve public C++ APIs, Native defaults, the existing sender and transport v0.3.4 minimum; exclude O20 and hand/arm integration.
+- Read the runtime connection generation directly after unified telemetry reads, avoiding full diagnostic-report construction while preserving explicit health reports.
+- Record revision-specific O6, L20 and O30 scheduling hardware results and untested topologies/fault timing. See [release notes](RELEASE_NOTES.md#0312).
+
 ## 0.3.11
 
 - Release L20 dispatch-only write reply reservations under the explicit Python policy.

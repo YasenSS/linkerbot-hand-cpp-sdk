@@ -1,4 +1,5 @@
 #include "linkerbot/hand/l20/force_sensor.hpp"
+#include "../unified/detail/runtime_access.hpp"
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -114,15 +115,27 @@ namespace linkerbot::hand::l20 {
         channel_.stop(true);
     }
 
-    // One transaction, one absolute deadline, transaction-local 5-finger
-    // assembler (see protocol::read_force_sensor_all): the aggregate is
-    // published only when all 5 fingers' 12 rows arrive intact, so a
-    // partial/timed-out batch never overwrites the last complete snapshot
-    // and there is only ever one Request in flight (nothing to cancel on
-    // partial failure by construction).
+    // Native retains the aggregate transaction. Python response-window scopes
+    // read complete fingers sequentially and yield only between them. In both
+    // cases publish the aggregate only after every finger has succeeded.
     AllFingersData ForceSensorManager::get_blocking(std::chrono::milliseconds timeout_ms) {
         if (timeout_ms.count() <= 0) {
             throw ValidationError("timeout_ms must be positive");
+        }
+        if (unified_detail::RuntimeAccess::uses_response_windows(*runtime_)) {
+            const auto call = channel_.enter();
+            const auto deadline = runtime::deadline_after(timeout_ms);
+            auto operation = runtime_->operation("python.tactile.batch", deadline);
+            std::array<ForceSensorData, 5> values{};
+            for (size_t index = 0; index < kFingerNames.size(); ++index) {
+                if (index != 0) {
+                    unified_detail::RuntimeAccess::stage_boundary(*runtime_);
+                }
+                values[index] = fingers_.at(kFingerNames[index])->get_blocking(runtime::remaining(deadline));
+            }
+            AllFingersData data{values[0], values[1], values[2], values[3], values[4]};
+            return detail::Channel<AllFingersData>::project(
+                runtime_->publish("force_sensor_all", std::move(data), runtime_->response_provenance()));
         }
         return channel_.get(protocol_.make_read("force_sensor_all"), runtime::deadline_after(timeout_ms));
     }

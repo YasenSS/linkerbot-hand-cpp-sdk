@@ -19,7 +19,8 @@ namespace linkerbot::hand::unified_detail {
             std::map<TelemetrySemantic, SampleMeta> metadata;
             uint64_t sequence = 0;
         };
-        explicit PythonState(const HandDeviceConfig &config);
+        using Now = std::function<runtime::Deadline()>;
+        explicit PythonState(const HandDeviceConfig &config, Now now = {});
         void set_health(const std::shared_ptr<PythonHealthMetrics> &metrics);
         void configure(const DeviceCapabilities &capabilities);
         PythonHealthMetrics &health_metrics() const { return *health_; }
@@ -34,8 +35,10 @@ namespace linkerbot::hand::unified_detail {
         void initialized();
         DeviceCapabilities capabilities(DeviceCapabilities value) const;
         bool disabled(TelemetrySemantic semantic) const;
-        void read_succeeded(TelemetrySemantic semantic, bool polling);
-        void read_failed(TelemetrySemantic semantic, bool sent, const HandError &error, bool polling);
+        uint64_t poll_revision() const;
+        void read_succeeded(TelemetrySemantic semantic, bool polling, std::optional<uint64_t> revision = {});
+        void read_failed(TelemetrySemantic semantic, bool sent, const HandError &error, bool polling,
+                         std::optional<uint64_t> revision = {});
         bool replace(const PollingPlan &plan);
         void stop_polling();
         std::optional<runtime::Deadline> next_poll() const;
@@ -44,7 +47,8 @@ namespace linkerbot::hand::unified_detail {
             uint64_t feedback;
             uint64_t plan;
         };
-        std::optional<PollTicket> take_poll();
+        std::optional<PollTicket> take_poll(std::optional<TelemetrySemantic> only = {});
+        bool angle_command_fulfills_due(bool pending_poll = false) const;
         bool poll_needed(const PollTicket &ticket) const;
         void project_health(HandHealth &health) const;
         std::string domain(TelemetrySemantic semantic) const;
@@ -66,6 +70,7 @@ namespace linkerbot::hand::unified_detail {
         void disable_locked(TelemetrySemantic semantic);
         void visible_locked(bool command_feedback);
         DeviceCapabilities capabilities_locked(DeviceCapabilities value) const;
+        const Now now_;
         HandDeviceConfig config_;
         DeviceCapabilities base_capabilities_;
         std::map<std::string, TelemetrySemantic> domains_;

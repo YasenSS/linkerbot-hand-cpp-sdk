@@ -38,7 +38,7 @@ The validated Linux baseline is Ubuntu 24.04 / GCC 13.
 ### 1. Get and build the SDK
 
 Keep both repositories in the same parent directory. The transport revision below matches CI.
-Use paired `0.3.x` versions; the transport version must be at least the hand SDK version.
+The SDK versions are independent: hand 0.3.12 requires transport `0.3.x` at version 0.3.4 or newer.
 
 ```bash
 mkdir sdk-build && cd sdk-build
@@ -60,7 +60,7 @@ This installs the SDK and communication library into the local `install/` direct
 Catch2 and vendor development packages are not required. Run the remaining commands from
 this repository's root directory.
 
-Hand SDK 0.3.11 requires transport 0.3.4 or newer in the 0.3 minor line,
+Hand SDK 0.3.12 requires transport 0.3.4 or newer in the 0.3 minor line,
 for source builds, prebuilt packages and installed consumers.
 
 To reuse a prebuilt transport v0.3.4 SDK, configure with

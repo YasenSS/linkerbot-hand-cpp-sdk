@@ -320,7 +320,7 @@ namespace linkerbot::hand::unified_detail {
         while (!stop_) {
             auto now = now_();
             expire(now);
-            if (!pending_size()) {
+            if (active_ || !pending_size()) {
                 changed_.wait(lock);
                 continue;
             }
@@ -391,50 +391,87 @@ namespace linkerbot::hand::unified_detail {
             auto &m = metrics_.at(job.handle.family());
             sample(m.queue_times, now - job.accepted);
             next_start_ = now + interval_;
-            lock.unlock();
-            std::optional<CommandHandle> result;
-            std::exception_ptr error;
-            try {
-                // The absolute admission deadline also travels with the request;
-                // this rounded duration is only for native API compatibility.
-                if (!python_behavior_) {
-                    job.request.timeout = runtime::remaining(job.deadline);
-                }
-                result = job.execute(job.request);
-            } catch (...) {
-                error = classify_exception(std::current_exception(), job.context, ErrorCode::kInternal);
-            }
-            lock.lock();
-            // Leave a full interval after completion as well. Arbitration may
-            // delay the physical start; this prevents catch-up bursts thereafter.
-            if (!python_behavior_) {
-                next_start_ = now_() + interval_;
-            }
-            sample(m.execution_times, now_() - now);
-            if (!job.handle.done()) {
-                --m.value.pending;
-            }
-            // A no-ACK receipt is terminal. Optional feedback can subsequently
-            // fail, but cannot change successful delivery into another terminal.
-            if (error && !job.handle.done()) {
-                fail(job, error);
-            } else {
-                // Internal scheduler tests/adapters may return a distinct handle.
-                // Production backend updates the accepted handle from receipts.
-                if (result && !job.handle.done() && job.handle.stage() == CommandStage::kAccepted) {
-                    command_detail::CommandHandleAccess::mark_dispatched(job.handle, result->sent_frames());
-                    ++m.value.dispatched;
-                }
-                if (result && result->stage() == CommandStage::kAcknowledged) {
-                    if (!job.handle.done()) {
-                        command_detail::CommandHandleAccess::mark_acknowledged(job.handle);
-                        ++m.value.acknowledged;
-                    }
-                }
-            }
-            active_.reset();
-            changed_.notify_all();
+            execute_active(lock, now);
         }
+    }
+
+    std::exception_ptr CommandScheduler::execute_active(std::unique_lock<std::mutex> &lock, Clock::time_point started) {
+        auto &job = ::linkerbot::hand::detail::checked_value(active_, "missing active command");
+        auto &m = metrics_.at(job.handle.family());
+        lock.unlock();
+        std::optional<CommandHandle> result;
+        std::exception_ptr error;
+        try {
+            // The absolute admission deadline also travels with the request;
+            // this rounded duration is only for native API compatibility.
+            if (!python_behavior_) {
+                job.request.timeout = runtime::remaining(job.deadline);
+            }
+            result = job.execute(job.request);
+        } catch (...) {
+            error = classify_exception(std::current_exception(), job.context, ErrorCode::kInternal);
+        }
+        lock.lock();
+        // Leave a full interval after completion as well. Arbitration may
+        // delay the physical start; this prevents catch-up bursts thereafter.
+        if (!python_behavior_) {
+            next_start_ = now_() + interval_;
+        }
+        sample(m.execution_times, now_() - started);
+        if (!job.handle.done()) {
+            --m.value.pending;
+        }
+        // A no-ACK receipt is terminal. Optional feedback can subsequently
+        // fail, but cannot change successful delivery into another terminal.
+        if (error && !job.handle.done()) {
+            fail(job, error);
+        } else {
+            // Internal scheduler tests/adapters may return a distinct handle.
+            // Production backend updates the accepted handle from receipts.
+            if (result && !job.handle.done() && job.handle.stage() == CommandStage::kAccepted) {
+                command_detail::CommandHandleAccess::mark_dispatched(job.handle, result->sent_frames());
+                ++m.value.dispatched;
+            }
+            if (result && result->stage() == CommandStage::kAcknowledged) {
+                if (!job.handle.done()) {
+                    command_detail::CommandHandleAccess::mark_acknowledged(job.handle);
+                    ++m.value.acknowledged;
+                }
+            }
+        }
+        active_.reset();
+        changed_.notify_all();
+        return error;
+    }
+
+    std::optional<CommandScheduler::Clock::time_point> CommandScheduler::pending_angle_at() {
+        const std::lock_guard<std::mutex> lock(mutex_);
+        expire(now_());
+        if (!python_behavior_ || active_ || latest_.count(CommandFamily::kAngleTarget) == 0) {
+            return {};
+        }
+        return next_start_;
+    }
+
+    bool CommandScheduler::run_angle(const std::shared_ptr<void> &lane) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        const auto now = now_();
+        expire(now);
+        auto found = latest_.find(CommandFamily::kAngleTarget);
+        if (!python_behavior_ || stop_ || active_ || now < next_start_ || found == latest_.end()) {
+            return false;
+        }
+        active_.emplace(std::move(found->second));
+        latest_.erase(found);
+        auto &job = *active_;
+        job.request.execution_lease = lane;
+        removed(job, false);
+        sample(metrics_.at(job.handle.family()).queue_times, now - job.accepted);
+        next_start_ = now + interval_;
+        const auto error = execute_active(lock, now);
+        lock.unlock();
+        ::linkerbot::hand::detail::rethrow_nested_connection_failure(error);
+        return true;
     }
 
     std::vector<CommandFamilyMetrics> CommandScheduler::metrics() const {
