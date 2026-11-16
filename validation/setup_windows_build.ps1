@@ -14,9 +14,22 @@ $VsWhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.e
 $Installation = & $VsWhere -latest -products '*' -property installationPath
 if ($LASTEXITCODE -ne 0 -or -not $Installation) { throw 'Visual Studio discovery failed' }
 $DevCmd = Join-Path $Installation 'Common7/Tools/VsDevCmd.bat'
-$Command = "`"`"$DevCmd`" -no_logo -arch=$NativeArch -host_arch=$NativeArch -vcvars_ver=14.44 && set`""
-$Environment = & $env:COMSPEC /d /s /c $Command
-if ($LASTEXITCODE -ne 0) { throw 'MSVC v143 14.44 environment initialization failed' }
+# Pass cmd.exe its raw command line. PowerShell's native argument conversion
+# otherwise changes the nested quotes around a batch path containing spaces.
+$StartInfo = [System.Diagnostics.ProcessStartInfo]::new()
+$StartInfo.FileName = $env:COMSPEC
+$StartInfo.Arguments = "/d /s /c `"`"$DevCmd`" -no_logo -arch=$NativeArch -host_arch=$NativeArch -vcvars_ver=14.44 && set`""
+$StartInfo.UseShellExecute = $false
+$StartInfo.RedirectStandardOutput = $true
+$StartInfo.RedirectStandardError = $true
+$Process = [System.Diagnostics.Process]::Start($StartInfo)
+$OutputTask = $Process.StandardOutput.ReadToEndAsync()
+$ErrorTask = $Process.StandardError.ReadToEndAsync()
+$Process.WaitForExit()
+if ($Process.ExitCode -ne 0) {
+    throw "MSVC v143 14.44 environment initialization failed: $($ErrorTask.GetAwaiter().GetResult())"
+}
+$Environment = $OutputTask.GetAwaiter().GetResult() -split '\r?\n'
 $Names = @('PATH', 'INCLUDE', 'LIB', 'LIBPATH', 'VCToolsVersion', 'VCToolsInstallDir',
     'WindowsSdkDir', 'WindowsSDKVersion', 'WindowsSdkBinPath', 'UniversalCRTSdkDir',
     'UCRTVersion', 'VSINSTALLDIR', 'VCINSTALLDIR', 'VSCMD_ARG_TGT_ARCH', 'VSCMD_ARG_HOST_ARCH')
