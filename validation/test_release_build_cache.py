@@ -37,6 +37,12 @@ class CompilerCacheOptionsTests(unittest.TestCase):
         self.assertFalse(any('LAUNCHER' in option or 'MSVC_DEBUG' in option or 'CMP0141' in option
                              for option in options))
 
+    def test_linux_ccache_is_forwarded_to_child_validators(self):
+        args = self.parse(['--generator', 'Ninja', '--compiler-cache', 'ccache'])
+        options = cmake_options(args)
+        self.assertIn('-DCMAKE_CXX_COMPILER_LAUNCHER=ccache', options)
+        self.assertEqual(cmake_options(self.parse(validation_options(args))), options)
+
 
 class Catch2CacheTests(unittest.TestCase):
     def setUp(self):
@@ -70,6 +76,7 @@ class Catch2CacheTests(unittest.TestCase):
         self.assertEqual(sum(c[:2] == ['cmake', '--build'] for c in commands), 1)
         configure = next(c for c in commands if c[:2] == ['cmake', '-S'])
         self.assertIn('-DCMAKE_CXX_STANDARD=17', configure)
+        self.assertIn('-DCMAKE_POSITION_INDEPENDENT_CODE=ON', configure)
         self.assertIn('-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>DLL', configure)
         with patch('prepare_catch2.subprocess.run') as execute, \
                 patch('prepare_catch2.subprocess.check_output') as git, \
@@ -99,6 +106,12 @@ class Catch2CacheTests(unittest.TestCase):
         self.cold_install()
         with self.assertRaisesRegex(RuntimeError, 'incompatible'):
             prepare(self.prefix, self.root / 'work', 'Release', 4, compiler_cache='sccache')
+
+    def test_linux_toolchain_fingerprint_cannot_share_an_installation(self):
+        self.cold_install()
+        with patch.dict(os.environ, {'LINKERBOT_CI_TOOLCHAIN': 'different-compiler-and-sysroot'}), \
+                self.assertRaisesRegex(RuntimeError, 'incompatible'):
+            prepare(self.prefix, self.root / 'work', 'Release', 4)
 
     def test_changed_upstream_tag_fails_before_building(self):
         with patch('prepare_catch2.subprocess.run') as execute, \

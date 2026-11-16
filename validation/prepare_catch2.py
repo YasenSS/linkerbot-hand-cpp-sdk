@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import platform
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -21,10 +22,13 @@ def prepare(prefix, work, configuration, jobs, generator=None, compiler_cache=No
     identity = {
         'revision': REVISION, 'configuration': configuration,
         'cxx_standard': 17,
+        'pic': True,
         'platform': sys.platform, 'generator': generator or os.environ.get('CMAKE_GENERATOR', ''),
         'compiler': os.environ.get('VCToolsVersion', ''),
         'sdk': os.environ.get('WindowsSDKVersion', ''),
         'architecture': os.environ.get('VSCMD_ARG_TGT_ARCH', ''),
+        'host_architecture': platform.machine(),
+        'toolchain_identity': os.environ.get('LINKERBOT_CI_TOOLCHAIN', ''),
         'compiler_cache': compiler_cache,
     }
     marker = prefix / 'ci-identity.json'
@@ -44,6 +48,7 @@ def prepare(prefix, work, configuration, jobs, generator=None, compiler_cache=No
     subprocess.run(['cmake', '-S', str(source), '-B', str(build),
                     *options, f'-DCMAKE_INSTALL_PREFIX={prefix}',
                     '-DCMAKE_INSTALL_LIBDIR=lib', '-DBUILD_SHARED_LIBS=OFF', '-DCATCH_BUILD_TESTING=OFF',
+                    '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
                     '-DCMAKE_CXX_STANDARD=17', '-DCMAKE_CXX_STANDARD_REQUIRED=ON', '-DCMAKE_CXX_EXTENSIONS=OFF',
                     '-DCATCH_INSTALL_DOCS=OFF', '-DCATCH_INSTALL_EXTRAS=ON',
                     '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>DLL'], check=True)

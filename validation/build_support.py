@@ -7,7 +7,7 @@ def add_build_arguments(parser):
     parser.add_argument('--generator')
     parser.add_argument('--architecture')
     parser.add_argument('--toolset')
-    parser.add_argument('--compiler-cache', choices=['sccache'],
+    parser.add_argument('--compiler-cache', choices=['sccache', 'ccache'],
                         help='Optional compiler launcher for Ninja/Makefile builds')
 
 

@@ -102,39 +102,76 @@ jobs:
           ref: ${{ env.COMM_SHA }}
           path: linkerbot-transport-cpp
           token: ${{ secrets.LINKERBOT_COMM_TOKEN || github.token }}
-      - name: Pull native distribution image
+      - name: Prepare native distribution and build tools
+        id: native
         env:
           UBUNTU: ${{ matrix.ubuntu }}
+          EXPECTED_ARCH: ${{ matrix.arch }}
         run: |
           docker pull "ubuntu:$UBUNTU"
           docker image inspect "ubuntu:$UBUNTU" --format '{{index .RepoDigests 0}}' > "$RUNNER_TEMP/build-image.txt"
-          mkdir -p "$RUNNER_TEMP/release"
+          mkdir -p "$RUNNER_TEMP/release" "$RUNNER_TEMP/ccache" "$RUNNER_TEMP/catch2-install"
+          docker run -d --name linkerbot-release \
+            -v "$GITHUB_WORKSPACE:/src" -v "$RUNNER_TEMP/release:/release" \
+            -v "$RUNNER_TEMP/ccache:/cache/ccache" -v "$RUNNER_TEMP/catch2-install:/cache/catch2-install" \
+            -w /src -e HAND_SHA -e COMM_SHA -e RELEASE_VERSION -e EXPECTED_ARCH \
+            -e BUILD_IMAGE="$(cat "$RUNNER_TEMP/build-image.txt")" \
+            -e PATH=/opt/release-tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+            -e CCACHE_DIR=/cache/ccache -e CCACHE_BASEDIR=/src -e CCACHE_COMPILERCHECK=content \
+            -e CCACHE_MAXSIZE=1G -e CMAKE_BUILD_PARALLEL_LEVEL=4 \
+            "$(cat "$RUNNER_TEMP/build-image.txt")" sleep infinity
+          docker exec linkerbot-release bash hand-cpp/validation/setup_linux_build.sh
+          echo "image=$(sha256sum "$RUNNER_TEMP/build-image.txt" | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+          echo "toolchain=$(cat "$RUNNER_TEMP/release/toolchain-id")" >> "$GITHUB_OUTPUT"
+      - name: Restore compiler outputs
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: linux-ccache-v1-${{ matrix.distribution }}-${{ matrix.arch }}-Release-${{ steps.native.outputs.image }}-${{ steps.native.outputs.toolchain }}-${{ hashFiles('hand-cpp/validation/build_support.py') }}-${{ env.HAND_SHA }}
+          restore-keys: |
+            linux-ccache-v1-${{ matrix.distribution }}-${{ matrix.arch }}-Release-${{ steps.native.outputs.image }}-${{ steps.native.outputs.toolchain }}-${{ hashFiles('hand-cpp/validation/build_support.py') }}-
+      - name: Restore shared Catch2 installation
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/catch2-install
+          key: linux-catch2-v1-${{ matrix.distribution }}-${{ matrix.arch }}-Release-${{ steps.native.outputs.image }}-${{ steps.native.outputs.toolchain }}-${{ hashFiles('hand-cpp/validation/prepare_catch2.py', 'hand-cpp/validation/build_support.py', 'hand-cpp/validation/setup_linux_build.sh') }}
+      - name: Prepare one Catch2 for transport and hand tests
+        run: |
+          docker exec linkerbot-release ccache --zero-stats
+          docker exec linkerbot-release bash -euc '
+            export LINKERBOT_CI_TOOLCHAIN="$(cat /release/toolchain-id)"
+            python hand-cpp/validation/prepare_catch2.py \
+              --prefix /cache/catch2-install --work-dir /release/catch2-build \
+              --config Release --jobs 4 --generator Ninja --compiler-cache ccache
+          '
       - name: Build, test, package and relocate inside target userspace
         env:
-          EXPECTED_ARCH: ${{ matrix.arch }}
           EXPECTED_DISTRIBUTION: ${{ matrix.distribution }}
         run: |
-          docker run --rm -v "$GITHUB_WORKSPACE:/src" -v "$RUNNER_TEMP/release:/release" -w /src \
-            -e HAND_SHA -e COMM_SHA -e RELEASE_VERSION -e EXPECTED_ARCH -e EXPECTED_DISTRIBUTION \
-            -e BUILD_IMAGE="$(cat "$RUNNER_TEMP/build-image.txt")" \
-            "$(cat "$RUNNER_TEMP/build-image.txt")" bash -euc '
-              export DEBIAN_FRONTEND=noninteractive
-              apt-get update
-              apt-get install -y --no-install-recommends build-essential git ca-certificates python3 python3-venv ninja-build
-              test "$(uname -m)" = "$EXPECTED_ARCH"
-              python3 -m venv /opt/release-tools
-              /opt/release-tools/bin/pip install cmake==3.31.10
-              export PATH=/opt/release-tools/bin:$PATH
-              git config --global --add safe.directory /src/hand-cpp
-              git config --global --add safe.directory /src/linkerbot-transport-cpp
-              python hand-cpp/validation/run_release_validation.py \
-                --comm-source linkerbot-transport-cpp --work-dir /release \
-                --hand-sha "$HAND_SHA" --comm-sha "$COMM_SHA" \
-                --expected-version "$RELEASE_VERSION" --package-format TGZ \
-                --expected-arch "$EXPECTED_ARCH" --expected-distribution "$EXPECTED_DISTRIBUTION" \
-                --build-image "$BUILD_IMAGE" \
-                --config Release --suite all --require-slcan --allow-downloads --jobs 4
-            '
+          docker exec -e EXPECTED_DISTRIBUTION linkerbot-release bash -euc '
+            python hand-cpp/validation/run_release_validation.py \
+              --comm-source linkerbot-transport-cpp --work-dir /release \
+              --hand-sha "$HAND_SHA" --comm-sha "$COMM_SHA" \
+              --expected-version "$RELEASE_VERSION" --package-format TGZ \
+              --expected-arch "$EXPECTED_ARCH" --expected-distribution "$EXPECTED_DISTRIBUTION" \
+              --build-image "$BUILD_IMAGE" \
+              --config Release --suite all --require-slcan --allow-downloads --jobs 4 \
+              --catch2-dir /cache/catch2-install/lib/cmake/Catch2 --generator Ninja --compiler-cache ccache
+          '
+      - name: Record compiler cache statistics
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/release/evidence"
+          if docker exec linkerbot-release sh -c 'command -v ccache' >/dev/null 2>&1; then
+            docker exec linkerbot-release sh -c 'ccache --show-stats > /release/evidence/ccache-stats.txt'
+            docker exec linkerbot-release chmod -R a+rX /cache/ccache /cache/catch2-install /release/evidence
+          fi
+      - name: Remove build container
+        if: always()
+        run: |
+          if docker container inspect linkerbot-release >/dev/null 2>&1; then
+            docker rm -f linkerbot-release
+          fi
       - name: Upload diagnostic evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

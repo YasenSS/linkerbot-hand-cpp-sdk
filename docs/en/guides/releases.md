@@ -32,6 +32,13 @@ not skip tests, package audits or source/architecture checks. Diagnostic artifac
 include compiler cache statistics and per-step validation durations. No additional
 repository secrets or external cache service are required.
 
+Linux CI also uses Ninja, with ccache supplied by each target distribution.
+The native container stays alive across preparation, cache restoration and validation.
+Compiler outputs and the shared C++17 PIC Catch2 installation are cached separately,
+partitioned by distribution, architecture, image digest and installed toolchain identity.
+The default distribution GCC and libstdc++ ABI1 remain unchanged. All tests, package audits,
+relocation checks and header/example compilation still run. Evidence includes ccache statistics.
+
 Hand SDK packages contain both hand and paired transport static libraries, headers, CMake packages,
 documentation and read-only command-line examples. Test executables and proprietary drivers/libraries
 are excluded. Versions remain independent. Hand 0.3.12 requires transport 0.3.4 or newer in
