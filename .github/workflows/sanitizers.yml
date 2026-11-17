@@ -161,7 +161,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build clang-18 libclang-rt-18-dev llvm-18
+            cmake ninja-build gcc-13 g++-13 clang-18 libclang-rt-18-dev llvm-18
 
       - name: Configure TSan address space
         # TSan needs a compatible shadow-memory layout with Ubuntu 24.04's ASLR.
@@ -171,9 +171,12 @@ jobs:
       - name: Configure TSan build
         working-directory: hand-cpp
         run: |
+          # Clang otherwise selects the runner's newest GCC installation, which
+          # can have incompatible timed-mutex headers. Match the tested GCC 13 baseline.
+          gcc_install_dir="$(dirname "$(gcc-13 -print-libgcc-file-name)")"
           cmake -S . -B build-tsan -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_CXX_FLAGS="-O1 -fsanitize=thread -fno-omit-frame-pointer" \
+            -DCMAKE_CXX_FLAGS="--gcc-install-dir=${gcc_install_dir} -O1 -fsanitize=thread -fno-omit-frame-pointer" \
             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread" \
             -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=thread" \
             -DLINKERBOT_COMM_SOURCE_DIR="${GITHUB_WORKSPACE}/linkerbot-transport-cpp" \
