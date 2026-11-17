@@ -17,6 +17,10 @@ TSan 构建开启 `LINKERBOT_ISOLATE_OFFLINE_TESTS`：Catch2 发现全部 `[comm
 跨用例栈地址复用形成过期的锁顺序环。每个用例内的数据竞争和死锁检测仍保持开启；
 常规 ASan/UBSan/LSan 构建继续按原有分组运行测试。
 
+TSan 任务通过 Clang 的 `--gcc-install-dir` 显式选择 GCC 13 的 libstdc++ 头文件与库，
+避免 runner 镜像更新后自动选择更高版本的 GCC。Clang 18 搭配 runner 的 GCC 14
+头文件时，SDK 的定时互斥锁调用会在编译阶段失败，检测测试尚未开始。
+
 Clang 18 TSan 能识别 libstdc++ 定时互斥锁使用的 `pthread_mutex_clocklock`；
 Ubuntu 24.04 的 GCC 检测运行库会对此误报解锁错误。
 TSan 还需要兼容的影子内存布局，因此该任务在临时 Ubuntu runner 上先设置

@@ -19,6 +19,11 @@ libstdc++'s trivial mutex destruction and stack-address reuse between cases from
 creating stale lock-order cycles. Data-race and deadlock detection remain enabled
 within each case. The normal ASan/UBSan/LSan build keeps the grouped test layout.
 
+The TSan job explicitly selects the GCC 13 libstdc++ headers and libraries with
+Clang's `--gcc-install-dir`; runner image updates must not silently select a newer
+GCC installation. Clang 18 with the runner's GCC 14 headers fails to compile the
+SDK's timed-mutex calls, before sanitizer tests can run.
+
 Clang 18 TSan recognizes the `pthread_mutex_clocklock` calls used by libstdc++ timed
 mutexes; the GCC runtime on Ubuntu 24.04 reports false unlock errors for these calls.
 TSan also needs a compatible shadow-memory layout. Its job sets `vm.mmap_rnd_bits=28`
