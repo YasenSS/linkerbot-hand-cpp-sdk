@@ -96,11 +96,27 @@ foreach(batch RANGE 1 5)
     string(APPEND python_policy_filter "[comm][python-phase${batch}]")
     string(APPEND comm_filter "~[python-phase${batch}]")
 endforeach()
-add_test(NAME comm COMMAND tests "${comm_filter}" --durations yes)
-add_test(NAME python-policy-regressions COMMAND tests "${python_policy_filter}" --durations yes)
 # Discovery contract and adapter tests are offline: injected enumerators and
 # FakeTransport cover platform sources without opening host CAN hardware.
-add_test(NAME discovery COMMAND tests "[discovery]" --durations yes)
+option(LINKERBOT_ISOLATE_OFFLINE_TESTS "Run offline Catch2 cases in separate processes" OFF)
+if(LINKERBOT_ISOLATE_OFFLINE_TESTS)
+    # libstdc++ mutexes have trivial destruction on Linux. TSan's deadlock
+    # detector can therefore retain lock-order edges when later cases reuse
+    # their stack addresses. Keep every case and its deadlock checks, but give
+    # each discovered test name a fresh process rather than sharing that graph.
+    list(APPEND CMAKE_MODULE_PATH "${Catch2_DIR}" "${catch2_SOURCE_DIR}/extras")
+    include(Catch)
+    catch_discover_tests(tests
+        TEST_SPEC "[comm],[discovery]"
+        TEST_PREFIX "offline::"
+        EXTRA_ARGS --durations yes
+        PROPERTIES TIMEOUT 300
+        DISCOVERY_MODE PRE_TEST)
+else()
+    add_test(NAME comm COMMAND tests "${comm_filter}" --durations yes)
+    add_test(NAME python-policy-regressions COMMAND tests "${python_policy_filter}" --durations yes)
+    add_test(NAME discovery COMMAND tests "[discovery]" --durations yes)
+endif()
 
 if(TARGET l6_read_version)
     add_dependencies(tests l6_read_version)
