@@ -2,6 +2,27 @@
 
 [English](../../en/guides/quality.md) | [简体中文](quality.md)
 
+## 运行时检测
+
+`Sanitizers` 工作流基于固定的 transport 源码，运行两套独立的 Linux Debug 构建。
+`ASan, UBSan and LSan` 检查内存访问、未定义行为和泄漏（`detect_leaks=1`）；
+`TSan` 使用独立的 Clang 18 `-fsanitize=thread` 构建检查数据竞争。两者都运行已注册的离线
+CTest 测试，包括通信、Python 策略、发现和协议回归，不打开真实 CAN 设备。
+SDK 与配套 transport 源码一起插桩。检测到问题会使任务失败；失败后仍上传
+CTest 日志和 JUnit 测试结果。
+
+TSan 构建开启 `LINKERBOT_ISOLATE_OFFLINE_TESTS`：Catch2 发现全部 `[comm]` 和
+`[discovery]` 用例，CTest 按用例名称启动独立进程，同名用例仍由 Catch2 一起匹配。
+这样可避免 libstdc++ 互斥锁的平凡析构和
+跨用例栈地址复用形成过期的锁顺序环。每个用例内的数据竞争和死锁检测仍保持开启；
+常规 ASan/UBSan/LSan 构建继续按原有分组运行测试。
+
+Clang 18 TSan 能识别 libstdc++ 定时互斥锁使用的 `pthread_mutex_clocklock`；
+Ubuntu 24.04 的 GCC 检测运行库会对此误报解锁错误。
+TSan 还需要兼容的影子内存布局，因此该任务在临时 Ubuntu runner 上先设置
+`vm.mmap_rnd_bits=28`。本地环境也需要兼容的布局；初始化失败不代表没有数据竞争。
+运行时检测只覆盖实际执行的路径，不能替代静态分析或实机验收。
+
 ## Report Card
 
 `C++ Report Card` 工作流在 PR、main/master 推送和手动触发时运行。

@@ -2,6 +2,30 @@
 
 [English](quality.md) | [简体中文](../../zh/guides/quality.md)
 
+## Runtime sanitizers
+
+The `Sanitizers` workflow runs two independent Linux Debug builds against the pinned
+transport source. `ASan, UBSan and LSan` checks memory access, undefined behavior and
+leaks (`detect_leaks=1`); `TSan` checks data races in a separate Clang 18 build using
+`-fsanitize=thread`. Both run the registered offline CTest suite, including communication,
+Python-policy, discovery and protocol regressions. They do not open real CAN devices.
+SDK and paired transport sources are instrumented together. Findings fail the job;
+CTest logs and JUnit results are uploaded even after failures.
+
+The TSan build enables `LINKERBOT_ISOLATE_OFFLINE_TESTS`: Catch2 discovers every
+`[comm]` and `[discovery]` case and CTest runs each test name in its own process.
+Cases sharing a name remain selected together by Catch2. This prevents
+libstdc++'s trivial mutex destruction and stack-address reuse between cases from
+creating stale lock-order cycles. Data-race and deadlock detection remain enabled
+within each case. The normal ASan/UBSan/LSan build keeps the grouped test layout.
+
+Clang 18 TSan recognizes the `pthread_mutex_clocklock` calls used by libstdc++ timed
+mutexes; the GCC runtime on Ubuntu 24.04 reports false unlock errors for these calls.
+TSan also needs a compatible shadow-memory layout. Its job sets `vm.mmap_rnd_bits=28`
+on the ephemeral Ubuntu runner before testing. Local environments need a compatible
+layout too; an initialization failure is not a clean race check. Runtime sanitizers
+cover only executed paths and do not replace static analysis or hardware acceptance.
+
 ## Report Card
 
 The `C++ Report Card` workflow runs on PRs, main/master pushes and manual dispatch.
