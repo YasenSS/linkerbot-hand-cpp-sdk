@@ -62,13 +62,14 @@ jobs:
             --compiler g++-13
 
   sanitizers:
-    name: ASan and UBSan
+    name: ASan, UBSan and LSan
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       CC: gcc-13
       CXX: g++-13
-      ASAN_OPTIONS: detect_leaks=0:halt_on_error=1:strict_string_checks=1
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1:strict_string_checks=1
+      LSAN_OPTIONS: exitcode=23
       UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
 
     steps:
