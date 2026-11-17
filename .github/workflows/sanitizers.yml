@@ -117,4 +117,16 @@ jobs:
 
       - name: Run sanitizer tests
         working-directory: hand-cpp
-        run: ctest --test-dir build-sanitized --output-on-failure --timeout 180
+        run: |
+          ctest --test-dir build-sanitized --output-on-failure --no-tests=error \
+            --timeout 180 --output-junit "$PWD/build-sanitized/sanitizer-tests.xml"
+
+      - name: Upload sanitizer diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: asan-ubsan-lsan-diagnostics
+          if-no-files-found: warn
+          path: |
+            hand-cpp/build-sanitized/sanitizer-tests.xml
+            hand-cpp/build-sanitized/Testing/Temporary/
