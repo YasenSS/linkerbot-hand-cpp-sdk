@@ -152,6 +152,63 @@ TEST_CASE("M2 FIFO capacity excludes latest and executing requests", "[comm][m2]
     }
 }
 
+TEST_CASE("scheduler releases retired command resources without holding its mutex", "[comm][scheduler][regression]") {
+    auto scheduler = std::make_unique<CommandScheduler>(1000, 16);
+    Barrier execution;
+    Barrier destruction;
+    auto first =
+        scheduler->accept(request(CommandSemantic::kAccelerations, 0), AckSupport::kUnsupported, {}, [&](const auto &) {
+            execution.entered.set_value();
+            execution.gate.wait();
+            return delivered();
+        });
+    REQUIRE(execution.entered.get_future().wait_for(std::chrono::seconds{2}) == std::future_status::ready);
+
+    auto retained = request(CommandSemantic::kAngles, 1);
+    retained.generation_valid = [lifetime = std::shared_ptr<void>(nullptr, [&](void *) {
+                                     destruction.entered.set_value();
+                                     destruction.gate.wait();
+                                 })] { return true; };
+    std::function<void(CommandHandle)> retire;
+    SECTION("completed command") {
+        retire = [&](CommandHandle handle) {
+            execution.open();
+            (void)handle.wait_for(std::chrono::seconds{2});
+        };
+    }
+    SECTION("superseded latest command") {
+        retire = [&](CommandHandle) {
+            (void)scheduler->accept(request(CommandSemantic::kAngles, 2), AckSupport::kUnsupported, {},
+                                    [](const auto &) { return delivered(); });
+        };
+    }
+    SECTION("invalidated pending commands") {
+        retire = [&](CommandHandle) { scheduler->invalidate(std::make_exception_ptr(ClosedError("test close"))); };
+    }
+    SECTION("expired pending command") {
+        retained.timeout = std::chrono::milliseconds{20};
+        retire = [](CommandHandle handle) { (void)handle.wait_for(std::chrono::seconds{2}); };
+    }
+    const auto pending =
+        scheduler->accept(std::move(retained), AckSupport::kUnsupported, {}, [](const auto &) { return delivered(); });
+    auto retiring = std::async(std::launch::async, [&] { retire(pending); });
+    const auto entered = destruction.entered.get_future().wait_for(std::chrono::seconds{2});
+    auto inspection = std::async(std::launch::async, [&] { return scheduler->metrics(); });
+    const auto inspected = inspection.wait_for(std::chrono::seconds{1});
+    // Always release the destructor before asserting, so a broken implementation
+    // fails the test without leaving a worker or async future permanently stuck.
+    destruction.open();
+    retiring.get();
+    execution.open();
+    (void)inspection.get();
+    // A terminal handle may precede the worker's resource release. Join it
+    // before destroying the barriers that its retained request still uses.
+    scheduler.reset();
+    REQUIRE(entered == std::future_status::ready);
+    REQUIRE(inspected == std::future_status::ready);
+    REQUIRE(first.wait_for(std::chrono::seconds{2}));
+}
+
 TEST_CASE("M2 pending deadlines expire independently of executor and throttle", "[comm][m2][scheduler]") {
     CommandScheduler scheduler(0.5, 1); // Throttle must not delay expiry.
     Barrier barrier;
