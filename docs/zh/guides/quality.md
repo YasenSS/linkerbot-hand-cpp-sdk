@@ -21,6 +21,12 @@ Action 使用 `fail_on: findings` 与 `threshold: 100`，另用独立校验器�
 
 每次上传 `cppreportcard-ubuntu-24.04-arm` 附件，包含 `report.json`、`report.md`、
 `badge.svg` 和合并编译数据库。报告不自动提交到仓库。
+Actions Summary 和同一附件还包含 `timing.md`、`timing.json` 及每次调用的原始记录：
+三个分析工具各自的耗时，以及最慢的 20 次 clang-tidy 调用。同一文件的不同配置分别保留。
+累计调用耗时包含并行重叠部分，不等于 CPU 时间或整个任务耗时。
+版本查询不计入分析耗时；Cppcheck 按一次完整数据库调用计时。
+未完成调用和缺失报告覆盖核对会明确标出。计时保留分析参数、输出、退出状态、四路并行
+和超时设置；分析范围与质量门禁不变。
 [报告索引](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/blob/main/.github/cppreportcard/README.md)链接到工作流。
 
 ## 本地复现

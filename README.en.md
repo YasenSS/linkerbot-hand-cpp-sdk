@@ -67,7 +67,7 @@ To reuse a prebuilt transport v0.3.4 SDK, configure with
 `cmake --preset prebuilt -DLINKERBOT_COMM_PREBUILT_PREFIX=/absolute/path/to/comm-sdk`.
 See the [build guide](docs/en/guides/validation.md) for source/prebuilt modes, archive verification and downstream paths.
 
-Release target types follow transport: eight Ubuntu Release SDKs and four Windows x64/ARM64 Debug/Release SDKs. See [release artifacts](docs/en/guides/releases.md).
+The release workflow builds eight Ubuntu Release SDKs and two Windows x64/ARM64 Release SDKs. See [release artifacts](docs/en/guides/releases.md).
 
 ### 2. Connect the CAN bus
 

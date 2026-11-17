@@ -1,9 +1,10 @@
 """Run Cppcheck for the Linux report without changing Clang's compile arguments."""
 import json
 from pathlib import Path
-import subprocess
 import sys
 import tempfile
+
+from report_timing import run_timed
 
 
 def command_database(entries):
@@ -32,7 +33,7 @@ def main():
         command = ["cppcheck", "--platform=unix64", "-D__unix__=1", "-D__linux__=1",
                    "-U_WIN32", "-U__APPLE__", "--library=std", "--library=" + str(library),
                    "--suppress=missingIncludeSystem", *args]
-        return subprocess.run(command, check=False).returncode
+        return run_timed('cppcheck', command)
 
 
 if __name__ == "__main__":

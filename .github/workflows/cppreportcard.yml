@@ -57,12 +57,18 @@ jobs:
             build/report/compile_commands.json build/report-consumer/compile_commands.json \
             build/report-l6/compile_commands.json
           python3 -m unittest discover -s validation -p 'test_quality_tools.py'
+      - name: Prepare analyzer timing
+        id: timing
+        run: |
+          python3 validation/report_timing.py prepare --config .cppreportcard.json --directory build/report-timing
       - name: Generate complete quality report
-        if: ${{ !cancelled() && steps.inputs.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.inputs.outcome == 'success' && steps.timing.outcome == 'success' }}
         uses: soulteary/cppreportcard-action@8de72292324308064276a8feca167d543828d218 # v1.0.4
+        env:
+          REPORT_TIMING_DIR: ${{ github.workspace }}/build/report-timing
         with:
           mode: full
-          config: .cppreportcard.json
+          config: build/report-timing/config.json
           compile_commands: build/report-compile-commands.json
           output_dir: .github/cppreportcard
           install_tools: 'false'
@@ -71,6 +77,11 @@ jobs:
           commit: 'false'
       - name: Require complete A+ analysis with zero diagnostics
         run: python3 validation/check_report_complete.py .github/cppreportcard/report.json --require-aplus
+      - name: Summarize analyzer timings
+        if: ${{ always() && steps.timing.outcome == 'success' }}
+        run: |
+          python3 validation/report_timing.py summarize --directory build/report-timing \
+            --report .github/cppreportcard/report.json --output .github/cppreportcard/timing
       - name: Upload report and compilation scope
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -83,3 +94,6 @@ jobs:
             .github/cppreportcard/report.md
             .github/cppreportcard/badge.svg
             build/report-compile-commands.json
+            .github/cppreportcard/timing.json
+            .github/cppreportcard/timing.md
+            build/report-timing/records/

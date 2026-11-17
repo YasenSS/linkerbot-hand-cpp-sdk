@@ -62,7 +62,7 @@ hand SDK 0.3.12 的源码、预构建及安装消费者均要求 transport 0.3.x
 使用 `cmake --preset prebuilt -DLINKERBOT_COMM_PREBUILT_PREFIX=/absolute/path/to/comm-sdk`。
 源码与预构建两种方式、下载校验及下游路径见[构建指南](docs/zh/guides/validation.md)。
 
-发布目标类型与 transport 对齐：八份 Ubuntu Release SDK 和四份 Windows x64/ARM64 Debug/Release SDK，见[发布产物与校验](docs/zh/guides/releases.md)。
+发布工作流构建八份 Ubuntu Release SDK 和两份 Windows x64/ARM64 Release SDK，见[发布产物与校验](docs/zh/guides/releases.md)。
 
 ### 2. 连接 CAN 总线
 

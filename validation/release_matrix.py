@@ -19,9 +19,9 @@ def load_targets(path):
         raise ValueError('Expected exactly eight Ubuntu targets')
     if any(r['distribution'] != 'ubuntu' + r['ubuntu'] for r in linux):
         raise ValueError('Ubuntu distribution identity mismatch')
-    if len(windows) != 4 or {(r['arch'], r['configuration']) for r in windows} != {
-            (a, c) for a in ('x64', 'ARM64') for c in ('Debug', 'Release')}:
-        raise ValueError('Expected exactly four Windows targets')
+    if len(windows) != 2 or {(r['arch'], r['configuration']) for r in windows} != {
+            (a, 'Release') for a in ('x64', 'ARM64')}:
+        raise ValueError('Expected exactly two Windows Release targets')
     if any(r['runtime'] != {'Debug': 'MDd', 'Release': 'MD'}[r['configuration']]
            or r['toolset'] != '143' for r in windows):
         raise ValueError('Windows runtime/toolset identity mismatch')
@@ -98,8 +98,8 @@ def collect(directory, targets_path, version, hand_sha, comm_sha):
     expected |= {('Windows', 'Windows', r['arch'], r['configuration']) for r in targets['windows']}
     seen, packages = set(), []
     archives = sorted([*directory.glob('*.tar.gz'), *directory.glob('*.zip')])
-    if len(archives) != 12:
-        raise ValueError('Release requires exactly twelve hand SDK archives')
+    if len(archives) != len(expected):
+        raise ValueError(f'Release requires exactly {len(expected)} hand SDK archives')
     for archive in archives:
         with tempfile.TemporaryDirectory() as temporary:
             prefix, sha = unpack_archive(archive, Path(temporary) / 'sdk')

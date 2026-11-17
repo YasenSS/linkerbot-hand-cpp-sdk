@@ -14,7 +14,7 @@ from release_package import minimum_transport_version
 
 
 class ValidationRoutingTests(unittest.TestCase):
-    def run_validation(self, suite='all', quick=False):
+    def run_validation(self, suite='all', quick=False, extra_args=()):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             comm = root / 'comm'
@@ -51,6 +51,7 @@ class ValidationRoutingTests(unittest.TestCase):
                 return subprocess.CompletedProcess(command, 23 if '--install' in command else 0)
 
             argv = ['run_release_validation.py', '--comm-source', str(comm), '--work-dir', str(work), '--suite', suite]
+            argv.extend(extra_args)
             if quick:
                 argv.append('--quick')
             with patch.object(sys, 'argv', argv), patch('subprocess.check_output', side_effect=git), \
@@ -79,6 +80,14 @@ class ValidationRoutingTests(unittest.TestCase):
         self.assertFalse(report['quick'])
         self.assertEqual(report['steps'][-1]['step'], 'comm-install')
         self.assertIn('example', next(command for command in commands if '--target' in command))
+
+    def test_both_test_builds_use_the_same_external_catch2(self):
+        code, _, commands = self.run_validation(quick=True, extra_args=['--catch2-dir', '/shared-catch2'])
+        self.assertEqual(code, 0)
+        configurations = [c for c in commands if c[:2] == ['cmake', '-S']]
+        self.assertEqual(len(configurations), 2)
+        for command in configurations:
+            self.assertIn('-DCatch2_DIR=' + str(Path('/shared-catch2').resolve()), command)
 
     def test_quick_suite_filters_remain_independent(self):
         for suite, expected in [('no-drivers', {'comm-no-drivers', 'hand-no-drivers'}),

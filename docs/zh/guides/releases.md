@@ -7,16 +7,29 @@
 0.3.12 在显式 Python 运行时策略下增加触觉安全阶段边界的角度调度，保留 Native 默认行为及现有 C++ API。
 [发行说明](../../../RELEASE_NOTES.md#0312)记录兼容性、验证结果、O6/L20/O30 实机证据及共享 Session、故障时序等未测范围。
 
-## 与 transport 对齐的目标
+## 当前工作流目标
 
-Hand 发布工作流使用与 transport v0.3.4 相同的目标矩阵：
+当前 Hand 发布工作流构建以下目标；已发布的历史附件保持不变：
 
 - Ubuntu 20.04、22.04、24.04、26.04，各有 x86_64 和 aarch64（ARM64）的 Release TGZ，共八份。
-- Windows x64、ARM64，各有 Debug `/MDd` 和 Release `/MD` 的 MSVC v143 ZIP，共四份。
+- Windows x64、ARM64，各有 Release `/MD` 的 MSVC v143 ZIP，共两份。
 
 Linux 在对应发行版的原生架构容器内构建，并记录镜像 digest；使用发行版默认 GCC、
 libstdc++ ABI1 和 C++17。Windows 使用原生架构 runner 与 v143 14.44 工具集。
 容器验证不代表原生内核或硬件验收；ARM64 SDK 通过不代表厂商提供了 ARM64 驱动。
+
+Windows CI 使用 Ninja 和原生 MSVC v143 14.44 环境，最多并行编译四个源文件。
+CI 显式启用 sccache；发布工作流不再构建 Debug ZIP，本地仍支持 Debug 构建。
+GitHub Actions 缓存编译结果，以及固定为 Catch2 3.8.1 的
+公共安装目录，供 transport 和 hand 测试共同使用。缓存按目标架构、构建配置和
+编译器/Windows SDK 身份隔离；Catch2 还区分 CMake 版本和准备脚本。
+缓存未命中时正常构建；缓存复用不跳过测试、打包审计或源码/架构检查。
+诊断附件包含编译缓存统计和验证各阶段耗时，无需新增仓库密钥或外部缓存服务。
+
+Linux CI 同样使用 Ninja，ccache 由目标发行版提供；原生容器在工具准备、缓存恢复和验证期间持续运行。
+编译结果与公共 C++17 PIC Catch2 安装分别缓存，按发行版、架构、镜像 digest 和已安装工具链身份隔离。
+保留发行版默认 GCC 和 libstdc++ ABI1；所有测试、包审计、重定位检查及头文件/示例编译仍执行，
+诊断附件增加 ccache 统计。
 
 产物是开发 SDK，Hand 包包含 hand 与配套 transport 静态库、头文件、CMake 包和文档，
 保留只读命令行示例；不包含测试程序、厂商驱动或厂商库。
@@ -28,18 +41,36 @@ libstdc++ ABI1 和 C++17。Windows 使用原生架构 runner 与 v143 14.44 工�
 transport 归档名现以 `linkerbot-transport-` 开头；Hand 继续使用受支持的
 `linkerbot-comm` CMake 包及 CAN 目标别名。
 
+## 验证缓存收益
+
+在相同源码、相同 PR 上复跑已完成的 Release 任务，对比首次构建和恢复缓存后的运行。
+检查缓存恢复日志、Catch2 准备时间、编译命中/未命中数，以及诊断附件中各阶段耗时。
+保留完整测试和包校验，单独比较任务执行时间与 runner 排队时间；新 PR 的缓存可见范围可能不同。
+工具链或缓存准备脚本变化时，首次未命中属于预期情况。
+
+源码提交 `c7ba44a` 的 [Release packages 运行 43827841694](https://github.com/YasenSS/linkerbot-hand-cpp-sdk/actions/runs/43827841694)
+得到以下 Windows 原生 Release 对比：
+
+| 架构 | 首次任务耗时 | 恢复缓存后耗时 | 编译缓存命中 | 恢复后缓存错误 |
+| --- | --- | --- | --- | --- |
+| x64 | 19 分 34 秒 | 5 分 49 秒 | 771 / 793（97.23%） | 0 |
+| ARM64 | 18 分 50 秒 | 7 分 29 秒 | 771 / 793（97.23%） | 0 |
+
+两组复跑均复用了 Catch2 安装并通过完整验收。这是托管 runner 上同源码、同 PR 的测量，
+不保证源码、runner 或工具链变化后仍有相同耗时。Linux 工作流需独立测量，不能由 Windows 结果推断提速。
+
 ## 命名与校验
 
 以下示例中的 hand 版本为 `0.3.12`，编译器版本以实际构建结果为准：
 
 ```text
 linkerbot-hand-cpp-0.3.12-Linux-aarch64-ubuntu24.04-GNU13.3.0-libstdcxx-abi1-Release.tar.gz
-linkerbot-hand-cpp-0.3.12-Windows-ARM64-msvc143-19.44.35229.0-Debug-MDd.zip
+linkerbot-hand-cpp-0.3.12-Windows-ARM64-msvc143-19.44.35229.0-Release-MD.zip
 ```
 
 每份归档旁有 `.sha256`；完整集合另有 `release-manifest.json` 和 `SHA256SUMS.txt`，
-共 26 个文件。清单记录 hand/transport 源码 SHA、构建身份、文件大小与对象检查数量。
-收集步骤要求十二个目标完整且不重复，核对文件名、元数据和每个静态库对象的实际架构，
+共 22 个文件。清单记录 hand/transport 源码 SHA、构建身份、文件大小与对象检查数量。
+收集步骤要求十个目标完整且不重复，核对文件名、元数据和每个静态库对象的实际架构，
 拒绝缺包、校验不符、跨架构对象、错误 CRT 和不同源码来源。
 
 构建/发布文件的 PR 变更、版本标签或手动 dispatch 会触发验证并上传 Actions 附件。
@@ -48,7 +79,7 @@ PR 产物记录测试用合并提交。
 如需将完整集合附加到 GitHub Release，在已有且匹配的 `v<version>` 标签上手动运行
 **Release packages**，填写完整 transport SHA 和版本，并启用 `create_draft`。
 标签对应的 hand 提交须已有通过 A+ 门禁的主分支推送或手动触发的 **C++ Report Card** 运行。
-十二个平台构建及集合校验全部通过后，可选任务才会创建含 26 个文件的 **Release 草稿**，
+十个平台构建及集合校验全部通过后，可选任务才会创建含 22 个文件的 **Release 草稿**，
 并下载核对上传字节。分支触发、移动或不匹配的标签、已有 Release 均被拒绝，不覆盖附件。
 默认运行只上传 Actions 附件；正式发布草稿由维护者另行操作。
 下载可用性以 [Releases](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/releases) 的实际附件为准。

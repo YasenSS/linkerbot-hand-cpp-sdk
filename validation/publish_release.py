@@ -46,10 +46,10 @@ def verify_assets(assets, targets, version, hand_sha, comm_sha):
     with tempfile.TemporaryDirectory() as temporary:
         copied = Path(temporary) / 'assets'
         shutil.copytree(assets, copied)
-        collect(copied, targets, version, hand_sha, comm_sha)
+        manifest = collect(copied, targets, version, hand_sha, comm_sha)
         checked = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in copied.iterdir() if p.is_file()}
-    if len(original) != 26 or checked != original:
-        raise ValueError('Release assets differ from the validated twelve-package set')
+    if len(original) != 2 * len(manifest['packages']) + 2 or checked != original:
+        raise ValueError('Release assets differ from the validated package set')
 
 
 def main():
@@ -85,8 +85,8 @@ def main():
     with tempfile.TemporaryDirectory() as temporary:
         notes = Path(temporary) / 'notes.md'
         notes.write_text(
-            'Eight native Ubuntu 20.04/22.04/24.04/26.04 x86_64/ARM64 Release SDKs and four '
-            'Windows x64/ARM64 Debug/Release SDKs.\n\n'
+            'Eight native Ubuntu 20.04/22.04/24.04/26.04 x86_64/ARM64 Release SDKs and two '
+            'Windows x64/ARM64 Release SDKs.\n\n'
             f'Hand source: `{args.hand_sha}`; transport source: `{args.comm_sha}`.\n\n'
             f'A+ quality gate: {quality_url}\n\n'
             'See release-manifest.json and SHA256SUMS.txt for build identity and checksums.\n', encoding='utf-8')
@@ -100,7 +100,7 @@ def main():
         actual = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in downloaded.iterdir()}
         if actual != expected:
             raise RuntimeError('Uploaded draft bytes do not match validated assets')
-    print('Draft created; all 26 uploaded assets match the validated bytes')
+    print(f'Draft created; all {len(expected)} uploaded assets match the validated bytes')
 
 
 if __name__ == '__main__':

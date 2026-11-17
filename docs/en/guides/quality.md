@@ -26,6 +26,14 @@ The numeric score does not measure test coverage or hardware compatibility.
 
 Every run uploads `report.json`, `report.md`, `badge.svg` and the merged compilation
 database as `cppreportcard-ubuntu-24.04-arm`. Reports are not automatically committed.
+The Actions Summary and the same artifact also contain `timing.md`, `timing.json`
+and raw per-invocation records: elapsed spans for each analyzer and the slowest 20
+clang-tidy invocations. Different configurations of one file remain separate.
+Summed call time includes overlapping calls and is neither CPU time nor job duration.
+Version probes are excluded; Cppcheck is measured as one database invocation.
+Incomplete calls or missing report coverage are labeled explicitly. Instrumentation
+preserves analyzer arguments, output, exit status, four-way parallelism and timeouts;
+analysis scope and the quality gate are unchanged.
 The [report index](https://github.com/linker-bot/linkerbot-hand-cpp-sdk/blob/main/.github/cppreportcard/README.md) links to the workflow.
 
 ## Reproduce
