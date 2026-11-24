@@ -142,10 +142,14 @@ namespace linkerbot::hand::unified_detail {
 
     CommandHandle CommandScheduler::accept(CommandRequest request, AckSupport support, ErrorContext context,
                                            Execute execute) {
+        // Requests can retain a backend whose destruction enters DeviceRuntime.
+        // Declare retired work before the lock so every exit releases it unlocked.
+        std::vector<Job> retired;
+        std::optional<Job> incoming;
         const auto family = request.operation ? CommandFamily::kDiscreteOperation : command_family(request.semantic);
         std::unique_lock<std::mutex> lock(mutex_);
         const auto now = now_();
-        expire(now);
+        expire(now, retired);
         if (stop_) {
             throw DeviceNotReadyError("command scheduler is stopping", context);
         }
@@ -156,7 +160,8 @@ namespace linkerbot::hand::unified_detail {
             throw InternalError("command sequence exhausted", context);
         }
         CommandHandle handle(next_id_, family, support, request.ack_expectation, now);
-        Job job{std::move(request), handle, std::move(context), now, {}, std::move(execute)};
+        incoming.emplace(Job{std::move(request), handle, std::move(context), now, {}, std::move(execute)});
+        auto &job = *incoming;
         job.deadline = python_behavior_ ? Clock::time_point::max() : now + job.request.timeout;
         job.request.deadline = job.deadline;
         job.request.completion = handle;
@@ -195,6 +200,7 @@ namespace linkerbot::hand::unified_detail {
                 command_detail::CommandHandleAccess::mark_superseded(old->second.handle, now);
                 removed(old->second, true);
                 ++metrics.value.superseded;
+                retired.push_back(std::move(old->second));
                 old->second = std::move(job);
             } else {
                 latest_.emplace(family, std::move(job));
@@ -238,7 +244,7 @@ namespace linkerbot::hand::unified_detail {
         }
     }
 
-    void CommandScheduler::expire(Clock::time_point now) {
+    void CommandScheduler::expire(Clock::time_point now, std::vector<Job> &retired) {
         const auto expired = [&](Job &job) {
             if (now < job.deadline) {
                 return false;
@@ -249,6 +255,7 @@ namespace linkerbot::hand::unified_detail {
         };
         for (auto it = fifo_.begin(); it != fifo_.end();) {
             if (expired(*it)) {
+                retired.push_back(std::move(*it));
                 it = fifo_.erase(it);
             } else {
                 ++it;
@@ -256,6 +263,7 @@ namespace linkerbot::hand::unified_detail {
         }
         for (auto it = latest_.begin(); it != latest_.end();) {
             if (expired(it->second)) {
+                retired.push_back(std::move(it->second));
                 it = latest_.erase(it);
             } else {
                 ++it;
@@ -275,6 +283,7 @@ namespace linkerbot::hand::unified_detail {
     }
 
     void CommandScheduler::invalidate(std::exception_ptr error) {
+        std::vector<Job> retired;
         const std::lock_guard<std::mutex> lock(mutex_);
         ++invalidation_;
         if (preparing_) {
@@ -283,10 +292,12 @@ namespace linkerbot::hand::unified_detail {
         for (auto &job : fifo_) {
             fail(job, error);
             removed(job, true);
+            retired.push_back(std::move(job));
         }
         for (auto &entry : latest_) {
             fail(entry.second, error);
             removed(entry.second, true);
+            retired.push_back(std::move(entry.second));
         }
         fifo_.clear();
         latest_.clear();
@@ -303,9 +314,16 @@ namespace linkerbot::hand::unified_detail {
     }
 
     void CommandScheduler::watch_deadlines() {
-        std::unique_lock<std::mutex> lock(mutex_);
-        while (!stop_) {
-            expire(now_());
+        for (;;) {
+            std::vector<Job> retired;
+            std::unique_lock<std::mutex> lock(mutex_);
+            if (stop_) {
+                return;
+            }
+            expire(now_(), retired);
+            if (!retired.empty()) {
+                continue;
+            }
             const auto deadline = next_deadline();
             if (manual_clock_ || deadline == Clock::time_point::max()) {
                 changed_.wait(lock);
@@ -316,10 +334,20 @@ namespace linkerbot::hand::unified_detail {
     }
 
     void CommandScheduler::run() {
-        std::unique_lock<std::mutex> lock(mutex_);
-        while (!stop_) {
+        for (;;) {
+            std::vector<Job> retired;
+            std::optional<Job> completed;
+            std::shared_ptr<void> execution_lease;
+            decltype(CommandRequest::prepare_execution) prepare;
+            std::unique_lock<std::mutex> lock(mutex_);
+            if (stop_) {
+                return;
+            }
             auto now = now_();
-            expire(now);
+            expire(now, retired);
+            if (!retired.empty()) {
+                continue;
+            }
             if (active_ || !pending_size()) {
                 changed_.wait(lock);
                 continue;
@@ -334,10 +362,9 @@ namespace linkerbot::hand::unified_detail {
             }
             // Claim a target only after the device transaction lane is available.
             // Until then latest replacement and FIFO capacity still apply to it.
-            std::shared_ptr<void> execution_lease;
             if (python_behavior_) {
                 const auto &candidate = fifo_.empty() ? latest_.begin()->second : fifo_.front();
-                const auto prepare = candidate.request.prepare_execution;
+                prepare = candidate.request.prepare_execution;
                 if (prepare) {
                     const auto epoch = invalidation_;
                     preparing_.emplace();
@@ -358,11 +385,13 @@ namespace linkerbot::hand::unified_detail {
                         for (auto &queued : fifo_) {
                             fail(queued, error);
                             removed(queued, true);
+                            retired.push_back(std::move(queued));
                         }
                         for (auto &[family, queued] : latest_) {
                             (void)family;
                             fail(queued, error);
                             removed(queued, true);
+                            retired.push_back(std::move(queued));
                         }
                         fifo_.clear();
                         latest_.clear();
@@ -391,11 +420,12 @@ namespace linkerbot::hand::unified_detail {
             auto &m = metrics_.at(job.handle.family());
             sample(m.queue_times, now - job.accepted);
             next_start_ = now + interval_;
-            execute_active(lock, now);
+            execute_active(lock, now, completed);
         }
     }
 
-    std::exception_ptr CommandScheduler::execute_active(std::unique_lock<std::mutex> &lock, Clock::time_point started) {
+    std::exception_ptr CommandScheduler::execute_active(std::unique_lock<std::mutex> &lock, Clock::time_point started,
+                                                        std::optional<Job> &completed) {
         auto &job = ::linkerbot::hand::detail::checked_value(active_, "missing active command");
         auto &m = metrics_.at(job.handle.family());
         lock.unlock();
@@ -439,14 +469,18 @@ namespace linkerbot::hand::unified_detail {
                 }
             }
         }
+        // Transfer ownership without allocating on normal command completion.
+        // The caller releases the completed request after unlocking mutex_.
+        completed.emplace(std::move(job));
         active_.reset();
         changed_.notify_all();
         return error;
     }
 
     std::optional<CommandScheduler::Clock::time_point> CommandScheduler::pending_angle_at() {
+        std::vector<Job> retired;
         const std::lock_guard<std::mutex> lock(mutex_);
-        expire(now_());
+        expire(now_(), retired);
         if (!python_behavior_ || active_ || latest_.count(CommandFamily::kAngleTarget) == 0) {
             return {};
         }
@@ -454,9 +488,11 @@ namespace linkerbot::hand::unified_detail {
     }
 
     bool CommandScheduler::run_angle(const std::shared_ptr<void> &lane) {
+        std::vector<Job> retired;
+        std::optional<Job> completed;
         std::unique_lock<std::mutex> lock(mutex_);
         const auto now = now_();
-        expire(now);
+        expire(now, retired);
         auto found = latest_.find(CommandFamily::kAngleTarget);
         if (!python_behavior_ || stop_ || active_ || now < next_start_ || found == latest_.end()) {
             return false;
@@ -468,7 +504,7 @@ namespace linkerbot::hand::unified_detail {
         removed(job, false);
         sample(metrics_.at(job.handle.family()).queue_times, now - job.accepted);
         next_start_ = now + interval_;
-        const auto error = execute_active(lock, now);
+        const auto error = execute_active(lock, now, completed);
         lock.unlock();
         ::linkerbot::hand::detail::rethrow_nested_connection_failure(error);
         return true;
@@ -487,8 +523,9 @@ namespace linkerbot::hand::unified_detail {
     }
 
     void CommandScheduler::notify_clock_advanced() {
+        std::vector<Job> retired;
         const std::lock_guard<std::mutex> lock(mutex_);
-        expire(now_());
+        expire(now_(), retired);
         changed_.notify_all();
     }
 }

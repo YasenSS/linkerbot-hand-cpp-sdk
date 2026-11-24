@@ -65,12 +65,13 @@ namespace linkerbot::hand::unified_detail {
         };
         static bool latest(CommandFamily family);
         void fail(Job &job, std::exception_ptr error);
-        void expire(Clock::time_point now);
+        void expire(Clock::time_point now, std::vector<Job> &retired);
         Clock::time_point next_deadline() const;
         size_t pending_size() const;
         void removed(Job &job, bool dropped);
         void run();
-        std::exception_ptr execute_active(std::unique_lock<std::mutex> &lock, Clock::time_point started);
+        std::exception_ptr execute_active(std::unique_lock<std::mutex> &lock, Clock::time_point started,
+                                          std::optional<Job> &completed);
         void watch_deadlines();
 
         const Clock::duration interval_;

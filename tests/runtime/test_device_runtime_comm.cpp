@@ -726,10 +726,10 @@ TEST_CASE("comm: command queue counts logical jobs independently of frames", "[c
 TEST_CASE("comm: runtime close wakes waiter and clears pending cache", "[comm][runtime]") {
     Rig rig;
     auto request = rig.runtime->submit(plan(), Clock::now() + 30s);
-    auto waiting = std::async(std::launch::async, [&] { REQUIRE_THROWS(request.wait()); });
+    auto waiting = std::async(std::launch::async, [&] { return request.wait(); });
     rig.runtime->close();
     REQUIRE(waiting.wait_for(500ms) == std::future_status::ready);
-    waiting.get();
+    REQUIRE_THROWS(waiting.get());
     REQUIRE(rig.runtime->runtime_health().in_flight == 0);
     REQUIRE(rig.runtime->health().lifecycle_state == linkerbot::hand::LifecycleState::kClosed);
     REQUIRE_FALSE(rig.runtime->health().connected());
