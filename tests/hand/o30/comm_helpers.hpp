@@ -54,25 +54,33 @@ namespace o30_comm {
         return {msg.data.begin(), msg.data.begin() + static_cast<std::ptrdiff_t>(end)};
     }
 
-    inline Message hop_reply(uint32_t id, uint8_t mi, bool rts, uint8_t si, const std::vector<uint8_t> &payload) {
+    inline Message hop_reply(uint32_t id, uint8_t mi, bool rts, uint8_t si, const std::vector<uint8_t> &payload,
+                             bool fd = true) {
         // Independent of the SDK request encoder: do not share wire-format bugs.
         if (payload.empty() || payload.size() > 61) {
             throw std::invalid_argument("fake HOP reply requires 1..61 bytes");
         }
         Message msg{};
         msg.id = id;
-        msg.is_fd = true;
+        msg.is_fd = fd;
         msg.data[0] = static_cast<uint8_t>(mi | (rts ? 0x80 : 0));
         msg.data[1] = si;
         msg.data[2] = static_cast<uint8_t>(payload.size());
-        constexpr std::array<uint8_t, 16> lengths{0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64};
-        msg.dlc = *std::lower_bound(lengths.begin(), lengths.end(), 3 + payload.size());
+        if (!fd) {
+            if (payload.size() + 3 > 8) {
+                throw std::invalid_argument("fake classic HOP reply exceeds 8 bytes");
+            }
+            msg.dlc = static_cast<uint8_t>(payload.size() + 3);
+        } else {
+            constexpr std::array<uint8_t, 16> lengths{0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64};
+            msg.dlc = *std::lower_bound(lengths.begin(), lengths.end(), 3 + payload.size());
+        }
         std::copy(payload.begin(), payload.end(), msg.data.begin() + 3);
         return msg;
     }
 
-    inline Message error_reply(uint32_t id, uint8_t si, uint8_t code) {
-        return hop_reply(id, protocol::kMiCommError, false, si, {code});
+    inline Message error_reply(uint32_t id, uint8_t si, uint8_t code, bool fd = true) {
+        return hop_reply(id, protocol::kMiCommError, false, si, {code}, fd);
     }
 
     class HopEndpoint {
@@ -80,6 +88,11 @@ namespace o30_comm {
         uint32_t request_id = protocol::kDefaultRequestId;
         std::map<std::pair<uint8_t, bool>, std::vector<uint8_t>> objects;
         std::vector<RecordedWrite> writes;
+        bool enforce_wire_format = false;
+        bool reply_is_fd = true;
+        bool switch_wire_on_mode_write = false;
+        bool override_save_ack = false;
+        uint8_t save_ack = 0;
 
         [[nodiscard]] uint32_t response_id() const { return protocol::expected_response_id(request_id); }
 
@@ -152,11 +165,15 @@ namespace o30_comm {
             if (req.is_extended || req.dlc < protocol::kHeaderBytes) {
                 return {};
             }
+            if (enforce_wire_format && req.is_fd != reply_is_fd) {
+                return {};
+            }
             const auto mi = protocol::mi_of(req.data[0]);
             const auto rts = protocol::rts_of(req.data[0]);
             const auto si = req.data[1];
             const auto edl = req.data[2];
             const bool is_write = req.dlc > protocol::kHeaderBytes;
+            bool response_fd = enforce_wire_format ? reply_is_fd : true;
             if (is_write) {
                 if (req.dlc < protocol::kHeaderBytes + edl) {
                     return {};
@@ -170,7 +187,16 @@ namespace o30_comm {
                     object.resize(end, 0);
                 }
                 std::copy(payload.begin(), payload.end(), object.begin() + si);
-                return {hop_reply(response_id(), mi, rts, si, payload)};
+                if (mi == protocol::kMiConfig && si == 0x06 && switch_wire_on_mode_write && !payload.empty()) {
+                    reply_is_fd = payload[0] == 2;
+                    if (enforce_wire_format) {
+                        response_fd = reply_is_fd;
+                    }
+                }
+                if (mi == protocol::kMiConfig && si == 0x1E && override_save_ack) {
+                    return {hop_reply(response_id(), mi, rts, si, {save_ack}, response_fd)};
+                }
+                return {hop_reply(response_id(), mi, rts, si, payload, response_fd)};
             }
 
             auto it = objects.find({mi, rts});
@@ -182,7 +208,7 @@ namespace o30_comm {
             }
             const auto requested_end = static_cast<size_t>(si) + edl;
             if (requested_end > it->second.size()) {
-                return {error_reply(response_id(), si, protocol::kErrorSubIndexMissing)};
+                return {error_reply(response_id(), si, protocol::kErrorSubIndexMissing, response_fd)};
             }
             const std::vector<uint8_t> slice(it->second.begin() + si,
                                              it->second.begin() + static_cast<std::ptrdiff_t>(requested_end));
@@ -192,7 +218,8 @@ namespace o30_comm {
                 frames.push_back(hop_reply(response_id(), mi, rts,
                                            static_cast<uint8_t>(static_cast<size_t>(si) + offset),
                                            {slice.begin() + static_cast<std::ptrdiff_t>(offset),
-                                            slice.begin() + static_cast<std::ptrdiff_t>(offset + n)}));
+                                            slice.begin() + static_cast<std::ptrdiff_t>(offset + n)},
+                                           response_fd));
             }
             return frames;
         }

@@ -2,8 +2,11 @@
 #include "hop_fixture.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <future>
+#include <initializer_list>
+#include <linkerbot/can/fake_transport.hpp>
 #include <linkerbot/hand/api/device.hpp>
 #include <linkerbot/hand/protocol/tactile.hpp>
+#include <optional>
 #include <thread>
 using namespace linkerbot::hand;
 using namespace std::chrono_literals;
@@ -373,4 +376,182 @@ TEST_CASE("L6 HOP no sensors UTF8 and aggregate deadline behavior", "[comm][l6-h
         REQUIRE_THROWS_AS(hand.version.get_blocking(20ms), TimeoutError);
         REQUIRE(fake->sent().size() < 5);
     }
+}
+
+namespace {
+    using linkerbot::can::FakeTransport;
+    using linkerbot::can::Message;
+
+    [[nodiscard]] size_t count_prefix(const std::vector<Message> &sent, std::initializer_list<uint8_t> prefix,
+                                      std::optional<bool> fd = std::nullopt) {
+        size_t count = 0;
+        for (const auto &message : sent) {
+            if (message.dlc < prefix.size()) {
+                continue;
+            }
+            bool match = true;
+            size_t index = 0;
+            for (const auto byte : prefix) {
+                if (message.data[index++] != byte) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match && (!fd || message.is_fd == *fd)) {
+                ++count;
+            }
+        }
+        return count;
+    }
+
+    [[nodiscard]] size_t count_config_writes(const std::vector<Message> &sent) {
+        size_t count = 0;
+        for (const auto &message : sent) {
+            if (message.dlc >= 4 && message.data[0] == 0x35) {
+                ++count;
+            }
+        }
+        return count;
+    }
+
+    struct OpenedHop {
+        std::shared_ptr<Firmware> firmware;
+        FakeTransport *transport = nullptr;
+        std::unique_ptr<HandDevice> device;
+
+        explicit OpenedHop(uint32_t id) : firmware(std::make_shared<Firmware>()) {
+            device = std::make_unique<HandDevice>(config(id), [this, id] {
+                auto next = firmware->transport(id);
+                transport = next.get();
+                return next;
+            });
+            device->open();
+            transport->clear_sent();
+        }
+    };
+
+    void install_classic_l6(FakeTransport *transport) {
+        const std::string code = "LHL6-1-123-L";
+        transport->on_request(0x28, [code](const Message &request) {
+            if (request.data[0] == 0xC0) {
+                std::vector<Message> replies;
+                for (int chunk = 0; chunk < 4; ++chunk) {
+                    Message reply{};
+                    reply.id = request.id;
+                    reply.dlc = 8;
+                    reply.data[0] = 0xC0;
+                    reply.data[1] = static_cast<uint8_t>(chunk);
+                    for (size_t index = 0; index < 6; ++index) {
+                        const auto offset = static_cast<size_t>(chunk) * 6 + index;
+                        reply.data[index + 2] = offset < code.size() ? static_cast<uint8_t>(code[offset]) : uint8_t{0};
+                    }
+                    replies.push_back(reply);
+                }
+                return replies;
+            }
+            if (request.data[0] == 0xC1 || request.data[0] == 0xC2 || request.data[0] == 0xC4) {
+                Message reply{};
+                reply.id = request.id;
+                reply.dlc = request.data[0] == 0xC1 ? 5 : 4;
+                reply.data[0] = request.data[0];
+                reply.data[1] = 1;
+                reply.data[2] = 2;
+                reply.data[3] = 3;
+                return std::vector<Message>{reply};
+            }
+            Message reply{};
+            reply.id = request.id;
+            reply.dlc = 7;
+            reply.data[0] = request.data[0];
+            for (size_t index = 1; index < 7; ++index) {
+                reply.data[index] = request.dlc > index ? request.data[index] : uint8_t{64};
+            }
+            return std::vector<Message>{reply};
+        });
+    }
+} // namespace
+
+TEST_CASE("L6 HOP reads and switches CAN interface mode", "[comm][l6-hop]") {
+    REQUIRE(declared_capabilities(config(0x123)).operations.read_can_configuration);
+    REQUIRE(declared_capabilities(config(0x123)).operations.write_can_configuration);
+    REQUIRE_FALSE(declared_capabilities(Model::kL6, HandSide::kLeft).operations.read_can_configuration);
+    REQUIRE_FALSE(declared_capabilities(Model::kL6, HandSide::kLeft).operations.write_can_configuration);
+
+    SECTION("CAN FD read") {
+        OpenedHop opened(0x123);
+        const auto configuration = opened.device->get_can_configuration();
+        REQUIRE(configuration.request_id == 0x123);
+        REQUIRE(configuration.response_id() == 0x523);
+        REQUIRE(configuration.interface_mode == HopCanInterfaceMode::kCanFd);
+        REQUIRE_FALSE(configuration.brs);
+        REQUIRE(configuration.nominal_bitrate == 1000000);
+        REQUIRE(configuration.data_bitrate == 5000000);
+        const auto sent = opened.transport->sent();
+        REQUIRE(count_prefix(sent, {0xB5, 0x00, 0x02}, true) == 1);
+        REQUIRE(count_prefix(sent, {0xB5, 0x06, 0x04}, true) == 1);
+    }
+    SECTION("mode write stays on CAN FD until reboot") {
+        OpenedHop opened(0x123);
+        const auto result = opened.device->set_can_interface_mode(HopCanInterfaceMode::kCan20, true);
+        REQUIRE(result.write_sent);
+        REQUIRE(result.saved_to_flash);
+        REQUIRE(result.active_wire_is_fd);
+        REQUIRE_FALSE(result.active_format_changed);
+        REQUIRE(result.after.interface_mode == HopCanInterfaceMode::kCan20);
+        REQUIRE_FALSE(result.after.brs);
+        const auto sent = opened.transport->sent();
+        REQUIRE(count_prefix(sent, {0x35, 0x06, 0x01, 0x01}, true) == 1);
+        REQUIRE(count_prefix(sent, {0x35, 0x1E, 0x01, 0x01}, true) == 1);
+    }
+    SECTION("firmware switches to classic CAN immediately") {
+        OpenedHop opened(0x123);
+        opened.firmware->switch_wire_immediately = true;
+        const auto result = opened.device->set_can_interface_mode(HopCanInterfaceMode::kCan20, true);
+        REQUIRE(result.write_sent);
+        REQUIRE(result.saved_to_flash);
+        REQUIRE_FALSE(result.active_wire_is_fd);
+        REQUIRE(result.active_format_changed);
+        REQUIRE(result.after.interface_mode == HopCanInterfaceMode::kCan20);
+        const auto sent = opened.transport->sent();
+        REQUIRE(count_prefix(sent, {0x35, 0x06, 0x01, 0x01}, true) == 1);
+        REQUIRE(count_prefix(sent, {0x35, 0x1E, 0x01, 0x01}, false) == 1);
+    }
+    SECTION("an already selected mode is not written again") {
+        OpenedHop opened(0x123);
+        const auto result = opened.device->set_can_interface_mode(HopCanInterfaceMode::kCanFd, true);
+        REQUIRE_FALSE(result.write_sent);
+        REQUIRE(result.saved_to_flash);
+        REQUIRE(result.active_wire_is_fd);
+        REQUIRE_FALSE(result.active_format_changed);
+        const auto sent = opened.transport->sent();
+        REQUIRE(count_prefix(sent, {0x35, 0x06, 0x01}) == 0);
+        REQUIRE(count_prefix(sent, {0x35, 0x1E, 0x01, 0x01}, true) == 1);
+    }
+    SECTION("classic CAN is rejected while BRS is enabled") {
+        OpenedHop opened(0x123);
+        opened.firmware->registers[0x35][7] = 1;
+        REQUIRE_THROWS_AS(opened.device->set_can_interface_mode(HopCanInterfaceMode::kCan20, true), ValidationError);
+        REQUIRE(count_config_writes(opened.transport->sent()) == 0);
+    }
+}
+
+TEST_CASE("classic L6 rejects CAN configuration before any frame", "[comm][l6-hop]") {
+    FakeTransport *transport = nullptr;
+    HandDeviceConfig cfg;
+    cfg.model = Model::kL6;
+    cfg.side = HandSide::kLeft;
+    cfg.interface_name = "fake0";
+    HandDevice device(cfg, [&] {
+        auto next = std::make_unique<FakeTransport>();
+        transport = next.get();
+        install_classic_l6(transport);
+        return next;
+    });
+    device.open();
+    transport->clear_sent();
+    REQUIRE_THROWS_AS(device.get_can_configuration(), UnsupportedOperationError);
+    REQUIRE(transport->sent().empty());
+    REQUIRE_THROWS_AS(device.set_can_interface_mode(HopCanInterfaceMode::kCanFd, true), UnsupportedOperationError);
+    REQUIRE(transport->sent().empty());
+    device.close();
 }

@@ -5,8 +5,10 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <initializer_list>
 #include <map>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -16,6 +18,7 @@
 #include <linkerbot/can/dispatcher.hpp>
 #include <linkerbot/can/fake_transport.hpp>
 #include <linkerbot/event_queue.hpp>
+#include <linkerbot/hand/api/device.hpp>
 #include <linkerbot/hand/o30/events.hpp>
 #include <linkerbot/hand/o30/o30.hpp>
 #include <linkerbot/hand/o30/protocol.hpp>
@@ -249,4 +252,135 @@ TEST_CASE("comm: stop closes the client used by managers", "[comm][o30][lifecycl
     auto h = o30_comm::make_hand();
     h.hand->stop();
     REQUIRE_THROWS_AS(h.hand->angle.get_blocking(kTimeout), std::runtime_error);
+}
+
+namespace {
+    struct OpenedO30 {
+        std::shared_ptr<o30_comm::HopEndpoint> hop;
+        linkerbot::can::FakeTransport *transport = nullptr;
+        std::unique_ptr<linkerbot::hand::HandDevice> device;
+
+        explicit OpenedO30(bool enforce_switch) {
+            using namespace linkerbot::hand;
+            hop = std::make_shared<o30_comm::HopEndpoint>();
+            hop->request_id = 0x001;
+            hop->seed_defaults();
+            hop->enforce_wire_format = enforce_switch;
+            hop->switch_wire_on_mode_write = enforce_switch;
+            auto &object = hop->objects[{o30::protocol::kMiConfig, false}];
+            object[0] = 0x01;
+            object[1] = 0x00;
+            object[6] = 2;
+            object[7] = 0;
+            object[8] = 1;
+            object[9] = 2;
+            HandDeviceConfig cfg;
+            cfg.model = Model::kO30;
+            cfg.side = HandSide::kUnknown;
+            cfg.interface_name = "fake0";
+            cfg.address = 0x001;
+            device = std::make_unique<HandDevice>(cfg, [this] {
+                auto next = std::make_unique<linkerbot::can::FakeTransport>();
+                transport = next.get();
+                o30_comm::attach_hop(transport, hop);
+                return next;
+            });
+            device->open();
+            transport->clear_sent();
+            hop->writes.clear();
+        }
+    };
+
+    [[nodiscard]] size_t count_prefix(const std::vector<linkerbot::can::Message> &sent,
+                                      std::initializer_list<uint8_t> prefix, std::optional<bool> fd = std::nullopt) {
+        size_t count = 0;
+        for (const auto &message : sent) {
+            if (message.dlc < prefix.size()) {
+                continue;
+            }
+            bool match = true;
+            size_t index = 0;
+            for (const auto byte : prefix) {
+                if (message.data[index++] != byte) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match && (!fd || message.is_fd == *fd)) {
+                ++count;
+            }
+        }
+        return count;
+    }
+} // namespace
+
+TEST_CASE("O30 HOP reads and switches CAN interface mode", "[comm][o30]") {
+    using linkerbot::hand::HandDeviceConfig;
+    using linkerbot::hand::HandSide;
+    using linkerbot::hand::HopCanInterfaceMode;
+    using linkerbot::hand::Model;
+    using linkerbot::hand::ValidationError;
+    HandDeviceConfig profile;
+    profile.model = Model::kO30;
+    profile.side = HandSide::kUnknown;
+    REQUIRE(linkerbot::hand::declared_capabilities(profile).operations.read_can_configuration);
+    REQUIRE(linkerbot::hand::declared_capabilities(profile).operations.write_can_configuration);
+
+    SECTION("CAN FD read") {
+        OpenedO30 opened(false);
+        const auto configuration = opened.device->get_can_configuration();
+        REQUIRE(configuration.request_id == 0x001);
+        REQUIRE(configuration.response_id() == 0x401);
+        REQUIRE(configuration.interface_mode == HopCanInterfaceMode::kCanFd);
+        REQUIRE_FALSE(configuration.brs);
+        REQUIRE(configuration.nominal_bitrate == 1000000);
+        REQUIRE(configuration.data_bitrate == 5000000);
+        const auto sent = opened.transport->sent();
+        REQUIRE(count_prefix(sent, {0xB5, 0x00, 0x02}, true) == 1);
+        REQUIRE(count_prefix(sent, {0xB5, 0x06, 0x04}, true) == 1);
+        REQUIRE(opened.hop->writes.empty());
+    }
+    SECTION("mode write stays on CAN FD until reboot") {
+        OpenedO30 opened(false);
+        const auto result = opened.device->set_can_interface_mode(HopCanInterfaceMode::kCan20, true);
+        REQUIRE(result.write_sent);
+        REQUIRE(result.saved_to_flash);
+        REQUIRE(result.active_wire_is_fd);
+        REQUIRE_FALSE(result.active_format_changed);
+        REQUIRE(result.after.interface_mode == HopCanInterfaceMode::kCan20);
+        const auto sent = opened.transport->sent();
+        REQUIRE(count_prefix(sent, {0x35, 0x06, 0x01, 0x01}, true) == 1);
+        REQUIRE(count_prefix(sent, {0x35, 0x1E, 0x01, 0x01}, true) == 1);
+    }
+    SECTION("firmware switches to classic CAN immediately and flash completion may be 0x00") {
+        OpenedO30 opened(true);
+        opened.hop->override_save_ack = true;
+        opened.hop->save_ack = 0x00;
+        const auto result = opened.device->set_can_interface_mode(HopCanInterfaceMode::kCan20, true);
+        REQUIRE(result.write_sent);
+        REQUIRE(result.saved_to_flash);
+        REQUIRE_FALSE(result.active_wire_is_fd);
+        REQUIRE(result.active_format_changed);
+        REQUIRE(result.after.interface_mode == HopCanInterfaceMode::kCan20);
+        const auto sent = opened.transport->sent();
+        REQUIRE(count_prefix(sent, {0x35, 0x06, 0x01, 0x01}, true) == 1);
+        REQUIRE(count_prefix(sent, {0x35, 0x1E, 0x01, 0x01}, false) == 1);
+    }
+    SECTION("an already selected mode is not written again") {
+        OpenedO30 opened(false);
+        const auto result = opened.device->set_can_interface_mode(HopCanInterfaceMode::kCanFd, true);
+        REQUIRE_FALSE(result.write_sent);
+        REQUIRE(result.saved_to_flash);
+        REQUIRE_FALSE(result.active_format_changed);
+        const auto sent = opened.transport->sent();
+        REQUIRE(count_prefix(sent, {0x35, 0x06, 0x01}) == 0);
+        REQUIRE(count_prefix(sent, {0x35, 0x1E, 0x01, 0x01}, true) == 1);
+    }
+    SECTION("classic CAN is rejected while BRS is enabled") {
+        OpenedO30 opened(false);
+        opened.hop->objects[{linkerbot::hand::o30::protocol::kMiConfig, false}][7] = 1;
+        REQUIRE_THROWS_AS(opened.device->set_can_interface_mode(HopCanInterfaceMode::kCan20, true), ValidationError);
+        REQUIRE(opened.hop->writes.empty());
+        REQUIRE(count_prefix(opened.transport->sent(), {0x35, 0x06, 0x01}) == 0);
+    }
 }

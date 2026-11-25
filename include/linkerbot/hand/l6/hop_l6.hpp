@@ -2,6 +2,7 @@
 #include <array>
 #include <linkerbot/can/transport.hpp>
 #include <linkerbot/event_queue.hpp>
+#include <linkerbot/hand/api/can_configuration.hpp>
 #include <linkerbot/hand/api/config.hpp>
 #include <linkerbot/hand/api/events.hpp>
 #include <linkerbot/hand/api/snapshot.hpp>
@@ -123,6 +124,11 @@ namespace linkerbot::hand::l6 {
             ConfigManager(const ConfigManager &) = delete;
             ConfigManager &operator=(const ConfigManager &) = delete;
             void save(std::chrono::milliseconds timeout = std::chrono::milliseconds{100});
+            [[nodiscard]] HopCanConfiguration
+            get_can_configuration(std::chrono::milliseconds timeout = std::chrono::milliseconds{200});
+            [[nodiscard]] HopCanModeSwitchResult
+            set_can_interface_mode(HopCanInterfaceMode mode, bool save_to_flash = false,
+                                   std::chrono::milliseconds timeout = std::chrono::milliseconds{500});
 
         private:
             friend class HopL6;

@@ -228,6 +228,9 @@ namespace linkerbot::hand {
         std::vector<DeviceOperation> acknowledged_operations;
         bool calibrate = false;
         bool save_parameters_confirmed = false;
+        // HOP MI 0x35 CAN controller settings. Default false leaves classic profiles unchanged.
+        bool read_can_configuration = false;
+        bool write_can_configuration = false;
 
         [[nodiscard]] bool supports(DeviceOperation operation) const noexcept;
         [[nodiscard]] bool acknowledged(DeviceOperation operation) const noexcept;

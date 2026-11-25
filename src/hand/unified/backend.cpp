@@ -446,6 +446,33 @@ namespace linkerbot::hand::unified_detail {
                 return handle;
             }
 
+            [[nodiscard]] HopCanConfiguration read_can_configuration(std::chrono::milliseconds timeout) override {
+                if (timeout.count() <= 0) {
+                    throw ValidationError("CAN configuration timeout must be positive");
+                }
+                const auto deadline = runtime::deadline_after(timeout);
+                auto lease = execution_gate_->acquire(false, deadline);
+                dispatch_guard_->wait(deadline, {});
+                if constexpr (std::is_same_v<Device, l6::HopL6> || std::is_same_v<Device, o30::O30>) {
+                    return device_->config.get_can_configuration(timeout);
+                }
+                throw UnsupportedOperationError("CAN configuration is not supported by this device");
+            }
+
+            [[nodiscard]] HopCanModeSwitchResult set_can_interface_mode(HopCanInterfaceMode mode, bool save_to_flash,
+                                                                        std::chrono::milliseconds timeout) override {
+                if (timeout.count() <= 0) {
+                    throw ValidationError("CAN configuration timeout must be positive");
+                }
+                const auto deadline = runtime::deadline_after(timeout);
+                auto lease = execution_gate_->acquire(true, deadline);
+                dispatch_guard_->wait(deadline, {});
+                if constexpr (std::is_same_v<Device, l6::HopL6> || std::is_same_v<Device, o30::O30>) {
+                    return device_->config.set_can_interface_mode(mode, save_to_flash, timeout);
+                }
+                throw UnsupportedOperationError("CAN configuration is not supported by this device");
+            }
+
             [[nodiscard]] HandSnapshot snapshot(Model model, HandSide side,
                                                 const DeviceCapabilities &capabilities) const override {
                 if (python_) {

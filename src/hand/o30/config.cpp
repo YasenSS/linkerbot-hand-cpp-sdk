@@ -1,6 +1,8 @@
 #include "linkerbot/hand/o30/config.hpp"
 #include <linkerbot/hand/errors.hpp>
 
+#include "../detail/hop_can_mode.hpp"
+
 #include <stdexcept>
 #include <vector>
 
@@ -98,6 +100,20 @@ namespace linkerbot::hand::o30 {
     void ConfigManager::save_to_flash(bool confirm, std::chrono::milliseconds timeout_ms) {
         auto operation = client_->operation(timeout_ms);
         write_confirm(kSiSaveFlash, confirm, timeout_ms);
+    }
+
+    HopCanConfiguration ConfigManager::get_can_configuration(std::chrono::milliseconds timeout) {
+        const auto op = client_->operation(detail::hop_can_operation_budget(timeout));
+        (void)op;
+        return detail::read_hop_can_configuration_blocking(*client_->runtime(), client_->request_id(), true, timeout);
+    }
+
+    HopCanModeSwitchResult ConfigManager::set_can_interface_mode(HopCanInterfaceMode mode, bool save_to_flash,
+                                                                 std::chrono::milliseconds timeout) {
+        const auto op = client_->operation(detail::hop_can_operation_budget(timeout));
+        (void)op;
+        return detail::set_hop_can_interface_mode_blocking(*client_->runtime(), client_->request_id(), true, mode,
+                                                           save_to_flash, timeout);
     }
 
     void ConfigManager::write_field(uint8_t si, const std::vector<uint8_t> &payload,

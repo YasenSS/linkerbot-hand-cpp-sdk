@@ -89,6 +89,13 @@ namespace linkerbot::hand::unified_detail {
         virtual void close() = 0;
         virtual void cancel_commands() = 0;
         virtual void assert_external_lifecycle() const = 0;
+        [[nodiscard]] virtual HopCanConfiguration read_can_configuration(std::chrono::milliseconds) {
+            throw UnsupportedOperationError("CAN configuration is not supported by this device");
+        }
+        [[nodiscard]] virtual HopCanModeSwitchResult set_can_interface_mode(HopCanInterfaceMode, bool,
+                                                                            std::chrono::milliseconds) {
+            throw UnsupportedOperationError("CAN configuration is not supported by this device");
+        }
     };
 
     [[nodiscard]] std::unique_ptr<DeviceBackend>

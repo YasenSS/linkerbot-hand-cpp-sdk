@@ -1019,6 +1019,42 @@ namespace linkerbot::hand {
 
     DeviceIdentity HandDevice::get_device_info(std::chrono::milliseconds timeout) { return verify_identity(timeout); }
 
+    HopCanConfiguration HandDevice::get_can_configuration(std::chrono::milliseconds timeout) {
+        constexpr const char *operation = "get_can_configuration";
+        const auto context = impl_->capture(operation);
+        if (!context.capabilities.operations.read_can_configuration) {
+            throw UnsupportedOperationError("configured hand model does not support get_can_configuration",
+                                            {operation, unified_detail::model_name(impl_->config_.model)});
+        }
+        if (timeout.count() <= 0) {
+            throw ValidationError("get_can_configuration timeout must be positive",
+                                  {operation, unified_detail::model_name(impl_->config_.model)});
+        }
+        auto lease = impl_->begin_io(context, operation);
+        return impl_->complete_io(context, operation, [&] { return context.backend->read_can_configuration(timeout); });
+    }
+
+    HopCanModeSwitchResult HandDevice::set_can_interface_mode(HopCanInterfaceMode mode, bool save_to_flash,
+                                                              std::chrono::milliseconds timeout) {
+        constexpr const char *operation = "set_can_interface_mode";
+        const auto context = impl_->capture(operation);
+        if (!context.capabilities.operations.write_can_configuration) {
+            throw UnsupportedOperationError("configured hand model does not support set_can_interface_mode",
+                                            {operation, unified_detail::model_name(impl_->config_.model)});
+        }
+        if (timeout.count() <= 0) {
+            throw ValidationError("set_can_interface_mode timeout must be positive",
+                                  {operation, unified_detail::model_name(impl_->config_.model)});
+        }
+        if (!is_hop_can_interface_mode(mode)) {
+            throw ValidationError("CAN interface mode must be classic CAN 2.0 (1) or CAN FD (2)",
+                                  {operation, unified_detail::model_name(impl_->config_.model)});
+        }
+        auto lease = impl_->begin_io(context, operation);
+        return impl_->complete_io(
+            context, operation, [&] { return context.backend->set_can_interface_mode(mode, save_to_flash, timeout); });
+    }
+
     DeviceIdentity HandDevice::refresh_device_info(std::chrono::milliseconds timeout) {
         if (timeout.count() <= 0) {
             throw ValidationError("refresh_device_info timeout must be positive");

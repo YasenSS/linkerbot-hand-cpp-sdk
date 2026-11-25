@@ -124,6 +124,8 @@ namespace linkerbot::hand {
         }
         result.operations.read_device_info = true;
         result.operations.save_parameters = true;
+        result.operations.read_can_configuration = true;
+        result.operations.write_can_configuration = true;
         result.operations.acknowledged_operations = {DeviceOperation::kSaveParameters};
         return result;
     }
