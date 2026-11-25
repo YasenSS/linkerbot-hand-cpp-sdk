@@ -1,5 +1,26 @@
 # Release notes
 
+## 0.3.13
+
+This release adds O6 HOP 0.0.4 support with explicit `O6Protocol::kHopV004`
+for CAN FD and `O6Protocol::kHopV004Can` for CAN 2.0. The default O6
+profile is Classic CAN.
+
+- `HandDevice` supports O6 HOP joint commands, telemetry and tactile reads.
+- `get_can_configuration()` and `set_can_interface_mode()` expose device-side
+  CAN settings for O6 HOP, L6 HOP and O30. The `hop_can_mode` SocketCAN
+  example reads settings and can explicitly request a mode change.
+- The minimum and paired transport version is v0.3.4
+  (`0e190032d65ed0b315337b45b3779cf4f650ed68`). Rebuild consumers with matching
+  SDK headers and libraries.
+
+On O6 firmware 5.0.1, candleLightFD passed ten HOP CAN FD checks, including
+single-joint movement and restoration. MiniCANFD verified the C++ request
+to switch from FD to CAN 2.0. The vendor API verified Classic frame I/O
+and the return to FD. End-to-end C++ CAN 2.0 I/O on MiniCANFD and
+power-cycle persistence remain unverified.
+See the [O6 hardware record](docs/hardware-acceptance/o6/report.md#o6-hop-2026-11-25).
+
 ## 0.3.12
 
 This patch extends the explicit Python runtime policy with angle scheduling at safe

@@ -2,6 +2,12 @@
 
 [English](CHANGELOG.md) | [简体中文](CHANGELOG.zh-CN.md)
 
+## 0.3.13
+
+- Add explicit O6 HOP 0.0.4 profiles for CAN FD and CAN 2.0, with unified joint control, telemetry and tactile reads.
+- Add device-side CAN configuration reads and mode switching for O6 HOP, L6 HOP and O30, plus the `hop_can_mode` SocketCAN example.
+- Document O6 setup and hardware coverage. See [release notes](RELEASE_NOTES.md#0313).
+
 ## 0.3.12
 
 - Schedule angle commands and queries at complete tactile-stage boundaries under explicit `RuntimeBehavior::kPython`, covering Classic L6/O6/L20Lite/L20 and O30 HOP V25. L30 retains its existing no-yield behavior.
