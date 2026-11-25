@@ -8,7 +8,6 @@
 #include <chrono>
 #include <cstdint>
 #include <initializer_list>
-#include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -58,7 +57,6 @@ namespace linkerbot::hand::detail {
             frame.is_brs = false;
             frame.dlc = static_cast<uint8_t>(useful);
         }
-        auto answered_fd = std::make_shared<std::optional<bool>>();
         protocol::TransactionPlan plan;
         plan.keys = {"hop-can-configuration"};
         plan.domain = "hop/can-configuration";
@@ -70,8 +68,7 @@ namespace linkerbot::hand::detail {
             plan.publish_after_send = true;
         }
         plan.frames = {std::move(frame)};
-        plan.consume = [response_id, mi, si, edl, rts, send_is_fd, accept_either_format,
-                        answered_fd](const can::Message &message) {
+        plan.consume = [response_id, mi, si, edl, rts, send_is_fd, accept_either_format](const can::Message &message) {
             using protocol::Progress;
             if (message.id != response_id || message.is_extended) {
                 return Progress::unmatched();
@@ -95,22 +92,18 @@ namespace linkerbot::hand::detail {
             } else if (message.dlc > 8) {
                 throw ProtocolError("invalid HOP CAN 2.0 wire length");
             }
-            const auto parsed = protocol::hop::parse_frame(message.data.data(), message.dlc);
+            auto parsed = protocol::hop::parse_frame(message.data.data(), message.dlc);
             if (parsed.edl != edl) {
                 throw ProtocolError("HOP response EDL does not match requested range");
             }
-            *answered_fd = message.is_fd;
-            return Progress::complete(parsed.payload);
+            return Progress::complete(HopCanFrameResult{std::move(parsed.payload), message.is_fd});
         };
         try {
             auto sample = runtime.execute(std::move(plan), deadline);
-            if (!answered_fd->has_value()) {
-                throw ProtocolError("HOP CAN configuration reply did not identify its wire format");
+            if (auto *reply = std::any_cast<HopCanFrameResult>(&sample.value)) {
+                return std::move(*reply);
             }
-            HopCanFrameResult result;
-            result.payload = std::any_cast<std::vector<uint8_t>>(std::move(sample.value));
-            result.is_fd = **answered_fd;
-            return result;
+            throw ProtocolError("HOP CAN configuration reply did not identify its wire format");
         } catch (const TimeoutError &) {
             return std::nullopt;
         }

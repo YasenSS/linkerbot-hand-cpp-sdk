@@ -260,9 +260,8 @@ namespace {
         linkerbot::can::FakeTransport *transport = nullptr;
         std::unique_ptr<linkerbot::hand::HandDevice> device;
 
-        explicit OpenedO30(bool enforce_switch) {
+        explicit OpenedO30(bool enforce_switch) : hop(std::make_shared<o30_comm::HopEndpoint>()) {
             using namespace linkerbot::hand;
-            hop = std::make_shared<o30_comm::HopEndpoint>();
             hop->request_id = 0x001;
             hop->seed_defaults();
             hop->enforce_wire_format = enforce_switch;
