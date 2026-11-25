@@ -12,7 +12,7 @@ retains its revisions, firmware, commands, failures and follow-up results.
 | Model | Recorded coverage and remaining limits |
 | --- | --- |
 | [L6](l6/report.md) | 34 common Linux checks passed; Windows Debug PCAN and SLCAN Classic discovery, reads and single-joint movement/restoration recorded |
-| [O6](o6/report.md) | 33 common Linux checks eventually passed; Windows Debug PCAN and SLCAN Classic discovery, reads and single-joint movement/restoration recorded |
+| [O6](o6/report.md) | Classic CAN records cover Linux and Windows. The [HOP 0.0.4 run](o6/report.md#o6-hop-2026-11-25) passed 10 CAN FD checks, including single-joint movement and restoration, and recorded the FD-to-CAN 2.0 switch |
 | [L20 Lite](l20lite/report.md) | Linux joint arrival/coupling differences retained; Windows Debug PCAN and SLCAN Classic checks include joint 0 movement/restoration |
 | [L20](l20/report.md) | 32 common checks passed; Windows Debug PCAN/SLCAN Classic recorded, with earlier fault and snapshot-expiry observations retained |
 | [L30](l30/report.md) | 34 Linux checks passed with additional skipped cases; Windows Debug SLCAN FD recorded; previous pose-range and CLI failures remain documented |

@@ -26,6 +26,8 @@ and collecting telemetry in the background. CAN/CAN FD communication is provided
 
 L6 defaults to Classic CAN. Devices with compatible CAN FD firmware can explicitly select the
 [optional HOP protocol](docs/en/guides/usage.md#optional-l6-can-fd-protocol).
+O6 firmware that supports HOP 0.0.4 can use CAN FD or Classic CAN with explicit protocol selection.
+See [O6 HOP connection and CAN mode switching](docs/en/tutorials/o6.md#o6-hop).
 See [platform and hardware validation scope](docs/en/reference/compatibility.md#platform-and-hardware-validation-scope)
 for tested platforms, adapters, and limitations.
 

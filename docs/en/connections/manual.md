@@ -154,6 +154,10 @@ For optional L6 HOP firmware, explicitly set `config.l6_protocol = L6Protocol::k
 and verify the corresponding address, bitrate, and capabilities. You cannot infer the device protocol from the FD interface configuration.
 See [Optional HOP connection](../guides/usage.md#optional-l6-can-fd-protocol).
 
+Connect to O6 HOP firmware manually. Set `config.o6_protocol = O6Protocol::kHopV004` for a device currently using CAN FD,
+or select `O6Protocol::kHopV004Can` for CAN 2.0 and configure SocketCAN to match the device. The default request ID is `0x001`.
+See the connection example and device-side mode switch in [Manual O6 HOP connection](../tutorials/o6.md#o6-hop).
+
 <a id="pcan-slcan"></a>
 
 ## PCAN and SLCAN (Windows)

@@ -154,6 +154,10 @@ L6 可选 HOP 固件需显式设置 `config.l6_protocol = L6Protocol::kHopV004`�
 并核对对应地址、速率和能力；不能通过 FD 接口配置推断设备协议。
 详见[可选 HOP 接入](../guides/usage.md#l6-可选-can-fd-协议)。
 
+O6 HOP 固件使用显式手动连接。设备当前使用 CAN FD 时选择 `config.o6_protocol = O6Protocol::kHopV004`，
+使用 CAN 2.0 时选择 `O6Protocol::kHopV004Can`，并按实际设置配置 SocketCAN。请求 ID 默认 `0x001`。
+连接示例和设备端模式切换见 [O6 HOP 手动接入](../tutorials/o6.md#o6-hop)。
+
 <a id="pcan-slcan"></a>
 
 ## PCAN 与 SLCAN（Windows）

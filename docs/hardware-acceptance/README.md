@@ -24,7 +24,7 @@ MiniCANFD 需使用该场次验证的配套 DLL，旧版 DLL 的发送失败记�
 | 型号 | 报告 / 状态 |
 | --- | --- |
 | L6 | [Linux 常用功能 34 项通过；Windows PCAN / SLCAN Classic 读取及单关节收发恢复通过](l6/report.md) |
-| O6 | [Linux 常用接口 33 项最终通过；Windows PCAN / SLCAN Classic 发现、读取及单关节收发恢复通过](o6/report.md) |
+| O6 | [Classic 的 Linux 和 Windows 验收](o6/report.md)。[HOP 0.0.4 实测](o6/report.md#o6-hop-2026-11-25)覆盖 CAN FD 常用接口 10 项、单关节运动恢复及 FD→CAN 2.0 切换 |
 | L20Lite | [Linux 角度到位/联动差异保留；Windows PCAN / SLCAN Classic 发现、读取及关节 0 运动恢复通过](l20lite/report.md) |
 | L20 | [常用接口 32 项通过；Windows PCAN / SLCAN Classic 发现、读取及单关节收发恢复通过，历史设备故障及复测记录见报告](l20/report.md) |
 | L30 | [Linux 34 项通过、另有跳过项；Windows SLCAN FD 发现、读取及单关节运动恢复通过](l30/report.md) |

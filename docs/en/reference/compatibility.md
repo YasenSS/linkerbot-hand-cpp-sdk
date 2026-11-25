@@ -26,6 +26,12 @@ close/recovery and injected abnormal-reply timing acceptance is claimed. Offline
 regressions cover these lifecycle and isolation rules independently. The scheduling
 runs do not establish frequency maxima or dynamic motion accuracy.
 
+## O6 HOP hardware validation
+
+On 2026-11-25, a Release build from the local C++ SDK source was tested on a right O6 (firmware `5.0.1`, HOP `0.0.4`) on Ubuntu 24.04 x86_64.
+candleLightFD / SocketCAN passed common CAN FD operations and single-joint movement with restoration. MiniCANFD verified the C++ FD-to-CAN 2.0 switch and used the vendor API to verify Classic frame I/O and return to FD.
+See adapter versions and coverage in the [O6 HOP hardware record](../../hardware-acceptance/o6/report.md#o6-hop-2026-11-25).
+
 ## Historical common-feature hardware baseline
 
 Historical hardware acceptance applies to the SDK revision and configuration recorded
