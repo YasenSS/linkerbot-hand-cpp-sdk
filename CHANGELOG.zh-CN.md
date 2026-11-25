@@ -2,6 +2,12 @@
 
 [English](CHANGELOG.md) | [简体中文](CHANGELOG.zh-CN.md)
 
+## 0.3.13
+
+- 新增 O6 HOP 0.0.4 的 CAN FD 和 CAN 2.0 显式配置，支持统一接口的关节控制、遥测和触觉读取。
+- 新增 O6 HOP、L6 HOP 和 O30 的设备端 CAN 配置读取与模式切换，并提供 SocketCAN 示例 `hop_can_mode`。
+- 补充 O6 接入说明和实机验证范围。详见[发行说明](RELEASE_NOTES.md#0313)。
+
 ## 0.3.12
 
 - 显式 `RuntimeBehavior::kPython` 下，在完整触觉阶段边界调度角度命令和查询，覆盖 Classic L6/O6/L20Lite/L20 与 O30 HOP V25；L30 保留原有不让出行为。
