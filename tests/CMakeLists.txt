@@ -205,7 +205,7 @@ add_library(linkerbot-protocol STATIC
     ../src/hand/l30/protocol.cpp)
 target_include_directories(linkerbot-protocol PUBLIC ../include)
 target_link_libraries(linkerbot-protocol PUBLIC linkerbot::comm-values)
-add_executable(protocol-tests protocol/test_vectors.cpp protocol/test_l6_hop_vectors.cpp protocol/test_o6_vectors.cpp protocol/test_l20lite_vectors.cpp protocol/main.cpp)
+add_executable(protocol-tests protocol/test_vectors.cpp protocol/test_l6_hop_vectors.cpp protocol/test_o6_hop_vectors.cpp protocol/test_o6_vectors.cpp protocol/test_l20lite_vectors.cpp protocol/main.cpp)
 target_link_libraries(protocol-tests PRIVATE linkerbot-protocol Catch2::Catch2)
 add_test(NAME protocol-vectors COMMAND protocol-tests "[protocol]")
 

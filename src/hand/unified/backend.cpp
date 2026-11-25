@@ -453,7 +453,8 @@ namespace linkerbot::hand::unified_detail {
                 const auto deadline = runtime::deadline_after(timeout);
                 auto lease = execution_gate_->acquire(false, deadline);
                 dispatch_guard_->wait(deadline, {});
-                if constexpr (std::is_same_v<Device, l6::HopL6> || std::is_same_v<Device, o30::O30>) {
+                if constexpr (std::is_same_v<Device, o6::HopO6> || std::is_same_v<Device, l6::HopL6> ||
+                              std::is_same_v<Device, o30::O30>) {
                     return device_->config.get_can_configuration(timeout);
                 }
                 throw UnsupportedOperationError("CAN configuration is not supported by this device");
@@ -467,7 +468,8 @@ namespace linkerbot::hand::unified_detail {
                 const auto deadline = runtime::deadline_after(timeout);
                 auto lease = execution_gate_->acquire(true, deadline);
                 dispatch_guard_->wait(deadline, {});
-                if constexpr (std::is_same_v<Device, l6::HopL6> || std::is_same_v<Device, o30::O30>) {
+                if constexpr (std::is_same_v<Device, o6::HopO6> || std::is_same_v<Device, l6::HopL6> ||
+                              std::is_same_v<Device, o30::O30>) {
                     return device_->config.set_can_interface_mode(mode, save_to_flash, timeout);
                 }
                 throw UnsupportedOperationError("CAN configuration is not supported by this device");
@@ -1071,6 +1073,12 @@ namespace linkerbot::hand::unified_detail {
             }
             case Model::kO6: {
                 const auto side = concrete_side<o6::Side>(config.side);
+                if (config.o6_protocol != O6Protocol::kClassic) {
+                    const bool can_fd = config.o6_protocol == O6Protocol::kHopV004;
+                    auto hand = std::make_unique<o6::HopO6>(
+                        side, session, config.address.value_or(o6::hop::kDefaultRequestId), can_fd);
+                    return backend<o6::HopO6, o6::kJointCount>(std::move(hand), std::move(owned_session), config);
+                }
                 auto hand =
                     injected ? std::make_unique<o6::O6>(side, session, config.interface_name, config.angle_mapping_path)
                              : std::make_unique<o6::O6>(side, config.interface_name, config.angle_mapping_path);

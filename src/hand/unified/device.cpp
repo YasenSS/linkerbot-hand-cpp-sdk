@@ -1629,6 +1629,7 @@ namespace linkerbot::hand {
             }
             if (!capabilities.supports(channel.semantic) ||
                 (impl_->config_.l6_protocol != L6Protocol::kHopV004 &&
+                 impl_->config_.o6_protocol == O6Protocol::kClassic &&
                  !unified_detail::polling_supported(impl_->config_.model, channel.semantic))) {
                 throw UnsupportedOperationError("configured telemetry is not supported for unified polling",
                                                 {"start_polling", unified_detail::model_name(impl_->config_.model)});

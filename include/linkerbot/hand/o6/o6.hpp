@@ -23,6 +23,7 @@
 #include <linkerbot/hand/o6/events.hpp>
 #include <linkerbot/hand/o6/fault_manager.hpp>
 #include <linkerbot/hand/o6/force_sensor_manager.hpp>
+#include <linkerbot/hand/o6/side.hpp>
 #include <linkerbot/hand/o6/speed_manager.hpp>
 #include <linkerbot/hand/o6/stall_manager.hpp>
 #include <linkerbot/hand/o6/temperature_manager.hpp>
@@ -31,8 +32,6 @@
 #include <linkerbot/transport/session.hpp>
 
 namespace linkerbot::hand::o6 {
-
-    enum class Side { kLeft, kRight };
 
     class O6 {
         // Declared first to ensure initialization before managers.
