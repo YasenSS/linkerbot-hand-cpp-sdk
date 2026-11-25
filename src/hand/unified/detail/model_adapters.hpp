@@ -11,6 +11,7 @@
 #include <linkerbot/hand/l6/hop_l6.hpp>
 #include <linkerbot/hand/l6/l6.hpp>
 #include <linkerbot/hand/o30/o30.hpp>
+#include <linkerbot/hand/o6/hop_o6.hpp>
 #include <linkerbot/hand/o6/o6.hpp>
 
 namespace linkerbot::hand::unified_detail {
@@ -35,6 +36,12 @@ namespace linkerbot::hand::unified_detail {
     [[nodiscard]] TelemetrySample read_telemetry(o6::O6 &device, TelemetrySemantic semantic,
                                                  std::chrono::milliseconds timeout);
     [[nodiscard]] CommandOutcome operate_device(o6::O6 &device, DeviceOperation operation,
+                                                std::chrono::milliseconds timeout);
+
+    [[nodiscard]] CommandOutcome submit_command(o6::HopO6 &device, const CommandRequest &request);
+    [[nodiscard]] TelemetrySample read_telemetry(o6::HopO6 &device, TelemetrySemantic semantic,
+                                                 std::chrono::milliseconds timeout);
+    [[nodiscard]] CommandOutcome operate_device(o6::HopO6 &device, DeviceOperation operation,
                                                 std::chrono::milliseconds timeout);
 
     [[nodiscard]] CommandOutcome submit_command(l20lite::L20lite &device, const CommandRequest &request);
@@ -95,9 +102,11 @@ namespace linkerbot::hand::unified_detail {
     [[nodiscard]] TelemetrySample telemetry_sample(const HandSnapshot &snapshot, TelemetrySemantic semantic);
 
     [[nodiscard]] DeviceIdentity read_identity(l6::HopL6 &device, HandSide side, std::chrono::milliseconds timeout);
+    [[nodiscard]] DeviceIdentity read_identity(o6::HopO6 &device, HandSide side, std::chrono::milliseconds timeout);
     [[nodiscard]] HandSnapshot unified_snapshot(const HandSnapshot &source, Model model, HandSide side,
                                                 const DeviceCapabilities &capabilities);
     void start_device_polling(l6::HopL6 &device, const PollingPlan &plan);
+    void start_device_polling(o6::HopO6 &device, const PollingPlan &plan);
     void start_device_polling(l6::L6 &device, const PollingPlan &plan);
     void start_device_polling(o6::O6 &device, const PollingPlan &plan);
     void start_device_polling(l20lite::L20lite &device, const PollingPlan &plan);

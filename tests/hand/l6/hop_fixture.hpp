@@ -18,8 +18,13 @@ namespace l6_hop_test {
         std::array<Sensor, 5> sensors;
         uint8_t selected = 1;
         size_t position_writes = 0;
+        bool can_fd = true;
         bool hold_tail = false, short_tail = false, no_reply = false, bad_length = false, bad_selected = false;
         bool invalid_mask = false;
+        bool switch_wire_immediately = false;
+        bool drop_mode_write_reply = false;
+        bool override_save_ack = false;
+        uint8_t save_ack = 0;
         std::optional<can::Message> held;
         static void put(std::array<uint8_t, 256> &target, size_t offset, const std::string &text, size_t width) {
             std::fill_n(target.begin() + offset, width, 0);
@@ -46,6 +51,12 @@ namespace l6_hop_test {
                 }
             }
             registers[12][10] = 0xb0; // bit7 known, bits4/5 reserved
+            auto &can_config = registers[0x35];
+            can_config[0] = 0x01;
+            can_config[6] = 2;
+            can_config[7] = 0;
+            can_config[8] = 1;
+            can_config[9] = 2;
             sensors[0] = {"FnS_U16_1;Rsv_U16_1;Fn_U8_4", {42, 0, 99, 0, 1, 2, 3, 4}, 2, 2};
             sensors[1] = {"FNS_U16_1;FTS_I16_1;FDS_F32_1", {9, 0, 254, 255, 0, 0, 52, 66}, 0, 0};
             sensors[3] = {"xyz_F32_1", {0, 0, 128, 63, 0, 0, 0, 64, 0, 0, 64, 64}, 0, 0};
@@ -54,13 +65,17 @@ namespace l6_hop_test {
         can::Message response(const can::Message &req, const std::vector<uint8_t> &data) {
             can::Message result;
             result.id = req.id | 0x400;
-            result.is_fd = true;
+            result.is_fd = can_fd;
             const size_t count = data.size() + 3;
-            for (uint8_t n : {3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64}) {
-                if (n >= count) {
-                    result.dlc = n;
-                    break;
+            if (can_fd) {
+                for (uint8_t n : {3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64}) {
+                    if (n >= count) {
+                        result.dlc = n;
+                        break;
+                    }
                 }
+            } else {
+                result.dlc = static_cast<uint8_t>(count);
             }
             result.data[0] = req.data[0];
             result.data[1] = req.data[1];
@@ -70,7 +85,7 @@ namespace l6_hop_test {
         }
         std::vector<can::Message> handle(const can::Message &req) {
             const std::lock_guard<std::mutex> lock(mutex);
-            if (no_reply || !req.is_fd || req.is_extended || req.dlc < 3) {
+            if (no_reply || req.is_fd != can_fd || req.is_extended || req.dlc < 3) {
                 return {};
             }
             const uint8_t mi = req.data[0] & 0x7f, si = req.data[1], length = req.data[2];
@@ -116,14 +131,21 @@ namespace l6_hop_test {
                     return {};
                 }
                 data.assign(sensor.data.begin() + start, sensor.data.begin() + start + length);
-            } else if (mi == 0x35) {
-                data = {1};
             } else {
                 auto &object = mi == 0x20 ? positions : registers[mi];
                 if (write) {
                     std::copy_n(req.data.begin() + 3, length, object.begin() + si);
                 }
                 data.assign(object.begin() + si, object.begin() + si + length);
+            }
+            if (write && mi == 0x35 && si == 0x06 && switch_wire_immediately && !data.empty()) {
+                can_fd = data[0] == 2;
+            }
+            if (write && mi == 0x35 && si == 0x1E && override_save_ack) {
+                data = {save_ack};
+            }
+            if (drop_mode_write_reply && write && mi == 0x35 && si == 0x06) {
+                return {};
             }
             auto reply = response(req, data);
             if (write && mi == 0x20 && si == 20) {
@@ -139,6 +161,8 @@ namespace l6_hop_test {
             return {reply};
         }
         std::unique_ptr<can::FakeTransport> transport(uint32_t id = 1) {
+            registers[0x35][0] = static_cast<uint8_t>(id & 0xffU);
+            registers[0x35][1] = static_cast<uint8_t>((id >> 8) & 0xffU);
             auto result = std::make_unique<can::FakeTransport>();
             result->on_request(id, [this](const auto &req) { return handle(req); });
             return result;

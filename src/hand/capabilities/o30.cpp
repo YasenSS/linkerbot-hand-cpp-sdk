@@ -34,6 +34,8 @@ namespace linkerbot::hand::capabilities_detail {
             profile.side = side;
             profile.transport = o30_transport();
             profile.operations.read_device_info = true;
+            profile.operations.read_can_configuration = true;
+            profile.operations.write_can_configuration = true;
             profile.joints = joints;
             profile.commands = {
                 angle_command(joints, encoding, AckSupport::kRequired, true),

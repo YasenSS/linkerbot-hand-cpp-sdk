@@ -24,6 +24,7 @@
 | O30 | 20 | HOP / CAN FD 标准帧，无 BRS | 请求 ID 默认 `0x001` |
 
 L6 默认使用 Classic CAN；支持 CAN FD 的设备可显式选择[可选 HOP 协议](docs/zh/guides/usage.md#l6-可选-can-fd-协议)。
+O6 固件支持 HOP 0.0.4 时，可显式选择 CAN FD 或 Classic CAN。详见 [O6 HOP 接入与 CAN 模式切换](docs/zh/tutorials/o6.md#o6-hop)。
 平台、适配器和实测限制统一见
 [平台与硬件验证范围](docs/zh/reference/compatibility.md#平台与硬件验证范围)。
 

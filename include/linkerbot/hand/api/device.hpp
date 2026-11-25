@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <linkerbot/event_queue.hpp>
+#include <linkerbot/hand/api/can_configuration.hpp>
 #include <linkerbot/hand/api/commands.hpp>
 #include <linkerbot/hand/api/config.hpp>
 #include <linkerbot/hand/api/events.hpp>
@@ -77,6 +78,13 @@ namespace linkerbot::hand {
         // Python-compatible read behavior uses refresh_device_info() below.
         [[nodiscard]] DeviceIdentity get_device_info(std::chrono::milliseconds timeout = std::chrono::milliseconds{
                                                          1000});
+        // Reads MI 0x35 SI 0x00 and SI 0x06. Classic hands reject this before any frame is sent.
+        [[nodiscard]] HopCanConfiguration
+        get_can_configuration(std::chrono::milliseconds timeout = std::chrono::milliseconds{200});
+        // Writes MI 0x35 SI 0x06 at most once, then optionally saves MI 0x35 SI 0x1E once.
+        [[nodiscard]] HopCanModeSwitchResult
+        set_can_interface_mode(HopCanInterfaceMode mode, bool save_to_flash = false,
+                               std::chrono::milliseconds timeout = std::chrono::milliseconds{500});
         // Active identity read in the current generation. Success does not
         // cancel commands or restart polling. A physical identity mismatch
         // faults this facade; timeout/protocol errors leave admission unchanged.

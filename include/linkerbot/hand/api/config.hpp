@@ -17,6 +17,7 @@ namespace linkerbot::hand {
     enum class RuntimeBehavior : uint8_t { kNative, kPython };
 
     enum class L6Protocol : uint8_t { kClassic, kHopV004 };
+    enum class O6Protocol : uint8_t { kClassic, kHopV004, kHopV004Can };
     // Runtime-only policies that may be supplied independently of a physical
     // endpoint. Discovery owns model, side, interface and address selection;
     // callers own these execution policies.
@@ -107,6 +108,9 @@ namespace linkerbot::hand {
         std::chrono::milliseconds recovery_backoff{100};
         // Explicit opt-in for the latest L6 firmware; legacy defaults remain Classic.
         L6Protocol l6_protocol = L6Protocol::kClassic;
+        // Explicit opt-in for O6 HOP v0.0.4 firmware (CAN FD or Classic CAN 2.0);
+        // legacy defaults remain Classic.
+        O6Protocol o6_protocol = O6Protocol::kClassic;
         // Explicit protocol layout, not firmware inference. V25 matches the
         // Python whole-hand path; native Managers retain mounted V36 behavior.
         O30Layout o30_layout = O30Layout::kMountedV36;

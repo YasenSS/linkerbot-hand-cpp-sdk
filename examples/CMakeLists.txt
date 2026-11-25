@@ -29,3 +29,12 @@ if(LINKERBOT_BUILD_TESTS)
     add_test(NAME l6_hop_readonly_invalid COMMAND l6_hop_readonly can0 neither)
     set_tests_properties(l6_hop_readonly_invalid PROPERTIES WILL_FAIL TRUE)
 endif()
+
+# Read-only unless --mode is passed. Help and argument checks perform no I/O.
+add_executable(hop_can_mode hop_can_mode.cpp)
+target_link_libraries(hop_can_mode PRIVATE linkerbot::cpp-sdk)
+if(LINKERBOT_BUILD_TESTS)
+    add_test(NAME hop_can_mode_help COMMAND hop_can_mode --help)
+    add_test(NAME hop_can_mode_invalid COMMAND hop_can_mode can0 neither)
+    set_tests_properties(hop_can_mode_invalid PROPERTIES WILL_FAIL TRUE)
+endif()

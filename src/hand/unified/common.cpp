@@ -93,8 +93,9 @@ namespace linkerbot::hand::unified_detail {
         }
         if (config.runtime_behavior == RuntimeBehavior::kPython &&
             ((config.model == Model::kL6 && config.l6_protocol != L6Protocol::kClassic) ||
+             (config.model == Model::kO6 && config.o6_protocol != O6Protocol::kClassic) ||
              (config.model == Model::kO30 && config.o30_layout != O30Layout::kPythonV25))) {
-            throw ValidationError("Python runtime behavior requires Classic L6 or explicit O30 V25 layout");
+            throw ValidationError("Python runtime behavior requires Classic L6, Classic O6 or explicit O30 V25 layout");
         }
         if (config.recovery_timeout.count() <= 0 || config.recovery_quiet.count() < 0) {
             throw ValidationError("recovery_timeout must be positive and recovery_quiet nonnegative");
@@ -133,6 +134,14 @@ namespace linkerbot::hand::unified_detail {
             (void)classic_address(config.side); // L6 still requires an explicit side.
             if (config.host_address || config.auto_start_periodic_reports || config.angle_mapping_path) {
                 throw ValidationError("L6 HOP does not support host_address, periodic reports or 8-bit angle mappings");
+            }
+            return;
+        }
+
+        if (config.o6_protocol != O6Protocol::kClassic) {
+            (void)classic_address(config.side); // O6 HOP still requires an explicit side.
+            if (config.host_address || config.auto_start_periodic_reports || config.angle_mapping_path) {
+                throw ValidationError("O6 HOP does not support host_address, periodic reports or angle mappings");
             }
             return;
         }

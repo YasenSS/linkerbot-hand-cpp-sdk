@@ -454,7 +454,10 @@ namespace linkerbot::hand {
             << ",\"save_parameters\":" << (capabilities.operations.save_parameters ? "true" : "false")
             << ",\"save_parameters_confirmed\":"
             << (capabilities.operations.save_parameters_confirmed ? "true" : "false")
-            << ",\"calibrate\":" << (capabilities.operations.calibrate ? "true" : "false") << ",\"acknowledged\":[";
+            << ",\"calibrate\":" << (capabilities.operations.calibrate ? "true" : "false")
+            << ",\"read_can_configuration\":" << (capabilities.operations.read_can_configuration ? "true" : "false")
+            << ",\"write_can_configuration\":" << (capabilities.operations.write_can_configuration ? "true" : "false")
+            << ",\"acknowledged\":[";
         for (size_t index = 0; index < capabilities.operations.acknowledged_operations.size(); ++index) {
             if (index != 0) {
                 out << ',';

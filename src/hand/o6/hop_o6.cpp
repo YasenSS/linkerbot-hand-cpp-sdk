@@ -1,0 +1,733 @@
+#include <algorithm>
+#include <cmath>
+#include <linkerbot/hand/o6/hop_o6.hpp>
+
+#include "../detail/hop_can_mode.hpp"
+#include <linkerbot/hand/o6/joints.hpp>
+#include <linkerbot/hand/protocol/tactile.hpp>
+#ifdef __linux__
+#include <linkerbot/can/socketcan_transport.hpp>
+#endif
+
+namespace linkerbot::hand::o6 {
+    namespace {
+        std::unique_ptr<can::CANTransport> make_transport(std::string_view name, bool can_fd) {
+#ifdef __linux__
+            return std::make_unique<can::SocketCANTransport>(name, can_fd);
+#else
+            (void)name;
+            (void)can_fd;
+            throw TransportError("HopO6 requires an explicit CAN Transport on this platform");
+#endif
+        }
+
+        DeviceCapabilities profile(Side side, uint32_t id, bool can_fd) {
+            if (side != Side::kLeft && side != Side::kRight) {
+                throw ValidationError("invalid O6 side");
+            }
+            HandDeviceConfig config;
+            config.model = Model::kO6;
+            config.side = side == Side::kLeft ? HandSide::kLeft : HandSide::kRight;
+            config.o6_protocol = can_fd ? O6Protocol::kHopV004 : O6Protocol::kHopV004Can;
+            config.address = id;
+            return declared_capabilities(config);
+        }
+
+        // UTF-8 fixed-width strings, terminated by NUL. Reject malformed encodings,
+        // including overlong sequences, surrogate codepoints and values above U+10FFFF.
+        std::string text(const std::vector<uint8_t> &data, size_t offset, size_t size) {
+            if (offset + size > data.size()) {
+                throw ProtocolError("short O6 HOP text field");
+            }
+            std::string result;
+            for (size_t i = offset; i < offset + size && data[i];) {
+                uint32_t cp = data[i];
+                const size_t width = cp < 0x80                  ? 1
+                                     : cp >= 0xc2 && cp <= 0xdf ? 2
+                                     : cp >= 0xe0 && cp <= 0xef ? 3
+                                     : cp >= 0xf0 && cp <= 0xf4 ? 4
+                                                                : 0;
+                if (!width || i + width > offset + size) {
+                    throw ProtocolError("invalid HOP UTF-8 text");
+                }
+                cp &= width == 1 ? 0x7f : (1U << (7 - width)) - 1;
+                for (size_t j = 1; j < width; ++j) {
+                    if ((data[i + j] & 0xc0) != 0x80) {
+                        throw ProtocolError("invalid HOP UTF-8 continuation");
+                    }
+                    cp = (cp << 6) | (data[i + j] & 0x3f);
+                }
+                if ((width == 2 && cp < 0x80) || (width == 3 && cp < 0x800) || (width == 4 && cp < 0x10000) ||
+                    cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff)) {
+                    throw ProtocolError("invalid HOP UTF-8 codepoint");
+                }
+                result.append(reinterpret_cast<const char *>(data.data() + i), width);
+                i += width;
+            }
+            const auto first = result.find_first_not_of(" \t\r\n");
+            return first == std::string::npos ? std::string{}
+                                              : result.substr(first, result.find_last_not_of(" \t\r\n") - first + 1);
+        }
+
+        template <class T>
+        std::optional<T> vector_snapshot(const std::shared_ptr<runtime::DeviceRuntime> &core, const char *domain) {
+            const auto value = core->snapshot_as<RawVectorSample>(domain);
+            if (!value) {
+                return {};
+            }
+            T result;
+            static_cast<RawVectorSample &>(result) = *value;
+            return result;
+        }
+
+        HandEvent typed_vector_event(TelemetrySemantic semantic, const RawVectorSample &sample) {
+            switch (semantic) {
+            case TelemetrySemantic::kConfiguredSpeeds: {
+                ConfiguredSpeedSample typed;
+                static_cast<RawVectorSample &>(typed) = sample;
+                return {semantic, typed};
+            }
+            case TelemetrySemantic::kConfiguredAccelerations: {
+                ConfiguredAccelerationSample typed;
+                static_cast<RawVectorSample &>(typed) = sample;
+                return {semantic, typed};
+            }
+            case TelemetrySemantic::kCurrentLimits: {
+                CurrentLimitSample typed;
+                static_cast<RawVectorSample &>(typed) = sample;
+                return {semantic, typed};
+            }
+            case TelemetrySemantic::kCurrents: {
+                CurrentSample typed;
+                static_cast<RawVectorSample &>(typed) = sample;
+                return {semantic, typed};
+            }
+            case TelemetrySemantic::kTemperatures: {
+                TemperatureSample typed;
+                static_cast<RawVectorSample &>(typed) = sample;
+                return {semantic, typed};
+            }
+            case TelemetrySemantic::kStallDetectionTimes: {
+                StallDetectionTimeSample typed;
+                static_cast<RawVectorSample &>(typed) = sample;
+                return {semantic, typed};
+            }
+            case TelemetrySemantic::kStallThresholds: {
+                StallThresholdSample typed;
+                static_cast<RawVectorSample &>(typed) = sample;
+                return {semantic, typed};
+            }
+            case TelemetrySemantic::kStallHoldCurrents: {
+                StallHoldCurrentSample typed;
+                static_cast<RawVectorSample &>(typed) = sample;
+                return {semantic, typed};
+            }
+            default:
+                throw UnsupportedOperationError("unsupported O6 HOP vector event semantic");
+            }
+        }
+
+        AngleSample angles(const std::vector<uint8_t> &bytes, SampleMeta meta) {
+            AngleSample result;
+            result.meta = std::move(meta);
+            for (const auto raw : hop::project_bytes(bytes)) {
+                result.raw.push_back(raw);
+                result.percent.push_back(raw * 100.0 / 255.0);
+                result.physical_rad.emplace_back();
+            }
+            return result;
+        }
+    } // namespace
+
+    HopO6::HopO6(Side side, std::string_view name, uint32_t id, bool can_fd)
+        : HopO6(side, make_transport(name, can_fd), id, can_fd) {}
+
+    HopO6::HopO6(Side side, std::unique_ptr<can::CANTransport> transport, uint32_t id, bool can_fd)
+        : HopO6(side, transport::Session::own(std::move(transport)), id, can_fd) {
+        owns_session_ = true;
+    }
+
+    HopO6::HopO6(Side side, std::shared_ptr<transport::Session> session, uint32_t id, bool can_fd)
+        : session_(std::move(session)), runtime_(runtime::DeviceRuntime::acquire(
+                                            session_, "o6/hop/" + std::to_string(id), {{hop::response_id(id), false}})),
+          request_id_(id), can_fd_(can_fd), capabilities_(profile(side, id, can_fd)), angle(*this),
+          speed(*this, hop::kMiSpeed, true, TelemetrySemantic::kConfiguredSpeeds, "speeds", "speed_targets"),
+          acceleration(*this, hop::kMiAcceleration, true, TelemetrySemantic::kConfiguredAccelerations, "accelerations",
+                       "acceleration_targets"),
+          current_limit(*this, hop::kMiCurrent, true, TelemetrySemantic::kCurrentLimits, "current_limits",
+                        "current_limits"),
+          current(*this, hop::kMiCurrent, false, TelemetrySemantic::kCurrents, "currents"),
+          temperature(*this, hop::kMiTemperature, false, TelemetrySemantic::kTemperatures, "temperatures"),
+          stall_detection_time(*this, hop::kMiStallTime, true, TelemetrySemantic::kStallDetectionTimes,
+                               "stall_detection_times", "stall_configuration"),
+          stall_threshold(*this, hop::kMiStallThreshold, true, TelemetrySemantic::kStallThresholds, "stall_thresholds",
+                          "stall_configuration"),
+          stall_hold_current(*this, hop::kMiStallHoldCurrent, true, TelemetrySemantic::kStallHoldCurrents,
+                             "stall_hold_currents", "stall_configuration"),
+          fault(*this), force_sensor(*this), version(*this), config(*this) {
+        for (const auto *channel :
+             {"angles", "speeds", "accelerations", "current_limits", "currents", "temperatures",
+              "stall_detection_times", "stall_thresholds", "stall_hold_currents", "faults", "force", "version"}) {
+            runtime_->register_channel(channel);
+        }
+        for (const auto *family : {"angle_targets", "speed_targets", "acceleration_targets", "current_limits",
+                                   "stall_configuration", "configuration"}) {
+            runtime_->register_command_family(family);
+        }
+    }
+
+    HopO6::~HopO6() {
+        try {
+            stop();
+        } catch (...) {
+            try {
+                runtime_->quiesce_for_destruction();
+                calls_.drain();
+                // Destruction is nonthrowing; explicit close/stop remains the error-reporting path.
+                // NOLINTNEXTLINE(bugprone-empty-catch)
+            } catch (...) {
+            }
+        }
+    }
+
+    runtime::DeviceRuntime::Operation HopO6::operation(std::chrono::milliseconds timeout) {
+        auto call = calls_.hold();
+        auto result = runtime_->operation(runtime::deadline_after(timeout));
+        result.retain_call(std::move(call));
+        return result;
+    }
+
+    runtime::Sample HopO6::execute(runtime::TransactionPlan plan, runtime::Deadline deadline) {
+        return runtime_->execute(std::move(plan), deadline);
+    }
+
+    std::vector<uint8_t> HopO6::read_range(uint8_t mi, uint8_t si, size_t length, bool rts,
+                                           runtime::Deadline deadline) {
+        if (!length || size_t(si) + length > 256) {
+            throw ValidationError("invalid O6 HOP register range");
+        }
+        const auto max_chunk = hop::max_payload_bytes(can_fd_);
+        std::vector<uint8_t> result;
+        while (result.size() < length) {
+            const auto count = static_cast<uint8_t>(std::min<size_t>(max_chunk, length - result.size()));
+            auto sample = execute(hop::transaction(request_id_, mi, static_cast<uint8_t>(si + result.size()), count, {},
+                                                   rts, {}, can_fd_),
+                                  deadline);
+            const auto &part = std::any_cast<const std::vector<uint8_t> &>(sample.value);
+            result.insert(result.end(), part.begin(), part.end());
+        }
+        return result;
+    }
+
+    SampleMeta HopO6::metadata(const runtime::Sample &sample, const char *domain, bool configured) const {
+        SampleMeta result;
+        const auto previous = runtime_->snapshot(domain);
+        result.sequence = previous ? previous->sequence + 1 : 1;
+        result.collected_at = sample.received_at;
+        result.valid = sample.valid;
+        result.stale = !sample.valid;
+        result.connection_generation = sample.device_generation;
+        result.origin = configured ? TelemetryValueOrigin::kDeviceConfigured : TelemetryValueOrigin::kDeviceMeasured;
+        result.delivery = sample.origin == hand::protocol::Origin::command_feedback
+                              ? TelemetryDelivery::kCommandResponse
+                              : TelemetryDelivery::kQueryResponse;
+        return result;
+    }
+
+    void HopO6::publish(std::string domain, HandEvent event, runtime::Sample provenance) {
+        std::visit([&](const auto &value) { runtime_->publish(domain, value, provenance); }, event.sample);
+        const std::lock_guard<std::mutex> lock(event_mutex_);
+        if (events_) {
+            events_->push(event);
+        }
+    }
+
+    AngleSample HopO6::AngleManager::get_blocking(std::chrono::milliseconds timeout) {
+        auto op = owner_->operation(timeout);
+        auto bytes = owner_->read_range(hop::kMiPosition, 5, 10, false, op.deadline());
+        auto provenance = owner_->runtime_->response_provenance();
+        auto result = angles(bytes, owner_->metadata(provenance, "angles"));
+        owner_->publish("angles", {TelemetrySemantic::kAngles, result}, provenance);
+        return result;
+    }
+
+    void HopO6::AngleManager::set_angles(const std::array<uint8_t, 6> &values, std::chrono::milliseconds timeout) {
+        auto op = owner_->operation(timeout);
+        const std::vector<uint8_t> bytes(values.begin(), values.end());
+        auto sample = owner_->execute(
+            hop::write_joints(owner_->request_id_, hop::kMiPosition, bytes, false, "angle_targets", owner_->can_fd_),
+            op.deadline());
+        if (sample.valid) {
+            auto result = angles(std::any_cast<std::vector<uint8_t>>(sample.value), owner_->metadata(sample, "angles"));
+            owner_->publish("angles", {TelemetrySemantic::kAngles, result}, sample);
+        }
+    }
+
+    void HopO6::AngleManager::set_angles_percent(const std::array<float, 6> &values,
+                                                 std::chrono::milliseconds timeout) {
+        std::array<uint8_t, 6> raw{};
+        for (size_t i = 0; i < raw.size(); ++i) {
+            if (!std::isfinite(values[i]) || values[i] < 0 || values[i] > 100) {
+                throw ValidationError("O6 HOP percent must be 0..100");
+            }
+            raw[i] = static_cast<uint8_t>(std::lround(values[i] * 255.0 / 100.0));
+        }
+        set_angles(raw, timeout);
+    }
+
+    std::optional<AngleSample> HopO6::AngleManager::get_snapshot() const {
+        return owner_->runtime_->snapshot_as<AngleSample>("angles");
+    }
+
+    RawVectorSample HopO6::VectorManager::get_blocking(std::chrono::milliseconds timeout) {
+        auto op = owner_->operation(timeout);
+        const auto raw = hop::project_bytes(owner_->read_range(mi_, 5, 10, configured_, op.deadline()));
+        const auto provenance = owner_->runtime_->response_provenance();
+        RawVectorSample result{{raw.begin(), raw.end()}, owner_->metadata(provenance, domain_, configured_)};
+        owner_->runtime_->publish(domain_, result, provenance);
+        const auto event = typed_vector_event(semantic_, result);
+        const std::lock_guard<std::mutex> lock(owner_->event_mutex_);
+        if (owner_->events_) {
+            owner_->events_->push(event);
+        }
+        return result;
+    }
+
+    void HopO6::VectorManager::set_values(const std::array<uint8_t, 6> &values, std::chrono::milliseconds timeout) {
+        if (!family_) {
+            throw UnsupportedOperationError("this O6 HOP channel is read-only");
+        }
+        auto op = owner_->operation(timeout);
+        auto sample = owner_->execute(
+            hop::write_joints(owner_->request_id_, mi_, {values.begin(), values.end()}, true, family_, owner_->can_fd_),
+            op.deadline());
+        if (sample.valid) {
+            const auto raw = hop::project_bytes(std::any_cast<std::vector<uint8_t>>(sample.value));
+            RawVectorSample result{{raw.begin(), raw.end()}, owner_->metadata(sample, domain_, true)};
+            owner_->runtime_->publish(domain_, result, sample);
+            const auto event = typed_vector_event(semantic_, result);
+            const std::lock_guard<std::mutex> lock(owner_->event_mutex_);
+            if (owner_->events_) {
+                owner_->events_->push(event);
+            }
+        }
+    }
+
+    std::optional<RawVectorSample> HopO6::VectorManager::get_snapshot() const {
+        return owner_->runtime_->snapshot_as<RawVectorSample>(domain_);
+    }
+
+    FaultSample HopO6::FaultManager::get_blocking(std::chrono::milliseconds timeout) {
+        auto op = owner_->operation(timeout);
+        const auto raw = hop::project_bytes(owner_->read_range(hop::kMiFault, 5, 10, false, op.deadline()));
+        auto provenance = owner_->runtime_->response_provenance();
+        FaultSample result;
+        result.raw.assign(raw.begin(), raw.end());
+        for (auto value : raw) {
+            result.statuses.push_back(decode_fault_status(value, hop::kFaultMask));
+        }
+        result.meta = owner_->metadata(provenance, "faults");
+        owner_->publish("faults", {TelemetrySemantic::kFaults, result}, provenance);
+        return result;
+    }
+
+    std::optional<FaultSample> HopO6::FaultManager::get_snapshot() const {
+        return owner_->runtime_->snapshot_as<FaultSample>("faults");
+    }
+
+    DeviceIdentity HopO6::VersionManager::get_blocking(std::chrono::milliseconds timeout) {
+        auto op = owner_->operation(timeout);
+        const auto blob = owner_->read_range(hop::kMiProductInfo, 0, 249, false, op.deadline());
+        const auto model = text(blob, 0, 16), uid = text(blob, 0x39, 32), name = text(blob, 0x59, 8);
+        const auto upper_model = identity_detail::upper(model);
+        if (upper_model != "O6" && upper_model != "LHO6" && upper_model.rfind("LHO6-", 0) != 0 &&
+            upper_model.rfind("O6-", 0) != 0) {
+            throw IdentityMismatchError("HOP product model is not O6: " + model);
+        }
+        const auto protocol_version = text(blob, 0x61, 8), app = text(blob, 0xa1, 8);
+        if (identity_detail::upper(name) != "HOP" || protocol_version.empty() || uid.empty() || app.empty()) {
+            throw IdentityProtocolError("O6 HOP identity requires protocol name/version, device UID and app version");
+        }
+        const auto reported = identity_detail::parse_side(text(blob, 0xf1, 8));
+        const auto expected =
+            owner_->capabilities_.side == HandSide::kLeft ? IdentitySide::kLeft : IdentitySide::kRight;
+        if (!reported) {
+            throw IdentityProtocolError("O6 HOP identity does not report a valid side");
+        }
+        if (*reported != expected) {
+            throw IdentityMismatchError("O6 HOP reported side does not match configuration");
+        }
+        DeviceIdentity result;
+        result.model = Model::kO6;
+        result.side = owner_->capabilities_.side;
+        result.address = owner_->request_id_;
+        result.product_code = model;
+        const auto parts = identity_detail::split_product(uid);
+        if (parts.size() >= 4 &&
+            (identity_detail::upper(parts[0]) == "LHO6" || identity_detail::upper(parts[0]) == "O6")) {
+            const auto side = identity_detail::parse_side(parts[3]);
+            if (side && side != reported) {
+                throw IdentityMismatchError("O6 UID and reported side disagree");
+            }
+            result.product_code = uid;
+            result.serial_number = parts[2];
+        }
+        result.device_uid = uid;
+        result.firmware_version = app;
+        result.protocol_name = name;
+        result.protocol_version = protocol_version;
+        result.hardware_version = text(blob, 0x89, 16);
+        result.mechanical_version = text(blob, 0xa9, 8);
+        const auto provenance = owner_->runtime_->response_provenance();
+        result.timestamp = provenance.received_at;
+        owner_->runtime_->publish("version", result, provenance);
+        return result;
+    }
+
+    std::optional<DeviceIdentity> HopO6::VersionManager::get_snapshot() const {
+        return owner_->runtime_->snapshot_as<DeviceIdentity>("version");
+    }
+
+    void HopO6::ConfigManager::save(std::chrono::milliseconds timeout) {
+        auto op = owner_->operation(timeout);
+        (void)owner_->execute(hop::transaction(owner_->request_id_, hop::kMiConfig, 0x1e, 1, {1}, false,
+                                               "configuration", owner_->can_fd_),
+                              op.deadline());
+    }
+
+    HopCanConfiguration HopO6::ConfigManager::get_can_configuration(std::chrono::milliseconds timeout) {
+        const auto op = owner_->operation(detail::hop_can_operation_budget(timeout));
+        (void)op;
+        return detail::read_hop_can_configuration_blocking(*owner_->runtime_, owner_->request_id_, owner_->can_fd_,
+                                                           timeout);
+    }
+
+    HopCanModeSwitchResult HopO6::ConfigManager::set_can_interface_mode(HopCanInterfaceMode mode, bool save_to_flash,
+                                                                        std::chrono::milliseconds timeout) {
+        const auto op = owner_->operation(detail::hop_can_operation_budget(timeout));
+        (void)op;
+        return detail::set_hop_can_interface_mode_blocking(*owner_->runtime_, owner_->request_id_, owner_->can_fd_,
+                                                           mode, save_to_flash, timeout);
+    }
+
+    ForceSample HopO6::ForceSensorManager::get_blocking(std::chrono::milliseconds timeout) {
+        auto op = owner_->operation(timeout); // selection + metadata + all banks are one exclusive operation
+        o30::SensorData round;
+        for (uint8_t index = 1; index <= 5; ++index) {
+            const auto ack = owner_->execute(hop::transaction(owner_->request_id_, hop::kMiSensorCommand, 0x6e, 1,
+                                                              {index}, false, "sensor_selection", owner_->can_fd_),
+                                             op.deadline());
+            if (std::any_cast<std::vector<uint8_t>>(ack.value) != std::vector<uint8_t>{index}) {
+                throw ProtocolError("O6 HOP sensor selection was not acknowledged");
+            }
+            const auto blob = owner_->read_range(hop::kMiSensorCommand, 0, 115, false, op.deadline());
+            o30::SensorReading reading;
+            auto &info = reading.info;
+            info.type = text(blob, 0, 32);
+            info.unit = text(blob, 32, 8);
+            info.data_range = blob[40];
+            info.maximum_rows = blob[41];
+            info.maximum_columns = blob[42];
+            const auto descriptor_length = blob[43];
+            if (descriptor_length > 64) {
+                throw ProtocolError("O6 sensor descriptor exceeds its register range");
+            }
+            info.descriptor = text(blob, 44, descriptor_length);
+            if (info.descriptor.size() != descriptor_length) {
+                throw ProtocolError("O6 sensor descriptor length does not match its metadata");
+            }
+            info.total_length = hand::protocol::hop::read_u16_le(blob.data() + 108);
+            info.selected = blob[110];
+            info.rows = blob[111];
+            info.columns = blob[112];
+            info.flags = static_cast<uint16_t>(blob[113] | uint16_t(blob[114]) << 8);
+            if (info.selected != index || info.total_length > 765 || blob[113] > 1 || blob[114] > 1 ||
+                info.rows > info.maximum_rows || info.columns > info.maximum_columns) {
+                throw ProtocolError("invalid O6 HOP sensor metadata");
+            }
+            if (blob[113]) {
+                throw ProtocolError("O6 HOP sensor is in validity-mask mode, not measurement mode");
+            }
+            if ((info.type == "NO_SENSOR" || info.type.empty()) && info.total_length) {
+                throw ProtocolError("missing O6 HOP sensor reports nonempty data");
+            }
+            if (!info.total_length && !info.descriptor.empty()) {
+                throw ProtocolError("empty O6 sensor has a descriptor");
+            }
+            for (size_t bank = 0; reading.payload.size() < info.total_length; ++bank) {
+                const auto count = std::min<size_t>(255, info.total_length - reading.payload.size());
+                const auto data = owner_->read_range(static_cast<uint8_t>(hop::kMiSensorData1 + bank), 0, count, false,
+                                                     op.deadline());
+                reading.payload.insert(reading.payload.end(), data.begin(), data.end());
+            }
+            // Check that selection did not change while bank reads were in flight.
+            if (owner_->read_range(hop::kMiSensorCommand, 0x6e, 1, false, op.deadline())[0] != index) {
+                throw ProtocolError("O6 sensor identity changed during read");
+            }
+            reading.timestamp = owner_->runtime_->response_provenance().received_at;
+            info.timestamp = reading.timestamp;
+            if (!reading.payload.empty()) {
+                (void)hand::protocol::hop::decode_tactile_fields(reading, true);
+            }
+            if (index == 1) {
+                round.info = info;
+            }
+            round.timestamp = reading.timestamp;
+            round.payload.insert(round.payload.end(), reading.payload.begin(), reading.payload.end());
+            round.sensors.push_back(std::move(reading));
+        }
+        if (round.payload.empty()) {
+            throw UnsupportedOperationError("O6 HOP reports no available fingertip sensors");
+        }
+        const auto provenance = owner_->runtime_->response_provenance();
+        auto result = hand::protocol::hop::descriptor_force_sample(round, owner_->metadata(provenance, "force"), true);
+        owner_->publish("force", {TelemetrySemantic::kForce, result}, provenance);
+        return result;
+    }
+
+    std::optional<ForceSample> HopO6::ForceSensorManager::get_snapshot() const {
+        return owner_->runtime_->snapshot_as<ForceSample>("force");
+    }
+
+    HandSnapshot HopO6::get_snapshot() const {
+        HandSnapshot result;
+        result.model = Model::kO6;
+        result.side = capabilities_.side;
+        result.captured_at = runtime::Clock::now();
+        result.connection_generation = runtime_->runtime_health().device_generation;
+        result.angles = angle.get_snapshot();
+        result.configured_speeds = vector_snapshot<ConfiguredSpeedSample>(runtime_, "speeds");
+        result.configured_accelerations = vector_snapshot<ConfiguredAccelerationSample>(runtime_, "accelerations");
+        result.currents = vector_snapshot<CurrentSample>(runtime_, "currents");
+        result.current_limits = vector_snapshot<CurrentLimitSample>(runtime_, "current_limits");
+        result.temperatures = vector_snapshot<TemperatureSample>(runtime_, "temperatures");
+        result.stall_detection_times = vector_snapshot<StallDetectionTimeSample>(runtime_, "stall_detection_times");
+        result.stall_thresholds = vector_snapshot<StallThresholdSample>(runtime_, "stall_thresholds");
+        result.stall_hold_currents = vector_snapshot<StallHoldCurrentSample>(runtime_, "stall_hold_currents");
+        result.faults = fault.get_snapshot();
+        result.force = force_sensor.get_snapshot();
+        result.device_info = version.get_snapshot();
+        const auto fresh = [&](auto &sample, TelemetrySemantic semantic) {
+            if (!sample) {
+                return;
+            }
+            auto &meta = sample->meta;
+            const auto *channel = capabilities_.telemetry_channel(semantic);
+            if (meta.collected_at) {
+                meta.age = result.captured_at - *meta.collected_at;
+            }
+            meta.stale = !meta.valid || (meta.age && channel && channel->freshness_ms &&
+                                         *meta.age > std::chrono::duration<double, std::milli>{*channel->freshness_ms});
+            result.snapshot_sequence = std::max(result.snapshot_sequence, meta.sequence);
+        };
+        fresh(result.angles, TelemetrySemantic::kAngles);
+        fresh(result.configured_speeds, TelemetrySemantic::kConfiguredSpeeds);
+        fresh(result.configured_accelerations, TelemetrySemantic::kConfiguredAccelerations);
+        fresh(result.currents, TelemetrySemantic::kCurrents);
+        fresh(result.current_limits, TelemetrySemantic::kCurrentLimits);
+        fresh(result.temperatures, TelemetrySemantic::kTemperatures);
+        fresh(result.stall_detection_times, TelemetrySemantic::kStallDetectionTimes);
+        fresh(result.stall_thresholds, TelemetrySemantic::kStallThresholds);
+        fresh(result.stall_hold_currents, TelemetrySemantic::kStallHoldCurrents);
+        fresh(result.faults, TelemetrySemantic::kFaults);
+        fresh(result.force, TelemetrySemantic::kForce);
+        for (size_t i = 0; i < 6; ++i) {
+            JointState state;
+            state.index = i;
+            state.name = kJointNames[i];
+            if (result.angles) {
+                state.angle_raw = result.angles->raw[i];
+                state.angle_percent = result.angles->percent[i];
+            }
+            if (result.configured_speeds) {
+                state.configured_speed_raw = result.configured_speeds->raw[i];
+            }
+            if (result.configured_accelerations) {
+                state.configured_acceleration_raw = result.configured_accelerations->raw[i];
+            }
+            if (result.currents) {
+                state.current_raw = result.currents->raw[i];
+            }
+            if (result.current_limits) {
+                state.current_limit_raw = result.current_limits->raw[i];
+            }
+            if (result.temperatures) {
+                state.temperature_raw = result.temperatures->raw[i];
+            }
+            if (result.stall_detection_times) {
+                state.stall_detection_time_raw = result.stall_detection_times->raw[i];
+            }
+            if (result.stall_thresholds) {
+                state.stall_threshold_raw = result.stall_thresholds->raw[i];
+            }
+            if (result.stall_hold_currents) {
+                state.stall_hold_current_raw = result.stall_hold_currents->raw[i];
+            }
+            if (result.faults) {
+                state.fault_raw = result.faults->raw[i];
+            }
+            result.joints.push_back(state);
+        }
+        return result;
+    }
+
+    void HopO6::start_polling(const PollingPlan &plan) {
+        auto effective = plan;
+        if (effective.empty()) {
+            effective = {{TelemetrySemantic::kAngles, std::chrono::milliseconds{100}}};
+        }
+        std::vector<runtime::DeviceRuntime::PollTask> tasks;
+        for (const auto &channel : effective) {
+            if (!capabilities_.supports(channel.semantic) || channel.interval.count() <= 0) {
+                throw PollingPlanError("unsupported O6 HOP poll source or nonpositive interval");
+            }
+            const auto semantic = channel.semantic;
+            const char *domain = nullptr;
+            switch (semantic) {
+            case TelemetrySemantic::kAngles:
+                domain = "angles";
+                break;
+            case TelemetrySemantic::kConfiguredSpeeds:
+                domain = "speeds";
+                break;
+            case TelemetrySemantic::kConfiguredAccelerations:
+                domain = "accelerations";
+                break;
+            case TelemetrySemantic::kCurrents:
+                domain = "currents";
+                break;
+            case TelemetrySemantic::kCurrentLimits:
+                domain = "current_limits";
+                break;
+            case TelemetrySemantic::kTemperatures:
+                domain = "temperatures";
+                break;
+            case TelemetrySemantic::kStallDetectionTimes:
+                domain = "stall_detection_times";
+                break;
+            case TelemetrySemantic::kStallThresholds:
+                domain = "stall_thresholds";
+                break;
+            case TelemetrySemantic::kStallHoldCurrents:
+                domain = "stall_hold_currents";
+                break;
+            case TelemetrySemantic::kFaults:
+                domain = "faults";
+                break;
+            case TelemetrySemantic::kForce:
+                domain = "force";
+                break;
+            default:
+                throw PollingPlanError("unsupported O6 HOP poll source");
+            }
+            if (std::any_of(tasks.begin(), tasks.end(), [domain](const auto &task) { return task.name == domain; })) {
+                throw PollingPlanError("duplicate O6 HOP polling source");
+            }
+            runtime::DeviceRuntime::PollTask task;
+            task.name = domain;
+            task.period = channel.interval;
+            task.isolate_failure = true;
+            task.run = [this, semantic](runtime::CancellationToken) {
+                switch (semantic) {
+                case TelemetrySemantic::kAngles:
+                    (void)angle.get_blocking();
+                    break;
+                case TelemetrySemantic::kConfiguredSpeeds:
+                    (void)speed.get_blocking();
+                    break;
+                case TelemetrySemantic::kConfiguredAccelerations:
+                    (void)acceleration.get_blocking();
+                    break;
+                case TelemetrySemantic::kCurrents:
+                    (void)current.get_blocking();
+                    break;
+                case TelemetrySemantic::kCurrentLimits:
+                    (void)current_limit.get_blocking();
+                    break;
+                case TelemetrySemantic::kTemperatures:
+                    (void)temperature.get_blocking();
+                    break;
+                case TelemetrySemantic::kStallDetectionTimes:
+                    (void)stall_detection_time.get_blocking();
+                    break;
+                case TelemetrySemantic::kStallThresholds:
+                    (void)stall_threshold.get_blocking();
+                    break;
+                case TelemetrySemantic::kStallHoldCurrents:
+                    (void)stall_hold_current.get_blocking();
+                    break;
+                case TelemetrySemantic::kFaults:
+                    (void)fault.get_blocking();
+                    break;
+                case TelemetrySemantic::kForce:
+                    (void)force_sensor.get_blocking();
+                    break;
+                default:
+                    throw UnsupportedOperationError("unsupported O6 HOP polling source");
+                }
+            };
+            tasks.push_back(std::move(task));
+        }
+        runtime_->start_polling(std::move(tasks));
+    }
+
+    void HopO6::stop_polling() { runtime_->stop_polling(); }
+
+    std::shared_ptr<EventQueue<HandEvent>> HopO6::stream_handle(size_t max_size) {
+        runtime_->assert_external_lifecycle();
+        const std::lock_guard<std::mutex> lifecycle(lifecycle_mutex_);
+        if (runtime_->runtime_health().state != runtime::DeviceState::ready) {
+            throw ClosedError("O6 HOP runtime is not ready");
+        }
+        const std::lock_guard<std::mutex> lock(event_mutex_);
+        if (events_ && !events_->closed()) {
+            throw LifecycleError("O6 HOP stream is already active");
+        }
+        if (events_) {
+            retired_streams_.push_back(events_);
+        }
+        events_ = std::make_shared<EventQueue<HandEvent>>(max_size);
+        return events_;
+    }
+
+    void HopO6::stop_stream() {
+        const std::lock_guard<std::mutex> lock(event_mutex_);
+        if (events_) {
+            events_->close();
+        }
+    }
+
+    void HopO6::stop() {
+        runtime_->assert_external_lifecycle();
+        const std::lock_guard<std::mutex> lifecycle(lifecycle_mutex_);
+        stop_stream();
+        std::exception_ptr error;
+        try {
+            runtime_->close();
+        } catch (...) {
+            error = std::current_exception();
+        }
+        calls_.drain();
+        try {
+            if (owns_session_) {
+                session_->close();
+            }
+        } catch (...) {
+            if (!error) {
+                error = std::current_exception();
+            }
+        }
+        if (error) {
+            std::rethrow_exception(error);
+        }
+    }
+
+    void HopO6::recover() {
+        runtime_->assert_external_lifecycle();
+        const std::lock_guard<std::mutex> lifecycle(lifecycle_mutex_);
+        stop_stream();
+        runtime_->cancel_all();
+        calls_.drain();
+        runtime_->recover();
+    }
+} // namespace linkerbot::hand::o6

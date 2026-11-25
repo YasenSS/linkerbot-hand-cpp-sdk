@@ -1,6 +1,6 @@
 # Model Capabilities
 
-This reference covers control, telemetry, configuration, and model-specific features in C++ SDK `0.3.4`.
+This reference covers control, telemetry, configuration, and model-specific features in the C++ SDK.
 Compare models in the [Capabilities overview](#capabilities-overview), then read the corresponding section:
 [L6](#l6), [O6](#o6), [L20 Lite](#l20-lite), [L20](#l20), [L30](#l30), [O30](#o30).
 
@@ -19,6 +19,7 @@ for operating systems, adapters, and hardware validation, see [Platform and hard
   hardware-tested scope is listed separately in [Validation records](#validation-records), not inferred from API existence.
 - `—` means unsupported by the current unified API. L6 in all overview tables means **default Classic CAN**;
   CAN FD is an [Explicitly selected optional protocol](#optional-l6-can-fd-protocol), without all Classic features.
+- O6 in the overview tables uses the original Classic CAN protocol. See [O6 HOP 0.0.4](#o6-hop-capabilities) for HOP capabilities in the current source.
 
 ## Capabilities overview
 
@@ -132,6 +133,8 @@ For complete connection examples, ACK semantics, and pending hardware checks, se
 
 ## O6
 
+### Default Classic CAN
+
 6 joints, with the same order as L6; Classic CAN, default left `0x28`, right `0x27`.
 The native model entry point is `o6::O6`.
 
@@ -159,6 +162,21 @@ Limitations and usage notes:
   Unified `get_configured_speeds()` reads only write-response caches; it may be unavailable before the first write, and recovery invalidates the cache.
 - Unified measured speed, torque, gains, limit compensation, voltage, fault clearing, and enable/disable are unsupported.
 - Speed, current limits, and measured current have no reliably established uniform physical conversion; retain raw values and unit confidence.
+
+<a id="o6-hop-capabilities"></a>
+
+### O6 HOP 0.0.4
+
+The model-specific entry point is `o6::HopO6`. For the unified API, explicitly select a HOP protocol in `HandDevice`.
+
+| Feature | HOP semantics |
+| --- | --- |
+| Angles and motion parameters | Device reads and writes for angles, configured speeds, accelerations, current limits, and the three stall protection settings. Per-joint raw range is `0..255` |
+| Live telemetry | Reads angles, current, temperature, faults, and tactile data for five fingers using the sensor descriptors for fields and shapes |
+| CAN configuration | `get_can_configuration()` reads the mode, request ID, BRS, and bitrates. `set_can_interface_mode()` writes the mode field |
+
+Use raw counts for numeric data. Physical conversions for speed, acceleration, and current remain unverified.
+See the [O6 HOP guide](../tutorials/o6.md#o6-hop) for connection setup, mode switching, and adapter limitations.
 
 ## L20 Lite
 
@@ -363,7 +381,8 @@ original per-model reports are in the source repository at `docs/hardware-accept
 | --- | --- | --- |
 | L6 Classic | `V2.4.5` | Common reads, angles, speed/current limits, and recovery have hardware records; advanced gains, torque output, and persistence are outside this acceptance scope |
 | L6 HOP CAN FD (optional) | No hardware acceptance record yet | Offline protocol vectors and FakeTransport do not establish device integration or motion passes |
-| O6 | `V1.3.2` | Common APIs and recovery have hardware records; native speed-query configuration changes remain a limitation |
+| O6 Classic | `V1.3.2` | Hardware records cover common APIs and recovery. The native speed query can change the configured speed |
+| O6 HOP 0.0.4 | `5.0.1` | Common CAN FD APIs and single-joint movement with restoration passed on a right hand. See the [O6 HOP hardware record](../../hardware-acceptance/o6/report.md#o6-hop-2026-11-25) for FD-to-CAN 2.0 switching and Classic frame coverage |
 | L20 Lite | `V4.6.10` | Common APIs, caches, and recovery have hardware records; scalar tactile fields unsupported; joint 7/8 motion issues retained |
 | L20 | `V3.0.6` | Common APIs and recovery have hardware records; speed/current-limit writes verify sending only, without configuration readback; intermittent faults retained |
 | L30 | `V6.1.6` | Common APIs, enable/disable, and recovery have hardware records; one historical skip cannot count as a hardware pass |

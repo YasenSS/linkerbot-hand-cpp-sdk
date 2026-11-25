@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <cmath>
 #include <linkerbot/hand/l6/hop_l6.hpp>
+
+#include "../detail/hop_can_mode.hpp"
 #include <linkerbot/hand/l6/joints.hpp>
 #include <linkerbot/hand/protocol/tactile.hpp>
 #ifdef __linux__
@@ -333,6 +335,18 @@ namespace linkerbot::hand::l6 {
         auto op = owner_->operation(timeout);
         (void)owner_->execute(hop::transaction(owner_->request_id_, 0x35, 0x1e, 1, {1}, false, "configuration"),
                               op.deadline());
+    }
+    HopCanConfiguration HopL6::ConfigManager::get_can_configuration(std::chrono::milliseconds timeout) {
+        const auto op = owner_->operation(detail::hop_can_operation_budget(timeout));
+        (void)op;
+        return detail::read_hop_can_configuration_blocking(*owner_->runtime_, owner_->request_id_, true, timeout);
+    }
+    HopCanModeSwitchResult HopL6::ConfigManager::set_can_interface_mode(HopCanInterfaceMode mode, bool save_to_flash,
+                                                                        std::chrono::milliseconds timeout) {
+        const auto op = owner_->operation(detail::hop_can_operation_budget(timeout));
+        (void)op;
+        return detail::set_hop_can_interface_mode_blocking(*owner_->runtime_, owner_->request_id_, true, mode,
+                                                           save_to_flash, timeout);
     }
     ForceSample HopL6::ForceSensorManager::get_blocking(std::chrono::milliseconds timeout) {
         auto op = owner_->operation(timeout); // selection + metadata + all banks are one exclusive operation

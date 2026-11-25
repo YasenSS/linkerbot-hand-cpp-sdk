@@ -948,7 +948,11 @@ TEST_CASE("HandDevice reads unified angle samples for every model", "[comm][devi
         DYNAMIC_SECTION("model " << static_cast<int>(model)) {
             FakeTransport *transport = nullptr;
             std::shared_ptr<o30_comm::HopEndpoint> hop;
-            HandDevice device(config_for(model), [&] {
+            auto config = config_for(model);
+            // Baseline reads during open include paced multi-frame transactions.
+            // Allow Windows scheduler headroom; this test checks sample contents.
+            config.transaction_timeout = std::chrono::seconds{1};
+            HandDevice device(config, [&] {
                 auto next = std::make_unique<FakeTransport>();
                 transport = next.get();
                 install_fake_device(model, transport, hop);

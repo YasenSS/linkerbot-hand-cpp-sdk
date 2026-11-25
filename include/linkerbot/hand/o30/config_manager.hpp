@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vector>
 
+#include <linkerbot/hand/api/can_configuration.hpp>
 #include <linkerbot/hand/o30/client.hpp>
 #include <linkerbot/hand/o30/config.hpp>
 
@@ -36,6 +37,12 @@ namespace linkerbot::hand::o30 {
         void restore_config(bool confirm, std::chrono::milliseconds timeout_ms = std::chrono::milliseconds{200});
         void restore_all(bool confirm, std::chrono::milliseconds timeout_ms = std::chrono::milliseconds{200});
         void save_to_flash(bool confirm, std::chrono::milliseconds timeout_ms = std::chrono::milliseconds{200});
+
+        [[nodiscard]] HopCanConfiguration
+        get_can_configuration(std::chrono::milliseconds timeout = std::chrono::milliseconds{200});
+        [[nodiscard]] HopCanModeSwitchResult
+        set_can_interface_mode(HopCanInterfaceMode mode, bool save_to_flash = false,
+                               std::chrono::milliseconds timeout = std::chrono::milliseconds{500});
 
         // Raw field access: firmware may reject unverified blocks. Restore,
         // save and partial standard-ID writes are rejected locally.
