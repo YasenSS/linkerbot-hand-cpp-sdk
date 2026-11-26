@@ -22,11 +22,11 @@ if(MSVC)
 endif()
 ```
 
-Place the application files in `demo/` and run the following from the SDK source root, replacing `install` with the actual SDK installation prefix:
+Place `CMakeLists.txt` and `main.cpp` in your application directory and build from there (replace `/path/to/linkerbot-hand-cpp` with your extracted SDK package directory or install prefix; omit `-DCMAKE_PREFIX_PATH` if installed into a standard system prefix such as `/usr/local`):
 
 ```bash
-cmake -S demo -B demo/build -DCMAKE_PREFIX_PATH="$PWD/install"
-cmake --build demo/build --config Release
+cmake -S . -B build -DCMAKE_PREFIX_PATH="/path/to/linkerbot-hand-cpp"
+cmake --build build --config Release
 ```
 
 `HandDevice` does not directly accept Python transport arguments or model-name strings. In C++, use
@@ -40,7 +40,7 @@ Automatic discovery does not run `ip link` or change the interface bitrate for y
 
 ### Classic CAN
 
-L6, O6, L20 Lite, and L20 with Classic firmware use 1 Mbit/s:
+L6, O6, L20 Lite, and L20 with Classic firmware—as well as O6 HOP running in CAN 2.0 mode (`O6Protocol::kHopV004Can`)—use 1 Mbit/s:
 
 ```bash
 sudo ip link set can0 down
@@ -51,7 +51,7 @@ ip -details link show can0
 
 ### CAN FD
 
-L30 and O30 use a nominal bitrate of 1 Mbit/s and a data bitrate of 5 Mbit/s:
+L30, O30, and O6 HOP running in CAN FD mode (`O6Protocol::kHopV004`) use a nominal bitrate of 1 Mbit/s and a data bitrate of 5 Mbit/s:
 
 ```bash
 sudo ip link set can0 down
@@ -60,9 +60,9 @@ sudo ip link set can0 up
 ip -details link show can0
 ```
 
-L30 uses extended FD frames; O30 uses standard FD frames without BRS. Each model implementation determines the frame format.
-L6 still defaults to Classic CAN. Explicitly select the optional HOP CAN FD protocol only when the device firmware matches;
-setting the system interface to FD alone does not switch the L6 protocol. See [Optional protocol](../guides/usage.md#optional-l6-can-fd-protocol).
+L30 uses extended FD frames; O30 and O6 HOP use standard FD frames without BRS. The model and protocol configuration determine the frame format.
+L6 and O6 still default to Classic CAN. Explicitly select an optional HOP protocol only when the device firmware matches;
+setting the system interface to FD alone does not switch the device protocol. See [Optional L6 protocol](../guides/usage.md#optional-l6-can-fd-protocol) and [Manual O6 HOP connection and mode switching](../tutorials/o6.md#o6-hop).
 
 ## Windows and standalone adapter backends
 

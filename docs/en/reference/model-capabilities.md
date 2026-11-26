@@ -176,7 +176,7 @@ The model-specific entry point is `o6::HopO6`. For the unified API, explicitly s
 | CAN configuration | `get_can_configuration()` reads the mode, request ID, BRS, and bitrates. `set_can_interface_mode()` writes the mode field |
 
 Use raw counts for numeric data. Physical conversions for speed, acceleration, and current remain unverified.
-See the [O6 HOP guide](../tutorials/o6.md#o6-hop) for connection setup, mode switching, and adapter limitations.
+See [Manual HOP 0.0.4 connection](../tutorials/o6.md#o6-hop) for setup and [Switching HOP CAN modes](../tutorials/o6.md#hop-can-mode) for mode-switching steps.
 
 ## L20 Lite
 

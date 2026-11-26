@@ -15,7 +15,7 @@
 | 型号 | 教程与支持状态 |
 | --- | --- |
 | L6 | [Classic CAN 功能与专有 Manager](tutorials/l6.md)；可选 HOP CAN FD 见[协议说明](guides/usage.md#l6-可选-can-fd-协议) |
-| O6 | [角度、速度、加速度与传感器](tutorials/o6.md) |
+| O6 | [角度、速度、加速度与传感器](tutorials/o6.md)；可选 HOP 0.0.4（CAN FD / CAN 2.0）见 [O6 HOP 接入与模式切换](tutorials/o6.md#o6-hop) |
 | L20 Lite | [十关节控制、配置缓存与触觉](tutorials/l20lite.md) |
 | L20 | [十六关节控制与传感器](tutorials/l20.md) |
 | L30 | [CAN FD、使能与十七关节控制](tutorials/l30.md) |

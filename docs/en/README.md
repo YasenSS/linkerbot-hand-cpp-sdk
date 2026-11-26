@@ -15,7 +15,7 @@
 | Model | Tutorial and support status |
 | --- | --- |
 | L6 | [Classic CAN features and native Managers](tutorials/l6.md); for optional HOP CAN FD, see [Protocol details](guides/usage.md#optional-l6-can-fd-protocol) |
-| O6 | [Angles, speed, acceleration, and sensors](tutorials/o6.md) |
+| O6 | [Angles, speed, acceleration, and sensors](tutorials/o6.md); for optional HOP 0.0.4 (CAN FD / CAN 2.0), see [O6 HOP setup and mode switching](tutorials/o6.md#o6-hop) |
 | L20 Lite | [Ten-joint control, configuration caches, and tactile data](tutorials/l20lite.md) |
 | L20 | [Sixteen-joint control and sensors](tutorials/l20.md) |
 | L30 | [CAN FD, enablement, and seventeen-joint control](tutorials/l30.md) |
