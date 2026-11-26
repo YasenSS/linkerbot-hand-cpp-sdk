@@ -22,11 +22,11 @@ if(MSVC)
 endif()
 ```
 
-将应用文件放在 `demo/`，从 SDK 源码根目录执行；`install` 替换为实际 SDK 安装前缀：
+将 `CMakeLists.txt` 和 `main.cpp` 放在你的应用目录中，在应用目录下执行构建（将 `/path/to/linkerbot-hand-cpp` 替换为 SDK 安装包解压目录或安装前缀；如已安装到系统目录 `/usr/local`，可省略 `-DCMAKE_PREFIX_PATH`）：
 
 ```bash
-cmake -S demo -B demo/build -DCMAKE_PREFIX_PATH="$PWD/install"
-cmake --build demo/build --config Release
+cmake -S . -B build -DCMAKE_PREFIX_PATH="/path/to/linkerbot-hand-cpp"
+cmake --build build --config Release
 ```
 
 `HandDevice` 不直接接收 Python 的 transport 参数或字符串型号，C++ 使用
@@ -40,7 +40,7 @@ cmake --build demo/build --config Release
 
 ### 经典 CAN
 
-Classic 固件 L6、O6、L20 Lite、L20 使用 1 Mbit/s：
+Classic 固件 L6、O6、L20 Lite、L20 以及运行在 CAN 2.0 模式的 O6 HOP（`O6Protocol::kHopV004Can`）使用 1 Mbit/s：
 
 ```bash
 sudo ip link set can0 down
@@ -51,7 +51,7 @@ ip -details link show can0
 
 ### CAN FD
 
-L30、O30 使用仲裁速率 1 Mbit/s、数据速率 5 Mbit/s：
+L30、O30 以及运行在 CAN FD 模式的 O6 HOP（`O6Protocol::kHopV004`）使用仲裁速率 1 Mbit/s、数据速率 5 Mbit/s：
 
 ```bash
 sudo ip link set can0 down
@@ -60,9 +60,8 @@ sudo ip link set can0 up
 ip -details link show can0
 ```
 
-L30 使用扩展 FD 帧，O30 使用标准 FD 帧、无 BRS；帧格式由型号实现决定。
-L6 默认仍是 Classic CAN。只有设备固件匹配时才显式选择可选 HOP CAN FD 协议；
-仅将系统接口设成 FD 不会切换 L6 协议，详见[可选协议](../guides/usage.md#l6-可选-can-fd-协议)。
+L30 使用扩展 FD 帧，O30 和 O6 HOP 使用标准 FD 帧、无 BRS；帧格式由型号与协议配置决定。
+L6 和 O6 默认仍是 Classic CAN。只有设备固件匹配时才显式选择可选 HOP 协议；仅将系统接口设成 FD 不会切换设备协议，详见 [L6 可选协议](../guides/usage.md#l6-可选-can-fd-协议) 和 [O6 HOP 手动接入与模式切换](../tutorials/o6.md#o6-hop)。
 
 ## Windows 与独立适配器后端
 

@@ -7,7 +7,7 @@ For build instructions, see [Prepare the communication interface](prepare-interf
 | Model | `Model` | Joint count | Default communication and address |
 | --- | --- | ---: | --- |
 | L6 | `kL6` | 6 | Classic CAN, left `0x28`, right `0x27` |
-| O6 | `kO6` | 6 | Classic CAN, left `0x28`, right `0x27` |
+| O6 | `kO6` | 6 | Classic CAN (left `0x28`, right `0x27`); optional HOP 0.0.4 (default request ID `0x001`) |
 | L20 Lite | `kL20Lite` | 10 | Classic CAN, left `0x28`, right `0x27` |
 | L20 | `kL20` | 16 | Classic CAN, left `0x28`, right `0x27` |
 | L30 | `kL30` | 17 | Extended FD, NodeID defaults to 1, HostID defaults to 0 |
@@ -154,9 +154,9 @@ For optional L6 HOP firmware, explicitly set `config.l6_protocol = L6Protocol::k
 and verify the corresponding address, bitrate, and capabilities. You cannot infer the device protocol from the FD interface configuration.
 See [Optional HOP connection](../guides/usage.md#optional-l6-can-fd-protocol).
 
-Connect to O6 HOP firmware manually. Set `config.o6_protocol = O6Protocol::kHopV004` for a device currently using CAN FD,
-or select `O6Protocol::kHopV004Can` for CAN 2.0 and configure SocketCAN to match the device. The default request ID is `0x001`.
-See the connection example and device-side mode switch in [Manual O6 HOP connection](../tutorials/o6.md#o6-hop).
+Connect to O6 HOP firmware manually (default request ID `0x001`): set `config.o6_protocol = O6Protocol::kHopV004` when the device is in CAN FD (`fd on`),
+or `O6Protocol::kHopV004Can` when the device is in CAN 2.0 (`fd off`).
+See [Manual O6 HOP connection](../tutorials/o6.md#o6-hop) for setup examples and [Switching HOP CAN modes](../tutorials/o6.md#hop-can-mode) to change the device mode.
 
 <a id="pcan-slcan"></a>
 

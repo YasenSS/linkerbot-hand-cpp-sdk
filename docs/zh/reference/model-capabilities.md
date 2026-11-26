@@ -175,7 +175,7 @@ Kp 写入为 `0..200`，两个 Kd 为 `0..255`；回复保留设备实际值，�
 | 实时遥测 | 支持角度、电流、温度、故障和五指触觉读取，触觉字段和形状按传感器描述获得 |
 | CAN 配置 | `get_can_configuration()` 读取接口模式、请求 ID、BRS 和速率。 `set_can_interface_mode()` 写入模式字段 |
 
-数值按原始计数处理，速度、加速度和电流的物理换算尚未确认。接入配置、模式切换和适配器限制见 [O6 HOP 教程](../tutorials/o6.md#o6-hop)。
+数值按原始计数处理，速度、加速度和电流的物理换算尚未确认。接入配置见 [O6 HOP 手动接入](../tutorials/o6.md#o6-hop)，模式切换步骤见 [切换 HOP 的 CAN 模式](../tutorials/o6.md#hop-can-mode)。
 
 ## L20 Lite
 

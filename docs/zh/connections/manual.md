@@ -7,7 +7,7 @@
 | 型号 | `Model` | 关节数 | 默认通信与地址 |
 | --- | --- | ---: | --- |
 | L6 | `kL6` | 6 | Classic CAN，左 `0x28`，右 `0x27` |
-| O6 | `kO6` | 6 | Classic CAN，左 `0x28`，右 `0x27` |
+| O6 | `kO6` | 6 | Classic CAN（左 `0x28`，右 `0x27`）；可选 HOP 0.0.4（默认请求 ID `0x001`） |
 | L20 Lite | `kL20Lite` | 10 | Classic CAN，左 `0x28`，右 `0x27` |
 | L20 | `kL20` | 16 | Classic CAN，左 `0x28`，右 `0x27` |
 | L30 | `kL30` | 17 | 扩展 FD，NodeID 默认 1、HostID 默认 0 |
@@ -154,9 +154,9 @@ L6 可选 HOP 固件需显式设置 `config.l6_protocol = L6Protocol::kHopV004`�
 并核对对应地址、速率和能力；不能通过 FD 接口配置推断设备协议。
 详见[可选 HOP 接入](../guides/usage.md#l6-可选-can-fd-协议)。
 
-O6 HOP 固件使用显式手动连接。设备当前使用 CAN FD 时选择 `config.o6_protocol = O6Protocol::kHopV004`，
-使用 CAN 2.0 时选择 `O6Protocol::kHopV004Can`，并按实际设置配置 SocketCAN。请求 ID 默认 `0x001`。
-连接示例和设备端模式切换见 [O6 HOP 手动接入](../tutorials/o6.md#o6-hop)。
+O6 HOP 固件使用显式手动连接（默认请求 ID `0x001`）：设备当前为 CAN FD 时设置 `config.o6_protocol = O6Protocol::kHopV004`（网卡 `fd on`），
+当前为 CAN 2.0 时设置 `O6Protocol::kHopV004Can`（网卡 `fd off`）。
+完整接入示例见 [O6 HOP 手动接入](../tutorials/o6.md#o6-hop)，切换设备 CAN 模式见 [切换 HOP 的 CAN 模式](../tutorials/o6.md#hop-can-mode)。
 
 <a id="pcan-slcan"></a>
 
